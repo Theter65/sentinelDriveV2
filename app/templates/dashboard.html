@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Panel de Control{% endblock %}
+{% block content %}
+<h2>Panel de Control</h2>
+<div class="row text-center mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h3>{{ total_buses }}</h3>
+                <p>Buses registrados</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h3>{{ total_events }}</h3>
+                <p>Eventos totales</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h4>Últimos eventos</h4>
+<table class="table table-striped">
+    <thead>
+        <tr><th>ID Bus</th><th>Evento</th><th>Valor</th><th>Hora</th></tr>
+    </thead>
+    <tbody>
+        {% for e in last_events %}
+        <tr>
+            <td>{{ e.bus_id }}</td>
+            <td>{{ e.type }}</td>
+            <td>{{ e.value }}</td>
+            <td>{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

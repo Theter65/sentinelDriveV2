@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Gestión de Buses{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Gestión de Buses</h2>
+        {% if session.get('role')|lower == 'admin' %}
+        <a href="{{ url_for('buses.add_bus') }}" class="btn btn-success">
+            <i class="bi bi-plus-lg"></i> Añadir Bus
+        </a>
+        {% endif %}
+    </div>
+
+    {% if buses|length == 0 %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle-fill"></i>
+        No hay buses registrados aún. 
+        {% if session.get('role')|lower == 'admin' %}
+        Usa el botón superior para añadir uno.
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Placa</th>
+                    <th>Conductor</th>
+                    <th>Estado</th>
+                    {% if session.get('role')|lower == 'admin' %}
+                    <th>Acciones</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in buses %}
+                <tr>
+                    <td>{{ b.id }}</td>
+                    <td>{{ b.plate }}</td>
+                    <td>{{ b.driver or 'Sin asignar' }}</td>
+                    <td>
+                        <span class="badge {% if b.status == 'Activo' %}bg-success{% elif b.status == 'Inactivo' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                            {{ b.status }}
+                        </span>
+                    </td>
+                    {% if session.get('role')|lower == 'admin' %}
+                    <td>
+                        <!-- Editar (modal) -->
+                        <button type="button" class="btn btn-primary btn-sm" 
+                                data-bs-toggle="modal" data-bs-target="#editModal{{ b.id }}">
+                            <i class="bi bi-pencil-square"></i> Editar
+                        </button>
+
+                        <!-- Eliminar (con confirmación) -->
+                        <form action="{{ url_for('buses.delete_bus', bus_id=b.id) }}" method="POST" style="display:inline;"
+                              onsubmit="return confirm('¿Realmente desea eliminar el bus {{ b.plate }} (ID {{ b.id }})?\n\nEsta acción borrará TODA su información asociada (posiciones GPS, eventos, mantenimientos).\nNo se puede deshacer.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+
+                <!-- Modal de edición (solo para admin) -->
+                {% if session.get('role')|lower == 'admin' %}
+                <div class="modal fade" id="editModal{{ b.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ b.id }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="editModalLabel{{ b.id }}">Editar Bus {{ b.id }} - {{ b.plate }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <form action="{{ url_for('buses.edit_bus', bus_id=b.id) }}" method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label for="plate{{ b.id }}" class="form-label">Placa</label>
+                                        <input type="text" class="form-control" id="plate{{ b.id }}" name="plate" 
+                                               value="{{ b.plate }}" required maxlength="10">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="driver{{ b.id }}" class="form-label">Conductor</label>
+                                        <input type="text" class="form-control" id="driver{{ b.id }}" name="driver" 
+                                               value="{{ b.driver or '' }}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="status{{ b.id }}" class="form-label">Estado</label>
+                                        <select class="form-select" id="status{{ b.id }}" name="status" required>
+                                            <option value="Activo" {% if b.status == 'Activo' %}selected{% endif %}>Activo</option>
+                                            <option value="Inactivo" {% if b.status == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                                            <option value="Mantenimiento" {% if b.status == 'Mantenimiento' %}selected{% endif %}>En Mantenimiento</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

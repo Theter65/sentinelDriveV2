@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Reportes de Seguridad Vial</h2>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- ================= TABLA ================= -->
+<div class="card mb-4">
+    <div class="card-header">
+        <strong>Resumen de eventos riesgosos por bus</strong>
+    </div>
+    <div class="card-body">
+        <table class="table table-bordered table-striped align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Bus</th>
+                    <th>Conductor</th>
+                    <th>Eventos Riesgosos</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in report_data %}
+                <tr>
+                    <td>{{ r.bus.plate }}</td>
+                    <td>{{ r.bus.driver }}</td>
+                    <td class="fw-bold text-danger text-center">
+                        {{ r.dangerous }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ================= GRÁFICAS ================= -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header"><strong>Eventos riesgosos por bus</strong></div>
+            <div class="card-body">
+                <canvas id="dangerousByBus"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header"><strong>Distribución de eventos riesgosos</strong></div>
+            <div class="card-body">
+                <canvas id="eventTypes"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header"><strong>Velocidad promedio diaria</strong></div>
+            <div class="card-body">
+                <canvas id="avgSpeed"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= DATA ================= -->
+<script>
+const busLabels = JSON.parse('{{ bus_labels | tojson }}');
+const dangerousCounts = JSON.parse('{{ dangerous_counts | tojson }}');
+const eventTypes = JSON.parse('{{ event_types | tojson }}');
+const eventTypeCounts = JSON.parse('{{ event_type_counts | tojson }}');
+const speedDates = JSON.parse('{{ speed_dates | tojson }}');
+const avgSpeeds = JSON.parse('{{ avg_speeds | tojson }}');
+</script>
+
+<!-- ================= CHARTS ================= -->
+<script>
+new Chart(document.getElementById('dangerousByBus'), {
+    type: 'bar',
+    data: {
+        labels: busLabels,
+        datasets: [{
+            data: dangerousCounts,
+            backgroundColor: 'rgba(220, 53, 69, 0.7)'
+        }]
+    },
+    options: { responsive: true }
+});
+
+new Chart(document.getElementById('eventTypes'), {
+    type: 'doughnut',
+    data: {
+        labels: eventTypes,
+        datasets: [{
+            data: eventTypeCounts,
+            backgroundColor: ['#dc3545','#ffc107','#0dcaf0']
+        }]
+    },
+    options: { responsive: true }
+});
+
+new Chart(document.getElementById('avgSpeed'), {
+    type: 'line',
+    data: {
+        labels: speedDates,
+        datasets: [{
+            data: avgSpeeds,
+            borderColor: '#198754',
+            fill: true
+        }]
+    },
+    options: { responsive: true }
+});
+</script>
+
+{% endblock %}

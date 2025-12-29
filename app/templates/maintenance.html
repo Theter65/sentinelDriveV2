@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Gestión de Mantenimientos - SENTINLDRIVE{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Gestión de Mantenimientos</h2>
+
+    <!-- Mensajes de error o éxito -->
+    {% if error %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ error }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        {{ success }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- Formulario para registrar nuevo mantenimiento (solo admin) -->
+    {% if session.get('role')|lower == 'admin' %}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">➕ Registrar Nuevo Mantenimiento</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('maintenance.maintenance') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="bus_id" class="form-label">Bus</label>
+                        <select class="form-select" id="bus_id" name="bus_id" required>
+                            <option value="">Seleccione un bus...</option>
+                            {% for bus in buses %}
+                            <option value="{{ bus.id }}">{{ bus.plate }} - {{ bus.driver or 'Sin conductor' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="description" class="form-label">Descripción</label>
+                        <input type="text" class="form-control" id="description" name="description"
+                               placeholder="Ej: Cambio de frenos, alineación, revisión general" required>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">Registrar Mantenimiento</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabla de mantenimientos registrados -->
+    <h3 class="mb-4">🛠 Mantenimientos Registrados</h3>
+
+    {% if maintenances|length == 0 %}
+    <div class="alert alert-info">
+        No hay mantenimientos registrados aún.
+    </div>
+    {% else %}
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Bus</th>
+                    <th>Descripción</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in maintenances %}
+                <tr>
+                    <td>{{ m.id }}</td>
+                    <td>{{ m.bus.plate }} - {{ m.bus.driver or 'Sin conductor' }}</td>
+                    <td>{{ m.description }}</td>
+                    <td>
+                        <span class="badge {% if m.status == 'Pendiente' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                            {{ m.status }}
+                        </span>
+                    </td>
+                    <td>{{ m.date.strftime("%Y-%m-%d %H:%M") }}</td>
+                    <td>
+                        {% if session.get('role')|lower == 'admin' %}
+                        <!-- Toggle estado -->
+                        <form action="{{ url_for('maintenance.toggle_maintenance', m_id=m.id) }}" 
+                              method="POST" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm {% if m.status == 'Pendiente' %}btn-success{% else %}btn-warning{% endif %}">
+                                {% if m.status == 'Pendiente' %}✅ Marcar Completado{% else %}↩️ Marcar Pendiente{% endif %}
+                            </button>
+                        </form>
+
+                        <!-- Eliminar -->
+                        <form action="{{ url_for('maintenance.delete_maintenance', m_id=m.id) }}" 
+                              method="POST" style="display:inline;"
+                              onsubmit="return confirm('¿Eliminar mantenimiento ID {{ m.id }} del bus {{ m.bus.plate }}?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted">Solo lectura</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

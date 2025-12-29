@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Eventos{% endblock %}
+{% block content %}
+<h2>Eventos Registrados</h2>
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>ID Bus</th>
+            <th>Placa</th>
+            <th>Conductor</th>
+            <th>Tipo</th>
+            <th>Valor</th>
+            <th>Fecha/Hora</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for e in events %}
+        <tr>
+            <td>{{ e.bus.id }}</td>
+            <td>{{ e.bus.plate }}</td>
+            <td>{{ e.bus.driver }}</td>
+            <td>{{ e.type }}</td>
+            <td>
+                {% if e.type == 'Frenado brusco' %}
+                    {{ e.value }} m/s²
+                {% elif e.type == 'Curva pronunciada' %}
+                    {{ e.value }} °/s
+                {% else %}
+                    {{ e.value }} km/h
+                {% endif %}
+            </td>
+            <td>{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

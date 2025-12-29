@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Seguimiento GPS{% endblock %}
+
+{% block content %}
+<h2>Seguimiento GPS - Buses</h2>
+
+<div class="mb-3">
+    <label for="bus-select" class="form-label">Seleccionar Bus:</label>
+    <select id="bus-select" class="form-select" style="max-width: 300px;">
+        <option value="">-- Seleccione un bus --</option>
+        {% for bus in buses %}
+        <option value="{{ bus.id }}">{{ bus.plate }} - {{ bus.driver }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+<p id="status" class="text-muted">
+    Seleccione un bus para ver su última posición.
+</p>
+
+<div id="map" style="height: 600px; border-radius: 8px;"></div>
+
+<!-- Leaflet -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    // Inicializar mapa
+    const map = L.map('map').setView([-4.000, -79.200], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 18,
+    }).addTo(map);
+
+    let currentMarker = null;
+
+    function loadBusPosition(busId) {
+        if (!busId) {
+            document.getElementById('status').textContent =
+                "Seleccione un bus para ver su posición.";
+            if (currentMarker) map.removeLayer(currentMarker);
+            return;
+        }
+
+        fetch(`/api/last-position/${busId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('status').textContent = data.error;
+                    return;
+                }
+
+                if (currentMarker) map.removeLayer(currentMarker);
+
+                currentMarker = L.marker([data.lat, data.lon]).addTo(map);
+                currentMarker.bindPopup(
+                    `<b>Bus:</b> ${data.bus.plate}<br>
+                     <b>Conductor:</b> ${data.bus.driver}<br>
+                     <b>Velocidad:</b> ${data.speed.toFixed(1)} km/h<br>
+                     <b>Hora:</b> ${new Date(data.timestamp).toLocaleString('es-EC')}`
+                ).openPopup();
+
+                map.setView([data.lat, data.lon], 15);
+                document.getElementById('status').textContent =
+                    `Última posición de ${data.bus.plate}`;
+            })
+            .catch(() => {
+                document.getElementById('status').textContent =
+                    "Error al cargar la posición.";
+            });
+    }
+
+    document.getElementById('bus-select').addEventListener('change', function () {
+        loadBusPosition(this.value);
+    });
+
+    // Auto actualización cada 15 s
+    setInterval(() => {
+        const busId = document.getElementById('bus-select').value;
+        if (busId) loadBusPosition(busId);
+    }, 15000);
+</script>
+{% endblock %}
