@@ -1,5 +1,5 @@
 # =============================================================================
-# app/mqtt/subscriber.py - Suscriptor MQTT independiente
+# app/mqtt/subscriber.py - Suscriptor MQTT independiente (versión optimizada)
 # =============================================================================
 import paho.mqtt.client as mqtt
 import json
@@ -20,11 +20,19 @@ MQTT_USERNAME = "CajaN3gr4"
 MQTT_PASSWORD = "Proyecto12"  # ¡CAMBIAR EN PRODUCCIÓN!
 
 MQTT_TOPICS = [
-    ("flota/ecuador/buses/+/position", 0),
-    ("flota/ecuador/buses/+/alertas", 1)
+    ("flota/ecuador/buses/+/gps", 0),
+    ("flota/ecuador/buses/+/event", 1)
 ]
 
-EVENT_DEDUP_SECONDS = 10
+EVENT_DEDUP_SECONDS = 5
+
+EVENT_MAPPING = {
+    "exceso_velocidad": "Exceso de velocidad",
+    "frenado_brusco": "Frenado brusco",
+    "curva_peligrosa": "Curva pronunciada",
+    "conduccion_agresiva": "Conducción agresiva",
+    "sobrecalentamiento": "Sobrecalentamiento"
+}
 
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
@@ -35,7 +43,7 @@ def on_connect(client, userdata, flags, rc, properties=None):
     else:
         logger.error(f"MQTT: Falló conexión - código {rc}")
 
-def on_message(client, userdata, msg, app):  # ← Recibe app
+def on_message(client, userdata, msg, app):
     try:
         with app.app_context():
             topic = msg.topic
@@ -60,43 +68,63 @@ def on_message(client, userdata, msg, app):  # ← Recibe app
             if not should_process_message(bus_id, timestamp):
                 return
 
-            location = Location(
-                bus_id=bus_id,
-                lat=data.get("lat"),
-                lon=data.get("lon"),
-                speed=data.get("speed"),
-                timestamp=timestamp
-            )
-            db.session.add(location)
+            # Guardar posición GPS (si es mensaje de GPS)
+            if "gps" in topic:
+                location = Location(
+                    bus_id=bus_id,
+                    lat=data.get("lat"),
+                    lon=data.get("lon"),
+                    speed=data.get("speed_gps", data.get("speed", None)),
+                    timestamp=timestamp
+                )
+                db.session.add(location)
 
-            if "alertas" in topic:
-                for ev in data.get("events", []):
-                    value = {
-                        "Exceso de velocidad": data.get("speed"),
-                        "Frenado brusco": data.get("accel"),
-                        "Curva pronunciada": data.get("gyro"),
-                    }.get(ev)
+            # Procesar eventos (con posición exacta)
+            if "event" in topic:
+                event_name = data.get("event")
+                if event_name not in EVENT_MAPPING:
+                    logger.warning(f"MQTT: Evento desconocido: {event_name}")
+                    return
 
-                    event = Event(
-                        bus_id=bus_id,
-                        type=ev,
-                        value=value,
-                        timestamp=timestamp
-                    )
-                    db.session.add(event)
+                event_type = EVENT_MAPPING[event_name]
+
+                # Extraer valor según tipo
+                value = None
+                if event_name == "exceso_velocidad":
+                    value = data.get("speed_obd", data.get("speed_gps"))
+                elif event_name == "frenado_brusco":
+                    value = data.get("accel_x")
+                elif event_name == "curva_peligrosa":
+                    value = data.get("accel_y")
+                elif event_name == "conduccion_agresiva":
+                    value = data.get("rpm")
+                elif event_name == "sobrecalentamiento":
+                    value = data.get("temperature")
+
+                event = Event(
+                    bus_id=bus_id,
+                    type=event_type,
+                    value=value,
+                    latitude=data.get("lat"),     # Guardamos posición exacta del evento
+                    longitude=data.get("lon"),    # Guardamos posición exacta del evento
+                    timestamp=timestamp
+                )
+                db.session.add(event)
 
             db.session.commit()
-            logger.info(f"MQTT: Datos procesados correctamente - bus {bus_id}")
+            logger.info(f"MQTT: Datos procesados - bus {bus_id} | tipo: {data.get('type', 'unknown')}")
 
+    except json.JSONDecodeError:
+        logger.error("MQTT: Payload JSON inválido")
     except Exception as e:
         logger.error(f"MQTT: Error al procesar mensaje: {e}")
         if db.session.is_active:
             db.session.rollback()
 
-def start_mqtt_subscriber(app):  # ← Recibe app como parámetro
+def start_mqtt_subscriber(app):
     client = mqtt.Client(protocol=mqtt.MQTTv5, callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
-    client.on_message = lambda c, u, m: on_message(c, u, m, app)  # Pasa app al callback
+    client.on_message = lambda c, u, m: on_message(c, u, m, app)
     client.tls_set()
     client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
     logger.info("MQTT: Iniciando suscriptor...")

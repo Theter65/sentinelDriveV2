@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Descargar Tablas{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Descargar Tablas Seleccionadas</h2>
+    <form method="post">
+        <input type="hidden" name="period" value="{{ selected_period }}">
+        <div class="form-group">
+            <label>Selecciona las tablas a descargar:</label>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="tables" value="bus" id="bus">
+                <label class="form-check-label" for="bus">Buses</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="tables" value="event" id="event">
+                <label class="form-check-label" for="event">Eventos</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="tables" value="maintenance" id="maintenance">
+                <label class="form-check-label" for="maintenance">Mantenimientos</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="tables" value="location" id="location">
+                <label class="form-check-label" for="location">Localizaciones</label>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Descargar CSV</button>
+    </form>
+</div>
+{% endblock %}

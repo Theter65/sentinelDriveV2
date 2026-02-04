@@ -2,148 +2,190 @@ import random
 import time
 import json
 from datetime import datetime
-import paho.mqtt.client as mqtt
 import ssl
+import paho.mqtt.client as mqtt
 
-# ===================== CONFIGURACIÓN =====================
+# ===================== CONFIGURACIÓN GENERAL =====================
 FLEET_SIZE = 3
-POSITION_INTERVAL = 12          # segundos - envío constante de posición (10-15s es realista)
-EVENT_CHECK_INTERVAL = 4        # segundos - chequeo frecuente de eventos de riesgo
+
+GPS_INTERVAL = 12               # GPS SIEMPRE cada 12 segundos
+EVENT_CHECK_INTERVAL = 1        # Loop rápido
+
+EVENT_PROBABILITY = 0.05        # 5% probabilidad de evento
+EVENT_COOLDOWN = 5 * 60        # 5 minutos entre eventos por bus
 
 BROKER = "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud"
 PORT = 8883
 USERNAME = "CajaN3gr4"
-PASSWORD = "Proyecto12"  
+PASSWORD = "Proyecto12"
 
 BASE_TOPIC = "flota/ecuador/buses"
 
-# Umbrales realistas (basados en literatura de seguridad vial y normativa)
-CRITICAL_SPEED_THRESHOLD = 80.0       # km/h
-CRITICAL_BRAKE_THRESHOLD = -4.5       # m/s² (~0.46g)
-CRITICAL_TURN_THRESHOLD  = 55.0       # °/s
+# Coordenadas base (Loja)
+LAT_BASE = -4.0000
+LON_BASE = -79.2000
 
-LAT_BASE, LON_BASE = -4.0000, -79.2000  # referencia Loja
-# ==========================================================
+# ===================== UMBRALES =====================
+SPEED_LIMIT = 80.0
+BRAKE_THRESHOLD = -4.5
+CURVE_THRESHOLD = 4.0
+RPM_THRESHOLD = 4000
+ACCEL_AGGRESSIVE = 3.5
+TEMP_THRESHOLD = 95.0
+# ===================================================
 
-def on_connect(client, userdata, flags, rc, properties=None):
-    if rc == 0:
-        print("✓ Conectado exitosamente al broker MQTT")
-    else:
-        print(f"✗ Falló la conexión → código: {rc}")
+# ===================== MQTT =====================
+client = mqtt.Client(
+    protocol=mqtt.MQTTv5,
+    callback_api_version=mqtt.CallbackAPIVersion.VERSION2
+)
 
-def on_publish(client, userdata, mid, reason_code=None, properties=None):
-    print(f"  → Publicado (mid: {mid})")
-
-client = mqtt.Client(protocol=mqtt.MQTTv5, callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
-client.on_connect = on_connect
-client.on_publish = on_publish
-
-client.tls_set(ca_certs=None, cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS_CLIENT)
+client.tls_set(tls_version=ssl.PROTOCOL_TLS_CLIENT)
 client.username_pw_set(USERNAME, PASSWORD)
-
-print(f"Conectando a {BROKER}:{PORT}...")
 client.connect(BROKER, PORT, keepalive=60)
 client.loop_start()
-time.sleep(2.5)
+# =================================================
 
-# Tiempos de último envío de posición por bus
-last_position_send = [time.time() - random.uniform(0, 10) for _ in range(FLEET_SIZE)]
+last_gps_send = [0] * FLEET_SIZE
+last_event_time = [0] * FLEET_SIZE
 
-def generate_position_update(bus_id):
-    """Genera solo la actualización mínima de posición (muy liviana)"""
-    lat = LAT_BASE + random.uniform(-0.05, 0.05)   # deriva más amplia para simular movimiento real
-    lon = LON_BASE + random.uniform(-0.05, 0.05)
-    speed = random.uniform(0, 110)                 # velocidad actual para contexto
+# ===================== UTILIDADES =====================
+def now():
+    return datetime.now().isoformat(timespec="seconds")
 
+def can_generate_event(bus_index):
+    now_ts = time.time()
+
+    if now_ts - last_event_time[bus_index] < EVENT_COOLDOWN:
+        return False
+
+    return random.random() < EVENT_PROBABILITY
+
+def generate_gps():
     return {
-        "bus_id": bus_id,
-        "timestamp": datetime.now().isoformat(),
-        "lat": round(lat, 6),
-        "lon": round(lon, 6),
-        "speed": round(speed, 1)                   # solo 1 decimal para ahorrar bytes
+        "lat": round(LAT_BASE + random.uniform(-0.01, 0.01), 6),
+        "lon": round(LON_BASE + random.uniform(-0.01, 0.01), 6),
+        "speed_gps": round(random.uniform(0, 110), 1)
     }
 
-def simulate_full_telemetry(bus_id):
-    """Genera paquete completo (solo se usa cuando hay evento crítico)"""
-    speed = random.uniform(0, 110)
-    accel = random.uniform(-7.0, 4.0)
-    gyro = random.uniform(-120, 120)
-    temp = random.uniform(60, 98)
-
-    lat = LAT_BASE + random.uniform(-0.05, 0.05)
-    lon = LON_BASE + random.uniform(-0.05, 0.05)
-
-    data = {
-        "bus_id": bus_id,
-        "timestamp": datetime.now().isoformat(),
-        "speed": round(speed, 2),
-        "accel": round(accel, 2),
-        "gyro": round(gyro, 2),
-        "temperature": round(temp, 2),
-        "lat": round(lat, 6),
-        "lon": round(lon, 6),
-        "events": []
+def simulate_obd():
+    return {
+        "speed": round(random.uniform(0, 110), 1),
+        "rpm": random.randint(800, 5200),
+        "temp": round(random.uniform(70, 105), 1)
     }
 
-    if speed > CRITICAL_SPEED_THRESHOLD:
-        data["events"].append("Exceso de velocidad")
-    if accel < CRITICAL_BRAKE_THRESHOLD:
-        data["events"].append("Frenado brusco")
-    if abs(gyro) > CRITICAL_TURN_THRESHOLD:
-        data["events"].append("Curva pronunciada")
+def simulate_mpu():
+    return {
+        "accel_x": round(random.uniform(-6, 5), 2),
+        "accel_y": round(random.uniform(-5, 5), 2)
+    }
+# ===================================================
 
-    return data
+print("\n=== SIMULADOR SENTINLDRIVE | MQTT IoT ===")
+print("• GPS cada 12s (constante)")
+print("• Eventos raros (5%)")
+print("• Cooldown eventos: 15 min por bus")
+print("========================================\n")
 
-def run_simulator():
-    print("=== Simulador Flota Vehicular - Versión Optimizada 2025 ===")
-    print("Política:")
-    print("  • Posición (lat/lon) → cada ~12 segundos (obligatorio por normativa)")
-    print("  • Telemetría completa + eventos → SOLO cuando existe riesgo")
-    print(f"• Buses: {FLEET_SIZE}")
-    print(f"• Broker: {BROKER}")
-    print("===================================================\n")
+# ===================== LOOP PRINCIPAL =====================
+while True:
+    current_time = time.time()
 
-    while True:
-        current_time = time.time()
+    for bus_id in range(1, FLEET_SIZE + 1):
+        bus_index = bus_id - 1
 
-        for bus_id in range(1, FLEET_SIZE + 1):
-            # 1. Envío periódico de posición (siempre)
-            if current_time - last_position_send[bus_id-1] >= POSITION_INTERVAL:
-                pos_data = generate_position_update(bus_id)
-                topic_pos = f"{BASE_TOPIC}/{bus_id}/position"
+        # ---------- GPS ----------
+        if current_time - last_gps_send[bus_index] >= GPS_INTERVAL:
+            gps = generate_gps()
 
-                payload_pos = json.dumps(pos_data, ensure_ascii=False)
-                client.publish(topic_pos, payload_pos, qos=0, retain=False)
+            gps_payload = {
+                "bus_id": bus_id,
+                "type": "gps",
+                "timestamp": now(),
+                "lat": gps["lat"],
+                "lon": gps["lon"],
+                "speed_gps": gps["speed_gps"]
+            }
 
-                print(f"📍 Posición enviada - Bus {bus_id}")
-                print(json.dumps(pos_data, indent=2))
+            client.publish(
+                f"{BASE_TOPIC}/{bus_id}/gps",
+                json.dumps(gps_payload),
+                qos=0
+            )
 
-                last_position_send[bus_id-1] = current_time
+            last_gps_send[bus_index] = current_time
 
-            # 2. Generar y evaluar telemetría completa (solo si hay riesgo se envía)
-            full_data = simulate_full_telemetry(bus_id)
+        # ---------- SENSORES ----------
+        obd = simulate_obd()
+        mpu = simulate_mpu()
+        gps_event = generate_gps()
 
-            if full_data["events"]:  # Si hay al menos un evento crítico
-                topic_alert = f"{BASE_TOPIC}/{bus_id}/alertas"
-                payload_alert = json.dumps(full_data, ensure_ascii=False)
+        # ---------- EVENTOS ----------
+        if obd["speed"] > SPEED_LIMIT and can_generate_event(bus_index):
+            event = {
+                "bus_id": bus_id,
+                "type": "event",
+                "event": "exceso_velocidad",
+                "timestamp": now(),
+                "speed_obd": obd["speed"],
+                "lat": gps_event["lat"],
+                "lon": gps_event["lon"]
+            }
+            client.publish(f"{BASE_TOPIC}/{bus_id}/event", json.dumps(event), qos=1)
+            last_event_time[bus_index] = time.time()
 
-                print(f"🚨 RIESGO DETECTADO - Bus {bus_id}")
-                print(json.dumps(full_data, indent=2, ensure_ascii=False))
+        elif mpu["accel_x"] < BRAKE_THRESHOLD and can_generate_event(bus_index):
+            event = {
+                "bus_id": bus_id,
+                "type": "event",
+                "event": "frenado_brusco",
+                "timestamp": now(),
+                "accel_x": mpu["accel_x"],
+                "lat": gps_event["lat"],
+                "lon": gps_event["lon"]
+            }
+            client.publish(f"{BASE_TOPIC}/{bus_id}/event", json.dumps(event), qos=1)
+            last_event_time[bus_index] = time.time()
 
-                result = client.publish(topic_alert, payload_alert, qos=1, retain=False)
+        elif abs(mpu["accel_y"]) > CURVE_THRESHOLD and can_generate_event(bus_index):
+            event = {
+                "bus_id": bus_id,
+                "type": "event",
+                "event": "curva_peligrosa",
+                "timestamp": now(),
+                "accel_y": mpu["accel_y"],
+                "lat": gps_event["lat"],
+                "lon": gps_event["lon"]
+            }
+            client.publish(f"{BASE_TOPIC}/{bus_id}/event", json.dumps(event), qos=1)
+            last_event_time[bus_index] = time.time()
 
-                if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                    print("   ✓ Alerta publicada exitosamente")
-                else:
-                    print(f"   ✗ Error al publicar alerta - rc={result.rc}")
+        elif obd["rpm"] > RPM_THRESHOLD and mpu["accel_x"] > ACCEL_AGGRESSIVE and can_generate_event(bus_index):
+            event = {
+                "bus_id": bus_id,
+                "type": "event",
+                "event": "conduccion_agresiva",
+                "timestamp": now(),
+                "rpm": obd["rpm"],
+                "accel_x": mpu["accel_x"],
+                "lat": gps_event["lat"],
+                "lon": gps_event["lon"]
+            }
+            client.publish(f"{BASE_TOPIC}/{bus_id}/event", json.dumps(event), qos=1)
+            last_event_time[bus_index] = time.time()
 
-        time.sleep(EVENT_CHECK_INTERVAL)
+        elif obd["temp"] > TEMP_THRESHOLD and can_generate_event(bus_index):
+            event = {
+                "bus_id": bus_id,
+                "type": "event",
+                "event": "sobrecalentamiento",
+                "timestamp": now(),
+                "temperature": obd["temp"],
+                "lat": gps_event["lat"],
+                "lon": gps_event["lon"]
+            }
+            client.publish(f"{BASE_TOPIC}/{bus_id}/event", json.dumps(event), qos=1)
+            last_event_time[bus_index] = time.time()
 
-if __name__ == "__main__":
-    try:
-        run_simulator()
-    except KeyboardInterrupt:
-        print("\nSimulador detenido por el usuario")
-        client.loop_stop()
-        client.disconnect()
-        print("Conexión MQTT cerrada correctamente")
+    time.sleep(EVENT_CHECK_INTERVAL)

@@ -1,121 +1,302 @@
 {% extends "base.html" %}
-
-{% block title %}Reportes{% endblock %}
+{% block title %}Reportes Estadísticos{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Reportes de Seguridad Vial</h2>
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">Reportes Estadísticos - SENTINLDRIVE</h2>
 
+    <!-- Filtros -->
+    <form method="get" class="mb-5">
+        <div class="row g-3 justify-content-center">
+            <div class="col-md-5">
+                <label for="period" class="form-label fw-bold">Período Temporal</label>
+                <select name="period" id="period" class="form-select" onchange="this.form.submit()">
+                    <option value="day" {% if selected_period == 'day' %}selected{% endif %}>Último Día</option>
+                    <option value="week" {% if selected_period == 'week' %}selected{% endif %}>Últimos 7 Días</option>
+                    <option value="month" {% if selected_period == 'month' %}selected{% endif %}>Últimos 30 Días</option>
+                    <option value="6months" {% if selected_period == '6months' %}selected{% endif %}>Últimos 6 Meses</option>
+                    <option value="year" {% if selected_period == 'year' %}selected{% endif %}>Últimos 12 Meses</option>
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label for="bus_id" class="form-label fw-bold">Vehículo</label>
+                <select name="bus_id" id="bus_id" class="form-select" onchange="this.form.submit()">
+                    <option value="">Flota Completa</option>
+                    {% for bus in buses %}
+                    <option value="{{ bus.id }}" {% if selected_bus_id == bus.id %}selected{% endif %}>
+                        {{ bus.plate }} - {{ bus.driver or 'Sin conductor' }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </form>
+
+    {% if individual_stats %}
+    <!-- ===================== INDIVIDUAL ===================== -->
+    <div class="card mb-5 shadow-lg border-primary">
+        <div class="card-header bg-primary text-white text-center">
+            <h5 class="mb-0">Estadísticas para Vehículo: {{ individual_stats.bus.plate }} ({{ individual_stats.bus.driver or 'Sin conductor' }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4 text-center">
+                <div class="col-md-4">
+                    <h6 class="fw-bold">Velocidad</h6>
+                    <p>Máx: {{ individual_stats.max_speed }} km/h</p>
+                    <p>Mín: {{ individual_stats.min_speed }} km/h</p>
+                    <p>Media: {{ individual_stats.avg_speed | round(2) }} km/h</p>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="fw-bold">Puntaje de Riesgo</h6>
+                    <p class="fs-4 fw-bold {% if individual_stats.risk_score > 10 %}text-danger{% else %}text-success{% endif %}">
+                        {{ individual_stats.risk_score }} (alto >10)
+                    </p>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="fw-bold">Total Eventos</h6>
+                    <p class="fs-4">{{ individual_stats.total_events }}</p>
+                </div>
+            </div>
+
+            <!-- 3 gráficos horizontales -->
+            <div class="row text-center">
+                <div class="col-md-4 mb-4">
+                    <h6 class="fw-bold">Eventos por Tipo</h6>
+                    {% if individual_chart_data %}
+                    <canvas id="individualEventsChart" height="180"></canvas>
+                    <button onclick="downloadImage('individualEventsChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                    {% else %}
+                    <p class="text-muted mt-3">No hay eventos registrados</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h6 class="fw-bold">Eventos por Hora del Día</h6>
+                    {% if individual_chart_data %}
+                    <canvas id="individualHourChart" height="180"></canvas>
+                    <button onclick="downloadImage('individualHourChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                    {% else %}
+                    <p class="text-muted mt-3">No hay eventos registrados</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h6 class="fw-bold">Distribución de Velocidad</h6>
+                    {% if individual_stats.speed_histogram %}
+                    <canvas id="individualSpeedHist" height="180"></canvas>
+                    <button onclick="downloadImage('individualSpeedHist')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                    {% else %}
+                    <p class="text-muted mt-3">No hay datos de velocidad</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="card-footer text-center">
+            <a href="{{ url_for('reports.download_csv', period=selected_period, bus_id=selected_bus_id) }}"
+               class="btn btn-primary">Descargar CSV (Eventos)</a>
+        </div>
+    </div>
+    {% else %}
+    <!-- ===================== GRUPAL ===================== -->
+    <div class="card mb-5 shadow-lg border-success">
+        <div class="card-header bg-success text-white text-center">
+            <h5 class="mb-0">Estadísticas para Flota Completa</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4 text-center">
+                <div class="col-md-4">
+                    <h6 class="fw-bold">Velocidad Flota</h6>
+                    <p>Máx: {{ group_stats.max_speed }} km/h</p>
+                    <p>Mín: {{ group_stats.min_speed }} km/h</p>
+                    <p>Media: {{ group_stats.avg_speed | round(2) }} km/h</p>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="fw-bold">Puntaje de Riesgo Global</h6>
+                    <p class="fs-4 fw-bold {% if group_stats.risk_score > 10 %}text-danger{% else %}text-success{% endif %}">
+                        {{ group_stats.risk_score }} (alto >10)
+                    </p>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="fw-bold">Total Eventos</h6>
+                    <p class="fs-4">{{ group_stats.total_events }}</p>
+                </div>
+            </div>
+
+            <!-- 3 gráficos horizontales -->
+            <div class="row text-center">
+                <div class="col-md-4 mb-4">
+                    <h6 class="fw-bold">Eventos por Tipo</h6>
+                    <canvas id="groupEventsChart" height="180"></canvas>
+                    <button onclick="downloadImage('groupEventsChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h6 class="fw-bold">Eventos por Hora del Día</h6>
+                    <canvas id="groupHourChart" height="180"></canvas>
+                    <button onclick="downloadImage('groupHourChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h6 class="fw-bold">Distribución de Velocidad</h6>
+                    <canvas id="groupSpeedHist" height="180"></canvas>
+                    <button onclick="downloadImage('groupSpeedHist')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                </div>
+            </div>
+
+            <!-- Tabla de Buses - Eventos por Tipo -->
+            <h5 class="mt-5 mb-3 text-center fw-bold">Tabla de Buses - Eventos por Tipo</h5>
+            <div class="table-responsive mb-5">
+                <table class="table table-striped table-hover table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Placa</th>
+                            <th>Total Eventos</th>
+                            <th>Frenado Brusco</th>
+                            <th>Exceso Velocidad</th>
+                            <th>Curva Pronunciada</th>
+                            <th>Conducción Agresiva</th>
+                            <th>Sobrecalentamiento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in group_stats.bus_events_table %}
+                        <tr>
+                            <td>{{ row.plate }}</td>
+                            <td class="text-center">{{ row.total_events }}</td>
+                            <td class="text-center">{{ row.frenado_brusco or 0 }}</td>
+                            <td class="text-center">{{ row.exceso_velocidad or 0 }}</td>
+                            <td class="text-center">{{ row.curva_pronunciada or 0 }}</td>
+                            <td class="text-center">{{ row.conduccion_agresiva or 0 }}</td>
+                            <td class="text-center">{{ row.sobrecalentamiento or 0 }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not group_stats.bus_events_table %}
+                        <tr><td colspan="7" class="text-center text-muted py-3">No hay datos de eventos en este período</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Nueva tabla: Mantenimientos por Conductor -->
+<h5 class="mt-5 mb-3 text-center fw-bold">Mantenimientos por Conductor (Flota)</h5>
+<div class="table-responsive">
+    <table class="table table-striped table-hover table-bordered">
+        <thead class="table-dark">
+            <tr>
+                <th>Conductor</th>
+                <th>Total Mantenimientos</th>
+                <th>Último Mantenimiento</th>
+                <th>Estado Reciente</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in group_stats.maintenance_by_driver %}
+            <tr>
+                <td>{{ row.driver or 'Sin asignar' }}</td>
+                <td class="text-center">{{ row.total_maintenances }}</td>
+                <td class="text-center">
+                    {% if row.ultimo_mantenimiento %}
+                        {{ row.ultimo_mantenimiento.strftime('%d/%m/%Y %H:%M') }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="text-center">{{ row.estado_reciente or '-' }}</td>
+            </tr>
+            {% endfor %}
+            {% if not group_stats.maintenance_by_driver %}
+            <tr><td colspan="4" class="text-center text-muted py-3">No hay mantenimientos en este período</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+        </div>
+        <div class="card-footer text-center">
+            <a href="{{ url_for('reports.download_csv', period=selected_period) }}" class="btn btn-primary me-2">
+                Descargar CSV (Eventos)
+            </a>
+            <a href="{{ url_for('reports.download_tables', period=selected_period) }}" class="btn btn-info">
+                Descargar Tablas Selectivas
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<!-- ================= TABLA ================= -->
-<div class="card mb-4">
-    <div class="card-header">
-        <strong>Resumen de eventos riesgosos por bus</strong>
-    </div>
-    <div class="card-body">
-        <table class="table table-bordered table-striped align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>Bus</th>
-                    <th>Conductor</th>
-                    <th>Eventos Riesgosos</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in report_data %}
-                <tr>
-                    <td>{{ r.bus.plate }}</td>
-                    <td>{{ r.bus.driver }}</td>
-                    <td class="fw-bold text-danger text-center">
-                        {{ r.dangerous }}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- ================= GRÁFICAS ================= -->
-<div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header"><strong>Eventos riesgosos por bus</strong></div>
-            <div class="card-body">
-                <canvas id="dangerousByBus"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header"><strong>Distribución de eventos riesgosos</strong></div>
-            <div class="card-body">
-                <canvas id="eventTypes"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-12 mb-4">
-        <div class="card">
-            <div class="card-header"><strong>Velocidad promedio diaria</strong></div>
-            <div class="card-body">
-                <canvas id="avgSpeed"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ================= DATA ================= -->
 <script>
-const busLabels = JSON.parse('{{ bus_labels | tojson }}');
-const dangerousCounts = JSON.parse('{{ dangerous_counts | tojson }}');
-const eventTypes = JSON.parse('{{ event_types | tojson }}');
-const eventTypeCounts = JSON.parse('{{ event_type_counts | tojson }}');
-const speedDates = JSON.parse('{{ speed_dates | tojson }}');
-const avgSpeeds = JSON.parse('{{ avg_speeds | tojson }}');
-</script>
+document.addEventListener("DOMContentLoaded", () => {
+    function safeChart(id, config) {
+        const el = document.getElementById(id);
+        if (!el) return console.warn(`Canvas ${id} no encontrado`);
+        new Chart(el.getContext('2d'), config);
+    }
 
-<!-- ================= CHARTS ================= -->
-<script>
-new Chart(document.getElementById('dangerousByBus'), {
-    type: 'bar',
-    data: {
-        labels: busLabels,
-        datasets: [{
-            data: dangerousCounts,
-            backgroundColor: 'rgba(220, 53, 69, 0.7)'
-        }]
-    },
-    options: { responsive: true }
-});
+    // Gráficos grupales
+    safeChart('groupEventsChart', {
+        type: 'pie',
+        data: {
+            labels: {{ group_chart_data.labels | tojson }},
+            datasets: [{ data: {{ group_chart_data.data | tojson }}, backgroundColor: ['#dc3545', '#ffc107', '#0dcaf0', '#6c757d', '#198754'] }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
 
-new Chart(document.getElementById('eventTypes'), {
-    type: 'doughnut',
-    data: {
-        labels: eventTypes,
-        datasets: [{
-            data: eventTypeCounts,
-            backgroundColor: ['#dc3545','#ffc107','#0dcaf0']
-        }]
-    },
-    options: { responsive: true }
-});
+    safeChart('groupHourChart', {
+        type: 'bar',
+        data: {
+            labels: {{ group_chart_data.hour_labels | tojson }},
+            datasets: [{ label: 'Eventos', data: {{ group_chart_data.hour_data | tojson }}, backgroundColor: '#0d6efd' }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
 
-new Chart(document.getElementById('avgSpeed'), {
-    type: 'line',
-    data: {
-        labels: speedDates,
-        datasets: [{
-            data: avgSpeeds,
-            borderColor: '#198754',
-            fill: true
-        }]
-    },
-    options: { responsive: true }
+    safeChart('groupSpeedHist', {
+        type: 'bar',
+        data: {
+            labels: {{ group_stats.speed_histogram.bins | tojson }},
+            datasets: [{ label: 'Frecuencia', data: {{ group_stats.speed_histogram.data | tojson }}, backgroundColor: '#198754' }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+
+    // Gráficos individuales (solo si existen)
+    {% if individual_chart_data %}
+    safeChart('individualEventsChart', {
+        type: 'pie',
+        data: {
+            labels: {{ individual_chart_data.labels | tojson }},
+            datasets: [{ data: {{ individual_chart_data.data | tojson }}, backgroundColor: ['#dc3545', '#ffc107', '#0dcaf0', '#6c757d', '#198754'] }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    safeChart('individualHourChart', {
+        type: 'bar',
+        data: {
+            labels: {{ individual_chart_data.hour_labels | tojson }},
+            datasets: [{ label: 'Eventos', data: {{ individual_chart_data.hour_data | tojson }}, backgroundColor: '#0d6efd' }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+
+    safeChart('individualSpeedHist', {
+        type: 'bar',
+        data: {
+            labels: {{ individual_stats.speed_histogram.bins | tojson }},
+            datasets: [{ label: 'Frecuencia', data: {{ individual_stats.speed_histogram.data | tojson }}, backgroundColor: '#198754' }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+    {% endif %}
+
+    // Descargar imagen segura
+    window.downloadImage = function(id) {
+        const c = document.getElementById(id);
+        if (!c) return console.warn("No se pudo descargar el gráfico");
+        const a = document.createElement('a');
+        a.download = 'grafico_' + id + '.png';
+        a.href = c.toDataURL('image/png');
+        a.click();
+    };
 });
 </script>
-
 {% endblock %}
