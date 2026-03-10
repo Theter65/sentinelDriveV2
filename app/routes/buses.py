@@ -1,22 +1,31 @@
 from flask import Blueprint, render_template, request, redirect, url_for
+
 from app.decorators import login_required, require_admin
 from app.extensions import db
 from app.models.bus import Bus
-from app.models.location import Location
-from app.models.event import Event
-from app.models.maintenance import Maintenance
 from app.utils.logging import get_logger
+
 
 logger = get_logger(__name__)
 
-buses_bp = Blueprint('buses', __name__)
+buses_bp = Blueprint("buses", __name__)
+
+
+def _normalize_bus_form():
+    return {
+        "plate": (request.form.get("plate") or "").strip().upper(),
+        "driver": (request.form.get("driver") or "").strip(),
+        "status": (request.form.get("status") or "Activo").strip(),
+    }
+
 
 @buses_bp.route("/buses")
 @login_required
 def buses():
     """Lista de todos los buses registrados."""
-    buses_list = Bus.query.all()
+    buses_list = Bus.query.order_by(Bus.id.asc()).all()
     return render_template("buses.html", buses=buses_list)
+
 
 @buses_bp.route("/add_bus", methods=["GET", "POST"])
 @require_admin
@@ -24,20 +33,26 @@ def add_bus():
     """Formulario para registrar un nuevo bus."""
     if request.method == "POST":
         bus_id = request.form.get("id")
-        plate = request.form.get("plate")
-        driver = request.form.get("driver")
+        form_data = _normalize_bus_form()
         try:
             bus_id = int(bus_id)
-        except (ValueError, TypeError):
-            return render_template("add_bus.html", error="ID inválido (debe ser número)")
-        if Bus.query.get(bus_id):
+        except (TypeError, ValueError):
+            return render_template("add_bus.html", error="ID invalido (debe ser numero)")
+
+        if not form_data["plate"] or not form_data["driver"]:
+            return render_template("add_bus.html", error="Placa y conductor son obligatorios")
+        if db.session.get(Bus, bus_id):
             return render_template("add_bus.html", error="El ID ya existe")
-        new_bus = Bus(id=bus_id, plate=plate, driver=driver, status="Activo")
+        if Bus.query.filter_by(plate=form_data["plate"]).first():
+            return render_template("add_bus.html", error="La placa ya existe")
+
+        new_bus = Bus(id=bus_id, **form_data)
         db.session.add(new_bus)
         db.session.commit()
-        logger.info(f"Bus registrado: ID {bus_id}, placa {plate}")
+        logger.info("Bus registrado: ID %s, placa %s", bus_id, form_data["plate"])
         return redirect(url_for("buses.buses"))
     return render_template("add_bus.html")
+
 
 @buses_bp.route("/bus/edit/<int:bus_id>", methods=["GET", "POST"])
 @require_admin
@@ -45,24 +60,32 @@ def edit_bus(bus_id):
     """Editar placa, conductor y estado de un bus existente."""
     bus = Bus.query.get_or_404(bus_id)
     if request.method == "POST":
-        bus.plate = request.form.get("plate").strip()
-        bus.driver = request.form.get("driver").strip()
-        bus.status = request.form.get("status")
+        form_data = _normalize_bus_form()
+        if not form_data["plate"] or not form_data["driver"]:
+            return render_template("edit_bus.html", bus=bus, error="Placa y conductor son obligatorios")
+
+        duplicated_plate = (
+            Bus.query.filter(Bus.plate == form_data["plate"], Bus.id != bus_id).first()
+        )
+        if duplicated_plate:
+            return render_template("edit_bus.html", bus=bus, error="La placa ya esta asignada a otro bus")
+
+        bus.plate = form_data["plate"]
+        bus.driver = form_data["driver"]
+        bus.status = form_data["status"]
         db.session.commit()
-        logger.info(f"Bus editado exitosamente: ID {bus_id}, placa {bus.plate}, conductor {bus.driver}")
+        logger.info("Bus editado: ID %s, placa %s, conductor %s", bus_id, bus.plate, bus.driver)
         return redirect(url_for("buses.buses"))
     return render_template("edit_bus.html", bus=bus)
+
 
 @buses_bp.route("/bus/delete/<int:bus_id>", methods=["POST"])
 @require_admin
 def delete_bus(bus_id):
-    """Eliminar un bus y TODA su información asociada."""
+    """Eliminar un bus y toda su informacion asociada."""
     bus = Bus.query.get_or_404(bus_id)
     plate = bus.plate
-    Location.query.filter_by(bus_id=bus_id).delete()
-    Event.query.filter_by(bus_id=bus_id).delete()
-    Maintenance.query.filter_by(bus_id=bus_id).delete()
     db.session.delete(bus)
     db.session.commit()
-    logger.info(f"Bus eliminado completamente: ID {bus_id}, placa {plate}")
+    logger.info("Bus eliminado completamente: ID %s, placa %s", bus_id, plate)
     return redirect(url_for("buses.buses"))

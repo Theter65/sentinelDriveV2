@@ -1,33 +1,54 @@
-from datetime import datetime, timedelta
-import logging
+import threading
+import time
+from datetime import datetime
 
-logger = logging.getLogger(__name__)
+from app.utils.logging import get_logger
 
-# Cache global para deduplicación (Message ID + timestamp fallback)
-processed_messages = set()
-EVENT_DEDUP_SECONDS = 10  # Ventana temporal anti-duplicados (ajustable)
 
-def should_process_message(bus_id: int, timestamp: datetime, event_type: str = None, value: float = None) -> bool:
-    """
-    Determina si un mensaje debe procesarse o es duplicado.
-    Usa Message ID (si disponible) + ventana temporal como fallback.
-    """
-    # Clave temporal (bus_id + timestamp + tipo + valor)
-    temp_key = f"{bus_id}_{timestamp.isoformat()}"
+logger = get_logger(__name__)
+
+_processed_messages = {}
+_lock = threading.Lock()
+DEFAULT_TTL_SECONDS = 10
+MAX_CACHE_SIZE = 10000
+
+
+def _cleanup(now_monotonic: float) -> None:
+    expired_keys = [
+        key for key, expires_at in _processed_messages.items() if expires_at <= now_monotonic
+    ]
+    for key in expired_keys:
+        _processed_messages.pop(key, None)
+
+
+def should_process_message(
+    bus_id: int,
+    timestamp: datetime,
+    event_type: str = None,
+    value=None,
+    extra_key: str = None,
+    ttl_seconds: int = DEFAULT_TTL_SECONDS,
+) -> bool:
+    """Return False when a recently processed equivalent message is detected."""
+    parts = [str(bus_id), timestamp.isoformat()]
     if event_type:
-        temp_key += f"_{event_type}_{value or 'none'}"
+        parts.append(str(event_type))
+    if value is not None:
+        parts.append(str(value))
+    if extra_key:
+        parts.append(str(extra_key))
+    fingerprint = "|".join(parts)
 
-    # Si ya está en cache → duplicado
-    if temp_key in processed_messages:
-        logger.debug(f"Duplicado detectado (temporal): bus {bus_id} @ {timestamp}")
-        return False
-
-    # Registrar como procesado
-    processed_messages.add(temp_key)
-
-    # Limpieza periódica del cache (evitar memoria infinita)
-    if len(processed_messages) > 10000:
-        processed_messages.clear()
-        logger.info("Cache de deduplicación limpiado")
-
+    now_monotonic = time.monotonic()
+    with _lock:
+        _cleanup(now_monotonic)
+        if fingerprint in _processed_messages:
+            logger.debug("Duplicado detectado: %s", fingerprint)
+            return False
+        _processed_messages[fingerprint] = now_monotonic + ttl_seconds
+        if len(_processed_messages) > MAX_CACHE_SIZE:
+            _cleanup(now_monotonic)
+            if len(_processed_messages) > MAX_CACHE_SIZE:
+                _processed_messages.clear()
+                logger.info("Cache de deduplicacion limpiado por tamano")
     return True

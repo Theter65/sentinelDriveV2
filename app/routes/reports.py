@@ -1,28 +1,24 @@
-# =============================================================================
-# app/routes/reports.py - Blueprint de reportes estadísticos (VERSIÓN FINAL 100% CORREGIDA)
-# =============================================================================
-from flask import Blueprint, render_template, request, Response
+import csv
+import io
+from datetime import timedelta
+
+from flask import Blueprint, Response, render_template, request
+from sqlalchemy import Integer, and_, case, cast, extract, func
+
 from app.decorators import login_required
 from app.extensions import db
 from app.models.bus import Bus
-from app.models.location import Location
 from app.models.event import Event
+from app.models.location import Location
 from app.models.maintenance import Maintenance
 from app.utils.logging import get_logger
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-from sqlalchemy import func, extract, case, and_, or_
-import numpy as np
-import csv
-import io
+from app.utils.time import ecuador_now
+
 
 logger = get_logger(__name__)
 
 reports_bp = Blueprint("reports", __name__)
 
-# -------------------------------------------------------------------------
-# Configuración de períodos
-# -------------------------------------------------------------------------
 PERIODS = {
     "day": timedelta(days=1),
     "week": timedelta(days=7),
@@ -31,86 +27,92 @@ PERIODS = {
     "year": timedelta(days=365),
 }
 
+
 def get_time_filter(period):
-    now = datetime.now(ZoneInfo("America/Guayaquil"))
+    now = ecuador_now()
     delta = PERIODS.get(period, PERIODS["month"])
     return now - delta, now
 
-# -------------------------------------------------------------------------
-# Histograma de velocidad (bins de 10 km/h)
-# -------------------------------------------------------------------------
-def get_speed_histogram(filter_condition):
-    speeds = db.session.query(Location.speed).filter(filter_condition).all()
-    speeds = [s[0] for s in speeds if s[0] is not None and s[0] >= 0]
-    if not speeds:
-        return [], []
-    max_speed = int(max(speeds)) + 10
-    bins = list(range(0, max_speed + 1, 10))
-    hist, _ = np.histogram(speeds, bins=bins)
-    return bins[:-1], hist.tolist()
 
-# -------------------------------------------------------------------------
-# REPORTES PRINCIPALES
-# -------------------------------------------------------------------------
-@reports_bp.route("/reports")
-@login_required
-def reports():
-    selected_period = request.args.get("period", "month")
-    selected_bus_id = request.args.get("bus_id", type=int)
-    start_time, end_time = get_time_filter(selected_period)
-    buses = Bus.query.all()
+def calculate_risk_score(events_by_type):
+    weights = {
+        "Frenado brusco": 0.6,
+        "Exceso de velocidad": 0.4,
+    }
+    return round(sum(weights.get(event_type, 0) * count for event_type, count in events_by_type), 2)
 
-    # =====================================================================
-    # ESTADÍSTICAS GRUPALES
-    # =====================================================================
-    events_by_type = (
+
+def get_speed_stats(*filters):
+    query = db.session.query(
+        func.avg(Location.speed),
+        func.max(Location.speed),
+        func.min(Location.speed),
+    ).filter(*filters)
+    avg_speed, max_speed, min_speed = query.one()
+    min_speed = (
+        db.session.query(func.min(Location.speed))
+        .filter(*filters, Location.speed > 0)
+        .scalar()
+    )
+    return {
+        "avg_speed": avg_speed or 0,
+        "max_speed": max_speed or 0,
+        "min_speed": min_speed or 0,
+    }
+
+
+def get_speed_histogram(*filters):
+    bucket = cast(Location.speed / 10, Integer) * 10
+    rows = (
+        db.session.query(bucket.label("bucket"), func.count(Location.id))
+        .filter(*filters, Location.speed.isnot(None), Location.speed >= 0)
+        .group_by("bucket")
+        .order_by("bucket")
+        .all()
+    )
+    if not rows:
+        return {"bins": [], "data": []}
+
+    counts_by_bucket = {int(row[0]): row[1] for row in rows}
+    max_bucket = max(counts_by_bucket)
+    bins = list(range(0, max_bucket + 10, 10))
+    data = [counts_by_bucket.get(bucket_value, 0) for bucket_value in bins]
+    return {"bins": bins, "data": data}
+
+
+def get_events_by_type(*filters):
+    return (
         db.session.query(Event.type, func.count(Event.id))
-        .filter(Event.timestamp.between(start_time, end_time))
+        .filter(*filters)
         .group_by(Event.type)
         .all()
     )
-    events_by_hour = (
+
+
+def get_events_by_hour(*filters):
+    return (
         db.session.query(
             extract("hour", Event.timestamp).label("hour"),
             func.count(Event.id),
         )
-        .filter(Event.timestamp.between(start_time, end_time))
+        .filter(*filters)
         .group_by("hour")
         .order_by("hour")
         .all()
     )
-    group_stats = {
-        "total_events": sum(e[1] for e in events_by_type),
-        "events_by_type": events_by_type,
-        "events_by_hour": events_by_hour,
-        "avg_speed": db.session.query(func.avg(Location.speed))
-        .filter(Location.timestamp.between(start_time, end_time))
-        .scalar() or 0,
-        "max_speed": db.session.query(func.max(Location.speed))
-        .filter(Location.timestamp.between(start_time, end_time))
-        .scalar() or 0,
-        "min_speed": db.session.query(func.min(Location.speed))
-        .filter(
-            Location.timestamp.between(start_time, end_time),
-            Location.speed > 0,
-        )
-        .scalar() or 0,
-        "risk_score": 0,
+
+
+def build_chart_data(events_by_type, events_by_hour):
+    return {
+        "labels": [row[0] for row in events_by_type],
+        "data": [row[1] for row in events_by_type],
+        "hour_labels": [int(row[0]) for row in events_by_hour],
+        "hour_data": [row[1] for row in events_by_hour],
     }
-    for event_type, count in events_by_type:
-        if event_type == "Frenado brusco":
-            group_stats["risk_score"] += 0.6 * count
-        elif event_type == "Exceso de velocidad":
-            group_stats["risk_score"] += 0.4 * count
-    group_stats["risk_score"] = round(group_stats["risk_score"], 2)
 
-    bins, hist = get_speed_histogram(Location.timestamp.between(start_time, end_time))
-    group_stats["speed_histogram"] = {"bins": bins, "data": hist}
 
-    # -----------------------------------------------------------------
-    # Tabla por bus - Eventos por Tipo
-    # -----------------------------------------------------------------
-    group_stats["bus_events_table"] = (
+def get_bus_events_table(start_time, end_time):
+    return (
         db.session.query(
             Bus.plate,
             func.count(Event.id).label("total_events"),
@@ -122,122 +124,120 @@ def reports():
         )
         .outerjoin(
             Event,
-            and_(
-                Bus.id == Event.bus_id,
-                Event.timestamp.between(start_time, end_time),
-            ),
+            and_(Bus.id == Event.bus_id, Event.timestamp.between(start_time, end_time)),
         )
-        .group_by(Bus.id)
+        .group_by(Bus.id, Bus.plate)
+        .order_by(Bus.plate.asc())
         .all()
     )
 
-    # -----------------------------------------------------------------
-    # Tabla de mantenimientos por conductor (SOLO VISUALIZACIÓN - sin 'type')
-    # -----------------------------------------------------------------
-    # -----------------------------------------------------------------
-# Tabla de mantenimientos por conductor (solo visualización - compatible con SQLite)
-# -----------------------------------------------------------------
-    group_stats["maintenance_by_driver"] = (
-    db.session.query(
-        Bus.driver.label("driver"),
-        func.count(Maintenance.id).label("total_maintenances"),
-        func.max(Maintenance.date).label("ultimo_mantenimiento"),  # Fecha más reciente
-        # Estado del mantenimiento más reciente (usando subconsulta correlacionada)
-        db.session.query(Maintenance.status)
-        .filter(Maintenance.bus_id == Bus.id)
-        .order_by(Maintenance.date.desc())
-        .limit(1)
-        .subquery()
-        .c.status.label("estado_reciente")
+
+def get_maintenance_by_driver(start_time, end_time):
+    driver_rows = (
+        db.session.query(
+            Bus.driver.label("driver"),
+            func.count(Maintenance.id).label("total_maintenances"),
+            func.max(Maintenance.date).label("ultimo_mantenimiento"),
+        )
+        .join(Maintenance, Bus.id == Maintenance.bus_id)
+        .filter(Maintenance.date.between(start_time, end_time))
+        .group_by(Bus.driver)
+        .order_by(Bus.driver.asc())
+        .all()
     )
-    .join(Maintenance, Bus.id == Maintenance.bus_id)
-    .filter(Maintenance.date.between(start_time, end_time))
-    .group_by(Bus.driver)
-    .all()
-)
-    
-    
-    group_chart_data = {
-        "labels": [e[0] for e in events_by_type],
-        "data": [e[1] for e in events_by_type],
-        "hour_labels": [int(h[0]) for h in events_by_hour],
-        "hour_data": [h[1] for h in events_by_hour],
+
+    results = []
+    for row in driver_rows:
+        latest_status = (
+            db.session.query(Maintenance.status)
+            .join(Bus, Bus.id == Maintenance.bus_id)
+            .filter(
+                Bus.driver == row.driver,
+                Maintenance.date == row.ultimo_mantenimiento,
+            )
+            .order_by(Maintenance.id.desc())
+            .scalar()
+        )
+        results.append(
+            {
+                "driver": row.driver,
+                "total_maintenances": row.total_maintenances,
+                "ultimo_mantenimiento": row.ultimo_mantenimiento,
+                "estado_reciente": latest_status,
+            }
+        )
+    return results
+
+
+def build_group_stats(start_time, end_time):
+    event_filter = Event.timestamp.between(start_time, end_time)
+    location_filter = Location.timestamp.between(start_time, end_time)
+    events_by_type = get_events_by_type(event_filter)
+    events_by_hour = get_events_by_hour(event_filter)
+    speed_stats = get_speed_stats(location_filter)
+    return {
+        "total_events": sum(row[1] for row in events_by_type),
+        "events_by_type": events_by_type,
+        "events_by_hour": events_by_hour,
+        "avg_speed": speed_stats["avg_speed"],
+        "max_speed": speed_stats["max_speed"],
+        "min_speed": speed_stats["min_speed"],
+        "risk_score": calculate_risk_score(events_by_type),
+        "speed_histogram": get_speed_histogram(location_filter),
+        "bus_events_table": get_bus_events_table(start_time, end_time),
+        "maintenance_by_driver": get_maintenance_by_driver(start_time, end_time),
     }
 
-    # =====================================================================
-    # ESTADÍSTICAS INDIVIDUALES
-    # =====================================================================
+
+def build_individual_stats(selected_bus_id, start_time, end_time):
+    bus = Bus.query.get_or_404(selected_bus_id)
+    event_filters = [
+        Event.bus_id == selected_bus_id,
+        Event.timestamp.between(start_time, end_time),
+    ]
+    location_filters = [
+        Location.bus_id == selected_bus_id,
+        Location.timestamp.between(start_time, end_time),
+    ]
+    events_by_type = get_events_by_type(*event_filters)
+    events_by_hour = get_events_by_hour(*event_filters)
+    speed_stats = get_speed_stats(*location_filters)
+    individual_stats = {
+        "bus": bus,
+        "total_events": sum(row[1] for row in events_by_type),
+        "events_by_type": events_by_type,
+        "events_by_hour": events_by_hour,
+        "avg_speed": speed_stats["avg_speed"],
+        "max_speed": speed_stats["max_speed"],
+        "min_speed": speed_stats["min_speed"],
+        "risk_score": calculate_risk_score(events_by_type),
+        "speed_histogram": get_speed_histogram(*location_filters),
+    }
+    return individual_stats, build_chart_data(events_by_type, events_by_hour)
+
+
+@reports_bp.route("/reports")
+@login_required
+def reports():
+    selected_period = request.args.get("period", "month")
+    selected_bus_id = request.args.get("bus_id", type=int)
+    start_time, end_time = get_time_filter(selected_period)
+    buses = Bus.query.order_by(Bus.plate.asc()).all()
+
+    group_stats = build_group_stats(start_time, end_time)
+    group_chart_data = build_chart_data(
+        group_stats["events_by_type"],
+        group_stats["events_by_hour"],
+    )
+
     individual_stats = None
     individual_chart_data = None
     if selected_bus_id:
-        bus = Bus.query.get_or_404(selected_bus_id)
-        ind_events_by_type = (
-            db.session.query(Event.type, func.count(Event.id))
-            .filter(
-                Event.bus_id == selected_bus_id,
-                Event.timestamp.between(start_time, end_time),
-            )
-            .group_by(Event.type)
-            .all()
+        individual_stats, individual_chart_data = build_individual_stats(
+            selected_bus_id,
+            start_time,
+            end_time,
         )
-        ind_events_by_hour = (
-            db.session.query(
-                extract("hour", Event.timestamp).label("hour"),
-                func.count(Event.id),
-            )
-            .filter(
-                Event.bus_id == selected_bus_id,
-                Event.timestamp.between(start_time, end_time),
-            )
-            .group_by("hour")
-            .order_by("hour")
-            .all()
-        )
-        individual_stats = {
-            "bus": bus,
-            "total_events": sum(e[1] for e in ind_events_by_type),
-            "events_by_type": ind_events_by_type,
-            "events_by_hour": ind_events_by_hour,
-            "avg_speed": db.session.query(func.avg(Location.speed))
-            .filter(
-                Location.bus_id == selected_bus_id,
-                Location.timestamp.between(start_time, end_time),
-            )
-            .scalar() or 0,
-            "max_speed": db.session.query(func.max(Location.speed))
-            .filter(
-                Location.bus_id == selected_bus_id,
-                Location.timestamp.between(start_time, end_time),
-            )
-            .scalar() or 0,
-            "min_speed": db.session.query(func.min(Location.speed))
-            .filter(
-                Location.bus_id == selected_bus_id,
-                Location.timestamp.between(start_time, end_time),
-                Location.speed > 0,
-            )
-            .scalar() or 0,
-            "risk_score": 0,
-        }
-        for event_type, count in ind_events_by_type:
-            if event_type == "Frenado brusco":
-                individual_stats["risk_score"] += 0.6 * count
-            elif event_type == "Exceso de velocidad":
-                individual_stats["risk_score"] += 0.4 * count
-        individual_stats["risk_score"] = round(individual_stats["risk_score"], 2)
-        bins, hist = get_speed_histogram(
-            and_(
-                Location.bus_id == selected_bus_id,
-                Location.timestamp.between(start_time, end_time),
-            )
-        )
-        individual_stats["speed_histogram"] = {"bins": bins, "data": hist}
-        individual_chart_data = {
-            "labels": [e[0] for e in ind_events_by_type],
-            "data": [e[1] for e in ind_events_by_type],
-            "hour_labels": [int(h[0]) for h in ind_events_by_hour],
-            "hour_data": [h[1] for h in ind_events_by_hour],
-        }
 
     return render_template(
         "reports.html",
@@ -250,9 +250,7 @@ def reports():
         selected_bus_id=selected_bus_id,
     )
 
-# -------------------------------------------------------------------------
-# DESCARGA CSV SIMPLE (solo eventos)
-# -------------------------------------------------------------------------
+
 @reports_bp.route("/reports/download_csv")
 @login_required
 def download_csv():
@@ -261,9 +259,10 @@ def download_csv():
     start_time, end_time = get_time_filter(selected_period)
     output = io.StringIO()
     writer = csv.writer(output)
+
     if selected_bus_id:
         bus = Bus.query.get_or_404(selected_bus_id)
-        writer.writerow([f"Vehículo: {bus.plate}"])
+        writer.writerow([f"Vehiculo: {bus.plate}"])
         writer.writerow(["Periodo:", selected_period])
         writer.writerow([])
         writer.writerow(["ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud"])
@@ -271,16 +270,17 @@ def download_csv():
             Event.bus_id == selected_bus_id,
             Event.timestamp.between(start_time, end_time),
         ).all()
-        for e in events:
-            writer.writerow([e.id, e.type, e.value, e.timestamp, e.latitude, e.longitude])
+        for event in events:
+            writer.writerow([event.id, event.type, event.value, event.timestamp, event.latitude, event.longitude])
     else:
         writer.writerow(["Flota completa"])
         writer.writerow(["Periodo:", selected_period])
         writer.writerow([])
         writer.writerow(["ID", "Bus ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud"])
         events = Event.query.filter(Event.timestamp.between(start_time, end_time)).all()
-        for e in events:
-            writer.writerow([e.id, e.bus_id, e.type, e.value, e.timestamp, e.latitude, e.longitude])
+        for event in events:
+            writer.writerow([event.id, event.bus_id, event.type, event.value, event.timestamp, event.latitude, event.longitude])
+
     output.seek(0)
     return Response(
         output.getvalue(),
@@ -288,9 +288,7 @@ def download_csv():
         headers={"Content-Disposition": f"attachment; filename=reportes_{selected_period}.csv"},
     )
 
-# -------------------------------------------------------------------------
-# DESCARGA SELECTIVA DE TABLAS (incluye mantenimientos con 'date')
-# -------------------------------------------------------------------------
+
 @reports_bp.route("/reports/download_tables", methods=["GET", "POST"])
 @login_required
 def download_tables():
@@ -308,27 +306,25 @@ def download_tables():
 
             if table == "bus":
                 writer.writerow(["ID", "Placa", "Conductor", "Estado"])
-                for b in Bus.query.all():
-                    writer.writerow([b.id, b.plate, b.driver, b.status])
+                for bus in Bus.query.order_by(Bus.id.asc()).all():
+                    writer.writerow([bus.id, bus.plate, bus.driver, bus.status])
 
             elif table == "event":
                 writer.writerow(["ID", "Bus ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud"])
-                for e in Event.query.filter(Event.timestamp.between(start_time, end_time)).all():
-                    writer.writerow([e.id, e.bus_id, e.type, e.value, e.timestamp, e.latitude, e.longitude])
+                for event in Event.query.filter(Event.timestamp.between(start_time, end_time)).all():
+                    writer.writerow([event.id, event.bus_id, event.type, event.value, event.timestamp, event.latitude, event.longitude])
 
             elif table == "maintenance":
-                writer.writerow(["ID", "Bus ID", "Descripción", "Fecha", "Estado"])
-                for m in Maintenance.query.filter(
-                    Maintenance.date.between(start_time, end_time)
-                ).all():
-                    writer.writerow([m.id, m.bus_id, m.description, m.date, m.status])
+                writer.writerow(["ID", "Bus ID", "Descripcion", "Fecha", "Estado"])
+                for maintenance in Maintenance.query.filter(Maintenance.date.between(start_time, end_time)).all():
+                    writer.writerow([maintenance.id, maintenance.bus_id, maintenance.description, maintenance.date, maintenance.status])
 
             elif table == "location":
                 writer.writerow(["ID", "Bus ID", "Latitud", "Longitud", "Velocidad", "Fecha/Hora"])
-                for l in Location.query.filter(Location.timestamp.between(start_time, end_time)).all():
-                    writer.writerow([l.id, l.bus_id, l.lat, l.lon, l.speed, l.timestamp])
+                for location in Location.query.filter(Location.timestamp.between(start_time, end_time)).all():
+                    writer.writerow([location.id, location.bus_id, location.lat, location.lon, location.speed, location.timestamp])
 
-            writer.writerow([])  # Separador
+            writer.writerow([])
 
         output.seek(0)
         return Response(
@@ -337,6 +333,5 @@ def download_tables():
             headers={"Content-Disposition": f"attachment; filename=tables_{selected_period}.csv"},
         )
 
-    # GET: muestra formulario
     selected_period = request.args.get("period", "month")
     return render_template("download_tables.html", selected_period=selected_period)

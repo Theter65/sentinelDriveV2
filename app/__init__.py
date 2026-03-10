@@ -8,6 +8,7 @@
 from flask import Flask
 from .config import Config
 from .extensions import db, csrf
+from .models.init_data import ensure_database_indexes
 
 # Importación de blueprints (rutas modulares)
 from .routes.auth import auth_bp
@@ -46,5 +47,6 @@ def create_app(config_class=Config):
     # Crear tablas (sin datos iniciales)
     with app.app_context():
         db.create_all()
+        ensure_database_indexes()
 
     return app

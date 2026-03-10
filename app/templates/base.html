@@ -3,19 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="SENTINLDRIVE - Sistema de monitoreo y gestión segura de flota vehicular en Ecuador">
+    <meta name="description" content="SENTINLDRIVE - Sistema de monitoreo y gestion segura de flota vehicular en Ecuador">
     <title>SENTINLDRIVE - {% block title %}{% endblock %}</title>
-
-    <!-- Bootstrap 5.3 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-          crossorigin="anonymous">
-
-    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
-    <!-- Estilos (mínimos cambios) -->
     <style>
         :root {
             --sidebar-width: 250px;
@@ -25,7 +16,6 @@
             --sidebar-text: #adb5bd;
             --transition: 0.3s ease;
         }
-
         body {
             min-height: 100vh;
             background-color: #f8f9fa;
@@ -33,7 +23,6 @@
             padding: 0;
             overflow-x: hidden;
         }
-
         .no-transition,
         .no-transition *,
         .no-transition *::before,
@@ -41,7 +30,6 @@
             transition: none !important;
             animation: none !important;
         }
-
         .sidebar {
             position: fixed;
             top: 0;
@@ -55,28 +43,23 @@
             overflow-y: auto;
             overflow-x: hidden;
         }
-
         .sidebar.collapsed {
             width: var(--sidebar-collapsed-width);
         }
-
         .sidebar.collapsed .sidebar-text,
         .sidebar.collapsed .sidebar-header h4 span {
             display: none;
         }
-
         .sidebar-header {
             padding: 1.5rem 1rem;
             border-bottom: 1px solid rgba(255,255,255,0.08);
             text-align: center;
         }
-
         .sidebar-header h4 {
             color: white;
             margin: 0;
             font-size: 1.4rem;
         }
-
         .nav-link {
             color: var(--sidebar-text);
             padding: 0.9rem 1.2rem;
@@ -86,13 +69,11 @@
             text-decoration: none;
             white-space: nowrap;
         }
-
         .nav-link:hover,
         .nav-link.active {
             background-color: rgba(13,110,253,0.15);
             color: white;
         }
-
         .nav-link i {
             font-size: 1.4rem;
             margin-right: 1rem;
@@ -100,11 +81,9 @@
             text-align: center;
             flex-shrink: 0;
         }
-
         .sidebar.collapsed .nav-link i {
             margin-right: 0;
         }
-
         .sidebar-toggle {
             position: fixed;
             top: env(safe-area-inset-top, 1rem);
@@ -124,11 +103,9 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             cursor: pointer;
         }
-
         .sidebar.collapsed .sidebar-toggle {
             left: calc(var(--sidebar-collapsed-width) - 24px);
         }
-
         .main-content {
             margin-left: var(--sidebar-width);
             transition: margin-left var(--transition);
@@ -136,11 +113,9 @@
             min-height: 100vh;
             box-sizing: border-box;
         }
-
         .sidebar.collapsed + .main-content {
             margin-left: var(--sidebar-collapsed-width);
         }
-
         @media (max-width: 992px) {
             .main-content {
                 padding-top: 6rem;
@@ -149,7 +124,6 @@
                 top: env(safe-area-inset-top, 0.8rem);
             }
         }
-
         @media (max-width: 576px) {
             .main-content {
                 padding-top: 7rem;
@@ -160,8 +134,6 @@
     </style>
 </head>
 <body class="no-transition">
-
-<!-- Sidebar (sin collapsed por defecto aquí) -->
 <nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <h4>
@@ -169,7 +141,6 @@
             <span class="sidebar-text">SENTINLDRIVE</span>
         </h4>
     </div>
-
     <ul class="nav flex-column mt-3">
         <li class="nav-item">
             <a href="{{ url_for('dashboard.dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}">
@@ -195,14 +166,12 @@
                 <span class="sidebar-text">Reportes</span>
             </a>
         </li>
-
         {% if session.get('role')|lower == 'admin' %}
         <hr class="text-secondary my-3 mx-3 opacity-50">
-
         <li class="nav-item">
             <a href="{{ url_for('buses.buses') }}" class="nav-link {% if 'buses' in request.endpoint %}active{% endif %}">
                 <i class="bi bi-bus-front-fill"></i>
-                <span class="sidebar-text">Gestión de Buses</span>
+                <span class="sidebar-text">Gestion de Buses</span>
             </a>
         </li>
         <li class="nav-item">
@@ -218,41 +187,31 @@
             </a>
         </li>
         {% endif %}
-
         <hr class="text-secondary my-3 mx-3 opacity-50">
-
         <li class="nav-item">
-            <a href="{{ url_for('auth.logout') }}" class="nav-link text-danger">
-                <i class="bi bi-box-arrow-right"></i>
-                <span class="sidebar-text">Cerrar sesión</span>
-            </a>
+            <form action="{{ url_for('auth.logout') }}" method="POST" class="m-0">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="nav-link text-danger border-0 bg-transparent w-100 text-start">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span class="sidebar-text">Cerrar sesion</span>
+                </button>
+            </form>
         </li>
     </ul>
 </nav>
-
-<!-- Botón toggle -->
 <button class="btn btn-primary sidebar-toggle shadow" id="sidebarToggle">
     <i class="bi bi-list"></i>
 </button>
-
-<!-- Contenido principal -->
 <main class="main-content" id="mainContent">
     {% block content %}{% endblock %}
 </main>
-
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-        crossorigin="anonymous"></script>
-
-<!-- Script corregido -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
     const sidebar = document.getElementById("sidebar");
     const toggleBtn = document.getElementById("sidebarToggle");
     const mainContent = document.getElementById("mainContent");
 
-    // Toggle
     toggleBtn.addEventListener("click", () => {
         const isCollapsed = sidebar.classList.toggle("collapsed");
         mainContent.style.marginLeft = isCollapsed ? "70px" : "250px";
@@ -260,15 +219,13 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleBtn.innerHTML = isCollapsed ? '<i class="bi bi-arrow-right"></i>' : '<i class="bi bi-list"></i>';
     });
 
-    // Activar enlace actual
     const currentPath = window.location.pathname;
-    document.querySelectorAll('.nav-link').forEach(link => {
-        if (link.getAttribute('href') === currentPath) {
-            link.classList.add('active');
+    document.querySelectorAll(".nav-link").forEach(link => {
+        if (link.getAttribute("href") === currentPath) {
+            link.classList.add("active");
         }
     });
 
-    // En móviles: iniciar colapsada + ajustar posiciones
     if (window.innerWidth < 992) {
         sidebar.classList.add("collapsed");
         mainContent.style.marginLeft = "70px";
@@ -276,7 +233,6 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleBtn.innerHTML = '<i class="bi bi-arrow-right"></i>';
     }
 
-    // Reactivar transiciones
     setTimeout(() => {
         document.body.classList.remove("no-transition");
     }, 100);

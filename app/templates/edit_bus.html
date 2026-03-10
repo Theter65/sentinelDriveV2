@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Editar Bus{% endblock %}
+{% block content %}
+<div class="container mt-4" style="max-width: 640px;">
+    <h2 class="mb-4">Editar Bus {{ bus.id }}</h2>
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+            <label class="form-label">Placa</label>
+            <input type="text" name="plate" class="form-control" value="{{ bus.plate }}" required maxlength="10">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Conductor</label>
+            <input type="text" name="driver" class="form-control" value="{{ bus.driver or '' }}" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Estado</label>
+            <select name="status" class="form-select" required>
+                <option value="Activo" {% if bus.status == 'Activo' %}selected{% endif %}>Activo</option>
+                <option value="Inactivo" {% if bus.status == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                <option value="Mantenimiento" {% if bus.status == 'Mantenimiento' %}selected{% endif %}>En mantenimiento</option>
+            </select>
+        </div>
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('buses.buses') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
