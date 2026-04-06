@@ -1,28 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Gestión de Usuarios - SENTINLDRIVE{% endblock %}
+{% block title %}Usuarios{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="mb-4">Gestión de Usuarios</h2>
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-people me-2"></i>Usuarios</h2>
+            <div class="text-muted">Gestion de cuentas, roles y contrasenas (solo admin).</div>
+        </div>
+    </div>
 
-    <!-- Mensajes de error o éxito -->
     {% if error %}
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         {{ error }}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     {% endif %}
-    {% if success %}
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        {{ success }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    {% endif %}
 
-    <!-- Formulario para crear nuevo usuario -->
     <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">➕ Crear Nuevo Usuario</h5>
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-person-plus me-2"></i>Crear nuevo usuario</h5>
         </div>
         <div class="card-body">
             <form method="POST" action="{{ url_for('users.users') }}">
@@ -30,13 +27,11 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label for="username" class="form-label">Nombre de usuario</label>
-                        <input type="text" class="form-control" id="username" name="username" 
-                               required minlength="4" placeholder="Mínimo 4 caracteres">
+                        <input type="text" class="form-control" id="username" name="username" required minlength="4" placeholder="Minimo 4 caracteres">
                     </div>
                     <div class="col-md-6">
-                        <label for="password" class="form-label">Contraseña</label>
-                        <input type="password" class="form-control" id="password" name="password" 
-                               required minlength="8" placeholder="Mínimo 8 caracteres">
+                        <label for="password" class="form-label">Contrasena</label>
+                        <input type="password" class="form-control" id="password" name="password" required minlength="8" placeholder="Minimo 8 caracteres">
                     </div>
                     <div class="col-md-6">
                         <label for="role" class="form-label">Rol</label>
@@ -46,66 +41,100 @@
                         </select>
                     </div>
                     <div class="col-12">
-                        <button type="submit" class="btn btn-primary">Crear Usuario</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check2-circle me-1"></i> Crear usuario
+                        </button>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Tabla de usuarios registrados -->
-    <h3 class="mb-4">👥 Usuarios Registrados</h3>
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover">
-            <thead class="table-dark">
-                <tr>
-                    <th>ID</th>
-                    <th>Usuario</th>
-                    <th>Rol</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for u in users %}
-                <tr>
-                    <td>{{ u.id }}</td>
-                    <td>{{ u.username }}</td>
-                    <td>
-                        <!-- Cambio de rol -->
-                        <form action="{{ url_for('users.change_user_role', u_id=u.id) }}" 
-                              method="POST" style="display:inline;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <select name="role" class="form-select d-inline-block w-auto" onchange="this.form.submit()">
-                                <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Administrador</option>
-                                <option value="user" {% if u.role == 'user' %}selected{% endif %}>Usuario</option>
-                            </select>
-                        </form>
-                    </td>
-                    <td>
-                        {% if u.username != 'admin' %}
-                        <!-- Eliminar -->
-                        <form action="{{ url_for('users.delete_user', u_id=u.id) }}" 
-                              method="POST" style="display:inline;"
-                              onsubmit="return confirm('¿Eliminar usuario {{ u.username }}?\nEsta acción no se puede deshacer.');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-danger btn-sm">
-                                <i class="bi bi-trash"></i> Eliminar
-                            </button>
-                        </form>
-                        {% else %}
-                        <span class="text-muted">Protegido (Admin)</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    <h3 class="mb-3">Usuarios registrados</h3>
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuario</th>
+                            <th>Rol</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>{{ u.id }}</td>
+                            <td class="fw-semibold">{{ u.username }}</td>
+                            <td>
+                                <form action="{{ url_for('users.change_user_role', u_id=u.id) }}" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <select name="role" class="form-select d-inline-block w-auto" onchange="this.form.submit()">
+                                        <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Administrador</option>
+                                        <option value="user" {% if u.role == 'user' %}selected{% endif %}>Usuario</option>
+                                    </select>
+                                </form>
+                            </td>
+                            <td class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#pwdModal{{ u.id }}">
+                                    <i class="bi bi-key me-1"></i> Cambiar clave
+                                </button>
 
-    {% if users|length == 0 %}
-    <div class="alert alert-info mt-4">
-        No hay usuarios registrados aún.
+                                {% if u.username != 'admin' %}
+                                <form action="{{ url_for('users.delete_user', u_id=u.id) }}" method="POST" class="d-inline"
+                                      onsubmit="return confirm('Eliminar usuario {{ u.username }}? Esta accion no se puede deshacer.');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="text-muted align-self-center">Protegido (Admin)</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+
+                        <div class="modal fade" id="pwdModal{{ u.id }}" tabindex="-1" aria-labelledby="pwdModalLabel{{ u.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="pwdModalLabel{{ u.id }}">Cambiar contrasena: {{ u.username }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <form action="{{ url_for('users.change_user_password', u_id=u.id) }}" method="POST">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <div class="modal-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">Nueva contrasena</label>
+                                                <input type="password" name="new_password" class="form-control" minlength="8" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Confirmar contrasena</label>
+                                                <input type="password" name="confirm_password" class="form-control" minlength="8" required>
+                                            </div>
+                                            <div class="text-muted small">Minimo 8 caracteres. Se aplica inmediatamente.</div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="bi bi-check2-circle me-1"></i> Actualizar
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {% if users|length == 0 %}
+                        <tr><td colspan="4" class="text-center text-muted py-4">No hay usuarios registrados aun.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-    {% endif %}
 </div>
 {% endblock %}

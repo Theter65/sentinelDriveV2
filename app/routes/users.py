@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for
+from flask import Blueprint, flash, render_template, request, redirect, url_for
 from werkzeug.security import generate_password_hash
 
 from app.decorators import require_admin
@@ -81,4 +81,26 @@ def delete_user(u_id):
     db.session.delete(user)
     db.session.commit()
     logger.info("Usuario eliminado: %s", username)
+    return redirect(url_for("users.users"))
+
+
+@users_bp.route("/users/change_password/<int:u_id>", methods=["POST"])
+@require_admin
+def change_user_password(u_id):
+    """Actualiza la contrasena de un usuario (solo admin)."""
+    user = User.query.get_or_404(u_id)
+    new_password = request.form.get("new_password") or ""
+    confirm_password = request.form.get("confirm_password") or ""
+
+    if len(new_password) < 8:
+        flash("La contrasena debe tener al menos 8 caracteres.", "danger")
+        return redirect(url_for("users.users"))
+    if new_password != confirm_password:
+        flash("La confirmacion de contrasena no coincide.", "danger")
+        return redirect(url_for("users.users"))
+
+    user.set_password(new_password)
+    db.session.commit()
+    logger.info("Contrasena actualizada para usuario: %s", user.username)
+    flash(f"Contrasena actualizada para {user.username}.", "success")
     return redirect(url_for("users.users"))

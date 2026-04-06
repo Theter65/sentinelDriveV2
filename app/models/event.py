@@ -19,6 +19,8 @@ class Event(db.Model):
     )
     type = db.Column(db.String(50), nullable=False, index=True)
     value = db.Column(db.Float(precision=2), nullable=True)
+    # Campo opcional para eventos extendidos (p. ej. tipo "Otros" con sensores extra)
+    description = db.Column(db.String(300), nullable=True)
     latitude = db.Column(db.Float(precision=8), nullable=True)
     longitude = db.Column(db.Float(precision=8), nullable=True)
     timestamp = db.Column(

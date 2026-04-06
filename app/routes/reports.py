@@ -121,6 +121,7 @@ def get_bus_events_table(start_time, end_time):
             func.sum(case((Event.type == "Curva pronunciada", 1), else_=0)).label("curva_pronunciada"),
             func.sum(case((Event.type == "Conducción agresiva", 1), else_=0)).label("conduccion_agresiva"),
             func.sum(case((Event.type == "Sobrecalentamiento", 1), else_=0)).label("sobrecalentamiento"),
+            func.sum(case((Event.type == "Otros", 1), else_=0)).label("otros"),
         )
         .outerjoin(
             Event,
@@ -265,21 +266,21 @@ def download_csv():
         writer.writerow([f"Vehiculo: {bus.plate}"])
         writer.writerow(["Periodo:", selected_period])
         writer.writerow([])
-        writer.writerow(["ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud"])
+        writer.writerow(["ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud", "Descripcion"])
         events = Event.query.filter(
             Event.bus_id == selected_bus_id,
             Event.timestamp.between(start_time, end_time),
         ).all()
         for event in events:
-            writer.writerow([event.id, event.type, event.value, event.timestamp, event.latitude, event.longitude])
+            writer.writerow([event.id, event.type, event.value, event.timestamp, event.latitude, event.longitude, getattr(event, "description", None)])
     else:
         writer.writerow(["Flota completa"])
         writer.writerow(["Periodo:", selected_period])
         writer.writerow([])
-        writer.writerow(["ID", "Bus ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud"])
+        writer.writerow(["ID", "Bus ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud", "Descripcion"])
         events = Event.query.filter(Event.timestamp.between(start_time, end_time)).all()
         for event in events:
-            writer.writerow([event.id, event.bus_id, event.type, event.value, event.timestamp, event.latitude, event.longitude])
+            writer.writerow([event.id, event.bus_id, event.type, event.value, event.timestamp, event.latitude, event.longitude, getattr(event, "description", None)])
 
     output.seek(0)
     return Response(
@@ -310,9 +311,9 @@ def download_tables():
                     writer.writerow([bus.id, bus.plate, bus.driver, bus.status])
 
             elif table == "event":
-                writer.writerow(["ID", "Bus ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud"])
+                writer.writerow(["ID", "Bus ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud", "Descripcion"])
                 for event in Event.query.filter(Event.timestamp.between(start_time, end_time)).all():
-                    writer.writerow([event.id, event.bus_id, event.type, event.value, event.timestamp, event.latitude, event.longitude])
+                    writer.writerow([event.id, event.bus_id, event.type, event.value, event.timestamp, event.latitude, event.longitude, getattr(event, "description", None)])
 
             elif table == "maintenance":
                 writer.writerow(["ID", "Bus ID", "Descripcion", "Fecha", "Estado"])

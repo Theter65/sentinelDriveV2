@@ -1,40 +1,204 @@
 {% extends "base.html" %}
 {% block title %}Panel de Control{% endblock %}
 {% block content %}
-<h2>Panel de Control</h2>
-<div class="row text-center mb-4">
-    <div class="col-md-4">
-        <div class="card bg-primary text-white">
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+    <div>
+        <h2 class="mb-1">Panel de Control</h2>
+        <div class="text-muted">
+            Estado general del sistema y de la flota
+            {% if now %} · {{ now.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="{{ url_for('events.events') }}">
+            <i class="bi bi-exclamation-triangle me-1"></i> Ver eventos
+        </a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('reports.reports') }}">
+            <i class="bi bi-graph-up me-1"></i> Reportes
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="card kpi-card h-100">
             <div class="card-body">
-                <h3>{{ total_buses }}</h3>
-                <p>Buses registrados</p>
+                <div class="d-flex align-items-start justify-content-between">
+                    <div>
+                        <div class="kpi-label">Estado del sistema</div>
+                        <div class="kpi-value">{% if system_ok %}OK{% else %}Atencion{% endif %}</div>
+                        <div class="text-muted small">Basado en MQTT y buses conectados</div>
+                    </div>
+                    <div class="badge {% if system_ok %}badge-soft{% else %}badge-danger-soft{% endif %}">
+                        <i class="bi {% if system_ok %}bi-shield-check{% else %}bi-shield-exclamation{% endif %} me-1"></i>
+                        {% if system_ok %}Estable{% else %}Degradado{% endif %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card bg-danger text-white">
+
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="card h-100">
             <div class="card-body">
-                <h3>{{ total_events }}</h3>
-                <p>Eventos totales</p>
+                <div class="d-flex align-items-start justify-content-between">
+                    <div>
+                        <div class="kpi-label">MQTT</div>
+                        <div class="kpi-value">{% if mqtt_connected %}Conectado{% else %}Desconectado{% endif %}</div>
+                        <div class="text-muted small">
+                            {% if mqtt_state.last_message %}Ultimo mensaje: {{ mqtt_state.last_message.strftime('%H:%M:%S') }}{% else %}Sin mensajes aun{% endif %}
+                            {% if mqtt_state.last_error %} · Error: {{ mqtt_state.last_error }}{% endif %}
+                        </div>
+                    </div>
+                    <div class="badge {% if mqtt_connected %}badge-soft{% else %}badge-danger-soft{% endif %}">
+                        <i class="bi {% if mqtt_connected %}bi-broadcast{% else %}bi-broadcast-pin{% endif %} me-1"></i>
+                        {% if mqtt_connected %}Online{% else %}Offline{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="kpi-label">Buses</div>
+                <div class="d-flex align-items-end justify-content-between">
+                    <div class="kpi-value">{{ total_buses }}</div>
+                    <div class="text-muted">Registrados</div>
+                </div>
+                <div class="mt-3 d-flex flex-wrap gap-2">
+                    <span class="badge badge-soft"><i class="bi bi-plug me-1"></i>Conectados: {{ connected_buses }}</span>
+                    <span class="badge badge-danger-soft"><i class="bi bi-plug-fill me-1"></i>Desconectados: {{ disconnected_buses }}</span>
+                    <span class="badge badge-soft"><i class="bi bi-check-circle me-1"></i>Activos: {{ active_buses }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="kpi-label">Eventos</div>
+                <div class="d-flex align-items-end justify-content-between">
+                    <div class="kpi-value">{{ total_events }}</div>
+                    <div class="text-muted">Totales</div>
+                </div>
+                <div class="text-muted small mt-2">Las alertas nuevas se muestran como notificaciones.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="kpi-label">Mantenimientos</div>
+                <div class="d-flex align-items-end justify-content-between">
+                    <div class="kpi-value">{{ pending_maintenances }}</div>
+                    <div class="text-muted">Pendientes</div>
+                </div>
+                <div class="text-muted small mt-2">Gestion desde el modulo de Mantenimientos.</div>
             </div>
         </div>
     </div>
 </div>
 
-<h4>Últimos eventos</h4>
-<table class="table table-striped">
-    <thead>
-        <tr><th>ID Bus</th><th>Evento</th><th>Valor</th><th>Hora</th></tr>
-    </thead>
-    <tbody>
-        {% for e in last_events %}
-        <tr>
-            <td>{{ e.bus_id }}</td>
-            <td>{{ e.type }}</td>
-            <td>{{ e.value }}</td>
-            <td>{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="row g-3">
+    <div class="col-12 col-xl-6">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <div class="fw-semibold"><i class="bi bi-clock-history me-2"></i>Eventos recientes</div>
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('events.events') }}">Ver todos</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Bus</th>
+                                <th>Tipo</th>
+                                <th class="text-end">Valor</th>
+                                <th>Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for e in last_events %}
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">{{ e.bus.plate if e.bus else e.bus_id }}</div>
+                                    <div class="text-muted small">{{ e.bus.driver if e.bus and e.bus.driver else 'Sin conductor' }}</div>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">{{ e.type }}</div>
+                                    {% if e.description %}
+                                        <div class="text-muted small">{{ e.description }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ e.value if e.value is not none else 'N/A' }}</td>
+                                <td class="text-muted">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% if last_events|length == 0 %}
+                            <tr><td colspan="4" class="text-center text-muted py-4">Aun no hay eventos registrados</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-6">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <div class="fw-semibold"><i class="bi bi-bus-front me-2"></i>Salud de buses (GPS ultimo minuto)</div>
+                <span class="text-muted small">Desconectado si no envia datos ~60s</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Bus</th>
+                                <th>Estado</th>
+                                <th>Ultima actualizacion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in bus_health %}
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">{{ b.plate }}</div>
+                                    <div class="text-muted small">{{ b.driver or 'Sin conductor' }}</div>
+                                </td>
+                                <td>
+                                    {% if b.connected %}
+                                        <span class="badge badge-soft"><i class="bi bi-plug me-1"></i>Conectado</span>
+                                    {% else %}
+                                        <span class="badge badge-danger-soft"><i class="bi bi-plug-fill me-1"></i>Desconectado</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted">
+                                    {% if b.last_seen %}
+                                        {{ b.last_seen.strftime('%Y-%m-%d %H:%M:%S') }}
+                                        {% if b.seconds_since is not none %}
+                                            <span class="text-muted">({{ b.seconds_since }}s)</span>
+                                        {% endif %}
+                                    {% else %}
+                                        Nunca
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% if bus_health|length == 0 %}
+                            <tr><td colspan="3" class="text-center text-muted py-4">No hay buses registrados</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

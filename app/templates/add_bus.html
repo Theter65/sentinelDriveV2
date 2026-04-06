@@ -16,6 +16,10 @@
         <label>Conductor</label>
         <input type="text" name="driver" class="form-control" required>
     </div>
+    <div class="mb-3">
+        <label>Descripcion (opcional)</label>
+        <textarea name="description" class="form-control" rows="3" placeholder="Modelo, observaciones, detalles operativos..."></textarea>
+    </div>
     {% if error %}
         <p class="text-danger">{{ error }}</p>
     {% endif %}

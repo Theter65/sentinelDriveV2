@@ -26,14 +26,14 @@ load_dotenv()
 FLEET_SIZE          = 3
 GPS_INTERVAL        = 12      # segundos
 EVENT_CHECK_INTERVAL = 1      # segundos
-EVENT_PROBABILITY   = 0.02    # ~2% por chequeo (~cada segundo)
-EVENT_COOLDOWN      = 5 * 60  # 5 minutos
+EVENT_PROBABILITY   = 0.3    # ~2% por chequeo (~cada segundo)
+EVENT_COOLDOWN      = 2 * 60  # 2 minutos
 
 # Broker (HiveMQ Cloud ejemplo)
-BROKER_HOST = os.getenv("MQTT_BROKER", "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud")
-BROKER_PORT = int(os.getenv("MQTT_PORT", "8883"))
-USERNAME    = os.getenv("MQTT_USERNAME", "CajaN3gr4")
-PASSWORD    = os.getenv("MQTT_PASSWORD", "Proyecto12")
+BROKER_HOST = "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud"
+BROKER_PORT = int("8883")
+USERNAME    = "CajaN3gr4"
+PASSWORD    = "Proyecto12"
 
 BASE_TOPIC = "flota/ecuador/buses"
 
@@ -46,6 +46,15 @@ CURVE_THRESHOLD    = 4.0
 RPM_THRESHOLD      = 4000
 ACCEL_AGGRESSIVE   = 3.5
 TEMP_THRESHOLD     = 95.0
+
+# Sensores opcionales para eventos extendidos ("otros").
+# Estos eventos representan alertas provenientes de hardware no presente en todos los vehiculos.
+OTHER_SENSORS = [
+    {"description": "Presion de llantas (psi)", "min": 26.0, "max": 42.0, "decimals": 1},
+    {"description": "Voltaje de bateria (V)", "min": 11.2, "max": 14.6, "decimals": 2},
+    {"description": "Presion de aceite (kPa)", "min": 150.0, "max": 500.0, "decimals": 0},
+    {"description": "Nivel de combustible (%)", "min": 0.0, "max": 100.0, "decimals": 0},
+]
 
 # ────────────────────────────────────────────────
 #  Cliente MQTT
@@ -114,6 +123,11 @@ def simulate_mpu():
         "accel_x": round(random.uniform(-6, 5), 2),
         "accel_y": round(random.uniform(-5, 5), 2),
     }
+
+def generate_other_sensor_event():
+    sensor = random.choice(OTHER_SENSORS)
+    value = round(random.uniform(sensor["min"], sensor["max"]), int(sensor["decimals"]))
+    return sensor["description"], value
 
 # ────────────────────────────────────────────────
 #  Mensaje de bienvenida
@@ -210,6 +224,19 @@ while True:
                     "event": "sobrecalentamiento",
                     "timestamp": now_iso(),
                     "temperature": obd["temp"],
+                    "lat": gps_event["lat"],
+                    "lon": gps_event["lon"],
+                }
+
+            elif can_generate_event(idx):
+                description, value = generate_other_sensor_event()
+                event = {
+                    "bus_id": bus_id,
+                    "type": "event",
+                    "event": "otros",
+                    "timestamp": now_iso(),
+                    "description": description,
+                    "value": value,
                     "lat": gps_event["lat"],
                     "lon": gps_event["lon"],
                 }

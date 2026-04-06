@@ -16,6 +16,14 @@ from app.utils.time import ECUADOR_TZ
 
 logger = get_logger(__name__)
 
+MQTT_STATE = {
+    "connected": False,
+    "last_connect": None,
+    "last_disconnect": None,
+    "last_message": None,
+    "last_error": None,
+}
+
 MQTT_TOPICS = [
     ("flota/ecuador/buses/+/gps", 0),
     ("flota/ecuador/buses/+/event", 1),
@@ -27,17 +35,25 @@ EVENT_MAPPING = {
     "curva_peligrosa": "Curva pronunciada",
     "conduccion_agresiva": "Conducción agresiva",
     "sobrecalentamiento": "Sobrecalentamiento",
+    # Evento extendido para sensores no estandarizados (presion de llantas, etc.).
+    "otros": "Otros",
+    "otro": "Otros",
 }
 
 
 def on_connect(client, userdata, flags, reason_code, properties=None):
     if reason_code == 0:
         logger.info("MQTT: conexion exitosa al broker")
+        MQTT_STATE["connected"] = True
+        MQTT_STATE["last_connect"] = datetime.now(ECUADOR_TZ)
+        MQTT_STATE["last_error"] = None
         for topic, qos in MQTT_TOPICS:
             client.subscribe(topic, qos=qos)
             logger.info("MQTT: suscrito a %s (QoS %s)", topic, qos)
     else:
         logger.error("MQTT: fallo de conexion - codigo %s", reason_code)
+        MQTT_STATE["connected"] = False
+        MQTT_STATE["last_error"] = f"connect_rc={reason_code}"
 
 
 def on_disconnect(client, userdata, disconnect_flags, reason_code, properties=None):
@@ -45,6 +61,8 @@ def on_disconnect(client, userdata, disconnect_flags, reason_code, properties=No
         logger.info("MQTT: desconexion limpia")
     else:
         logger.warning("MQTT: desconexion inesperada - codigo %s", reason_code)
+    MQTT_STATE["connected"] = False
+    MQTT_STATE["last_disconnect"] = datetime.now(ECUADOR_TZ)
 
 
 def _parse_timestamp(timestamp_value: str) -> datetime | None:
@@ -68,7 +86,32 @@ def _extract_event_value(event_name: str, data: dict):
         return data.get("rpm")
     if event_name == "sobrecalentamiento":
         return data.get("temperature")
+    if event_name in ("otros", "otro"):
+        raw = data.get("value")
+        if raw is None:
+            return None
+        if isinstance(raw, (int, float)):
+            return raw
+        if isinstance(raw, str):
+            try:
+                return float(raw)
+            except ValueError:
+                return None
     return None
+
+
+def _sanitize_description(raw_value) -> str | None:
+    if raw_value is None:
+        return None
+    if not isinstance(raw_value, str):
+        raw_value = str(raw_value)
+    desc = raw_value.strip()
+    if not desc:
+        return None
+    # Evita payloads enormes desde MQTT.
+    if len(desc) > 300:
+        desc = desc[:300]
+    return desc
 
 
 def _build_location(bus_id: int, data: dict, timestamp: datetime) -> Location | None:
@@ -95,6 +138,7 @@ def _build_event(bus_id: int, data: dict, timestamp: datetime) -> Event | None:
         bus_id=bus_id,
         type=EVENT_MAPPING[event_name],
         value=_extract_event_value(event_name, data),
+        description=_sanitize_description(data.get("description")),
         latitude=data.get("lat"),
         longitude=data.get("lon"),
         timestamp=timestamp,
@@ -125,12 +169,15 @@ def on_message(client, userdata, msg, app):
             event_name = data.get("event") if message_kind == "event" else "gps"
             event_value = _extract_event_value(event_name, data) if message_kind == "event" else data.get("speed_gps", data.get("speed"))
             coords_key = f"{data.get('lat')}|{data.get('lon')}"
+            desc_key = ""
+            if message_kind == "event" and event_name in ("otros", "otro"):
+                desc_key = f"|{_sanitize_description(data.get('description')) or ''}"
             if not should_process_message(
                 bus_id,
                 timestamp,
                 event_type=event_name,
                 value=event_value,
-                extra_key=f"{message_kind}|{coords_key}",
+                extra_key=f"{message_kind}|{coords_key}{desc_key}",
             ):
                 return
 
@@ -146,15 +193,19 @@ def on_message(client, userdata, msg, app):
                 db.session.add(event)
 
             db.session.commit()
+            MQTT_STATE["last_message"] = datetime.now(ECUADOR_TZ)
             logger.info("MQTT: datos procesados - bus %s | tipo: %s", bus_id, message_kind)
         except json.JSONDecodeError:
             logger.error("MQTT: payload JSON invalido")
+            MQTT_STATE["last_error"] = "json_decode"
             db.session.rollback()
         except ValueError as exc:
             logger.error("MQTT: error de validacion: %s", exc)
+            MQTT_STATE["last_error"] = "validation"
             db.session.rollback()
         except Exception as exc:
             logger.error("MQTT: error al procesar mensaje: %s", exc, exc_info=True)
+            MQTT_STATE["last_error"] = "processing"
             db.session.rollback()
         finally:
             db.session.remove()

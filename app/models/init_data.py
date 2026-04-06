@@ -21,6 +21,25 @@ def ensure_database_indexes():
     ]
     for statement in statements:
         db.session.execute(text(statement))
+
+    # Lightweight schema evolution for SQLite (no migrations):
+    # add optional bus.description without breaking existing DBs.
+    try:
+        if db.engine.dialect.name == "sqlite":
+            cols = db.session.execute(text("PRAGMA table_info('bus')")).fetchall()
+            col_names = {row[1] for row in cols}
+            if "description" not in col_names:
+                db.session.execute(text("ALTER TABLE bus ADD COLUMN description TEXT"))
+                logger.info("DB: columna agregada bus.description")
+
+            cols = db.session.execute(text("PRAGMA table_info('event')")).fetchall()
+            col_names = {row[1] for row in cols}
+            if "description" not in col_names:
+                db.session.execute(text("ALTER TABLE event ADD COLUMN description TEXT"))
+                logger.info("DB: columna agregada event.description")
+    except Exception as exc:
+        logger.warning("DB: no se pudo validar/crear columnas opcionales: %s", exc)
+
     db.session.commit()
 
 

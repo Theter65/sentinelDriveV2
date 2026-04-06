@@ -35,7 +35,7 @@
     {% if individual_stats %}
     <!-- ===================== INDIVIDUAL ===================== -->
     <div class="card mb-5 shadow-lg border-primary">
-        <div class="card-header bg-primary text-white text-center">
+        <div class="card-header text-center">
             <h5 class="mb-0">Estadísticas para Vehículo: {{ individual_stats.bus.plate }} ({{ individual_stats.bus.driver or 'Sin conductor' }})</h5>
         </div>
         <div class="card-body">
@@ -63,7 +63,7 @@
                 <div class="col-md-4 mb-4">
                     <h6 class="fw-bold">Eventos por Tipo</h6>
                     {% if individual_chart_data %}
-                    <canvas id="individualEventsChart" height="180"></canvas>
+                    <canvas id="individualEventsChart" height="144"></canvas>
                     <button onclick="downloadImage('individualEventsChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
                     {% else %}
                     <p class="text-muted mt-3">No hay eventos registrados</p>
@@ -72,7 +72,7 @@
                 <div class="col-md-4 mb-4">
                     <h6 class="fw-bold">Eventos por Hora del Día</h6>
                     {% if individual_chart_data %}
-                    <canvas id="individualHourChart" height="180"></canvas>
+                    <canvas id="individualHourChart" height="144"></canvas>
                     <button onclick="downloadImage('individualHourChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
                     {% else %}
                     <p class="text-muted mt-3">No hay eventos registrados</p>
@@ -81,7 +81,7 @@
                 <div class="col-md-4 mb-4">
                     <h6 class="fw-bold">Distribución de Velocidad</h6>
                     {% if individual_stats.speed_histogram %}
-                    <canvas id="individualSpeedHist" height="180"></canvas>
+                    <canvas id="individualSpeedHist" height="144"></canvas>
                     <button onclick="downloadImage('individualSpeedHist')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
                     {% else %}
                     <p class="text-muted mt-3">No hay datos de velocidad</p>
@@ -97,7 +97,7 @@
     {% else %}
     <!-- ===================== GRUPAL ===================== -->
     <div class="card mb-5 shadow-lg border-success">
-        <div class="card-header bg-success text-white text-center">
+        <div class="card-header text-center">
             <h5 class="mb-0">Estadísticas para Flota Completa</h5>
         </div>
         <div class="card-body">
@@ -124,17 +124,17 @@
             <div class="row text-center">
                 <div class="col-md-4 mb-4">
                     <h6 class="fw-bold">Eventos por Tipo</h6>
-                    <canvas id="groupEventsChart" height="180"></canvas>
+                    <canvas id="groupEventsChart" height="144"></canvas>
                     <button onclick="downloadImage('groupEventsChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
                 </div>
                 <div class="col-md-4 mb-4">
                     <h6 class="fw-bold">Eventos por Hora del Día</h6>
-                    <canvas id="groupHourChart" height="180"></canvas>
+                    <canvas id="groupHourChart" height="144"></canvas>
                     <button onclick="downloadImage('groupHourChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
                 </div>
                 <div class="col-md-4 mb-4">
                     <h6 class="fw-bold">Distribución de Velocidad</h6>
-                    <canvas id="groupSpeedHist" height="180"></canvas>
+                    <canvas id="groupSpeedHist" height="144"></canvas>
                     <button onclick="downloadImage('groupSpeedHist')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
                 </div>
             </div>
@@ -152,6 +152,7 @@
                             <th>Curva Pronunciada</th>
                             <th>Conducción Agresiva</th>
                             <th>Sobrecalentamiento</th>
+                            <th>Otros</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -164,10 +165,11 @@
                             <td class="text-center">{{ row.curva_pronunciada or 0 }}</td>
                             <td class="text-center">{{ row.conduccion_agresiva or 0 }}</td>
                             <td class="text-center">{{ row.sobrecalentamiento or 0 }}</td>
+                            <td class="text-center">{{ row.otros or 0 }}</td>
                         </tr>
                         {% endfor %}
                         {% if not group_stats.bus_events_table %}
-                        <tr><td colspan="7" class="text-center text-muted py-3">No hay datos de eventos en este período</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted py-3">No hay datos de eventos en este período</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -230,12 +232,21 @@ document.addEventListener("DOMContentLoaded", () => {
         new Chart(el.getContext('2d'), config);
     }
 
+    // Mejora legibilidad en tema oscuro.
+    Chart.defaults.color = "#ffffff";
+    Chart.defaults.borderColor = "rgba(255, 255, 255, 0.14)";
+
+    function pieColors(n) {
+        const palette = ["#ef4444", "#f59e0b", "#06b6d4", "#a3a3a3", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899"];
+        return Array.from({ length: n }, (_, i) => palette[i % palette.length]);
+    }
+
     // Gráficos grupales
     safeChart('groupEventsChart', {
         type: 'pie',
         data: {
             labels: {{ group_chart_data.labels | tojson }},
-            datasets: [{ data: {{ group_chart_data.data | tojson }}, backgroundColor: ['#dc3545', '#ffc107', '#0dcaf0', '#6c757d', '#198754'] }]
+            datasets: [{ data: {{ group_chart_data.data | tojson }}, backgroundColor: pieColors({{ group_chart_data.labels|length }}) }]
         },
         options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
     });
@@ -264,7 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
         type: 'pie',
         data: {
             labels: {{ individual_chart_data.labels | tojson }},
-            datasets: [{ data: {{ individual_chart_data.data | tojson }}, backgroundColor: ['#dc3545', '#ffc107', '#0dcaf0', '#6c757d', '#198754'] }]
+            datasets: [{ data: {{ individual_chart_data.data | tojson }}, backgroundColor: pieColors({{ individual_chart_data.labels|length }}) }]
         },
         options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
     });

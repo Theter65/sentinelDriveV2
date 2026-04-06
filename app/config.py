@@ -16,9 +16,9 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "False").lower() == "true"
 
-    MQTT_BROKER = os.getenv("MQTT_BROKER")
-    MQTT_PORT = int(os.getenv("MQTT_PORT"))
-    MQTT_USERNAME = os.getenv("MQTT_USERNAME")
+    MQTT_BROKER = os.getenv("MQTT_BROKER", "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud")
+    MQTT_PORT = int(os.getenv("MQTT_PORT", "8883"))
+    MQTT_USERNAME = os.getenv("MQTT_USERNAME", "CajaN3gr4")
     MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
     if not MQTT_PASSWORD:
         raise ValueError("MQTT_PASSWORD no esta definido en .env")

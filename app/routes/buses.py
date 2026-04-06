@@ -1,4 +1,7 @@
-from flask import Blueprint, render_template, request, redirect, url_for
+import csv
+import io
+
+from flask import Blueprint, Response, render_template, request, redirect, url_for
 
 from app.decorators import login_required, require_admin
 from app.extensions import db
@@ -12,10 +15,12 @@ buses_bp = Blueprint("buses", __name__)
 
 
 def _normalize_bus_form():
+    description = (request.form.get("description") or "").strip()
     return {
         "plate": (request.form.get("plate") or "").strip().upper(),
         "driver": (request.form.get("driver") or "").strip(),
         "status": (request.form.get("status") or "Activo").strip(),
+        "description": description or None,
     }
 
 
@@ -73,6 +78,7 @@ def edit_bus(bus_id):
         bus.plate = form_data["plate"]
         bus.driver = form_data["driver"]
         bus.status = form_data["status"]
+        bus.description = form_data["description"]
         db.session.commit()
         logger.info("Bus editado: ID %s, placa %s, conductor %s", bus_id, bus.plate, bus.driver)
         return redirect(url_for("buses.buses"))
@@ -89,3 +95,21 @@ def delete_bus(bus_id):
     db.session.commit()
     logger.info("Bus eliminado completamente: ID %s, placa %s", bus_id, plate)
     return redirect(url_for("buses.buses"))
+
+
+@buses_bp.route("/buses/export_csv")
+@require_admin
+def export_buses_csv():
+    """Exporta la tabla de buses a CSV (solo admin)."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Placa", "Conductor", "Descripcion", "Estado"])
+    for b in Bus.query.order_by(Bus.id.asc()).all():
+        writer.writerow([b.id, b.plate, b.driver, b.description or "", b.status])
+    output.seek(0)
+    logger.info("Export CSV buses solicitado por admin")
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=buses.csv"},
+    )

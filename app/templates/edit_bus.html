@@ -21,6 +21,10 @@
                 <option value="Mantenimiento" {% if bus.status == 'Mantenimiento' %}selected{% endif %}>En mantenimiento</option>
             </select>
         </div>
+        <div class="mb-3">
+            <label class="form-label">Descripcion (opcional)</label>
+            <textarea name="description" class="form-control" rows="3" placeholder="Modelo, observaciones, detalles operativos...">{{ bus.description or '' }}</textarea>
+        </div>
         {% if error %}
         <div class="alert alert-danger">{{ error }}</div>
         {% endif %}

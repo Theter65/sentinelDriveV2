@@ -44,6 +44,8 @@ def api_last_position(bus_id):
             "id": bus.id,
             "plate": bus.plate,
             "driver": bus.driver,
+            "status": bus.status,
+            "description": getattr(bus, "description", None),
         },
         "lat": location.lat,
         "lon": location.lon,

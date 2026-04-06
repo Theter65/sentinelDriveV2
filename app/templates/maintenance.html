@@ -1,29 +1,26 @@
 {% extends "base.html" %}
-{% block title %}Gestión de Mantenimientos - SENTINLDRIVE{% endblock %}
+{% block title %}Mantenimientos{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="mb-4">Gestión de Mantenimientos</h2>
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-tools me-2"></i>Mantenimientos</h2>
+            <div class="text-muted">Registro y seguimiento de mantenimientos preventivos/correctivos.</div>
+        </div>
+    </div>
 
-    <!-- Mensajes de error o éxito -->
     {% if error %}
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
         {{ error }}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     {% endif %}
-    {% if success %}
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        {{ success }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    {% endif %}
 
-    <!-- Formulario para registrar nuevo mantenimiento (solo admin) -->
     {% if session.get('role')|lower == 'admin' %}
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">➕ Registrar Nuevo Mantenimiento</h5>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Registrar nuevo mantenimiento</h5>
         </div>
         <div class="card-body">
             <form method="POST" action="{{ url_for('maintenance.maintenance') }}">
@@ -39,12 +36,13 @@
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <label for="description" class="form-label">Descripción</label>
-                        <input type="text" class="form-control" id="description" name="description"
-                               placeholder="Ej: Cambio de frenos, alineación, revisión general" required>
+                        <label for="description" class="form-label">Descripcion</label>
+                        <input type="text" class="form-control" id="description" name="description" placeholder="Ej: Cambio de frenos, alineacion, revision general" required>
                     </div>
                     <div class="col-12">
-                        <button type="submit" class="btn btn-primary">Registrar Mantenimiento</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check2-circle me-1"></i> Registrar mantenimiento
+                        </button>
                     </div>
                 </div>
             </form>
@@ -52,67 +50,70 @@
     </div>
     {% endif %}
 
-    <!-- Tabla de mantenimientos registrados -->
-    <h3 class="mb-4">🛠 Mantenimientos Registrados</h3>
-
-    {% if maintenances|length == 0 %}
-    <div class="alert alert-info">
-        No hay mantenimientos registrados aún.
+    <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <div class="fw-semibold"><i class="bi bi-list-check me-2"></i>Mantenimientos registrados</div>
+            <div class="text-muted small">{{ maintenances|length }} registros</div>
+        </div>
+        <div class="card-body p-0">
+            {% if maintenances|length == 0 %}
+            <div class="p-4 text-muted">No hay mantenimientos registrados aun.</div>
+            {% else %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Bus</th>
+                            <th>Descripcion</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in maintenances %}
+                        <tr>
+                            <td>{{ m.id }}</td>
+                            <td>
+                                <div class="fw-semibold">{{ m.bus.plate }}</div>
+                                <div class="text-muted small">{{ m.bus.driver or 'Sin conductor' }}</div>
+                            </td>
+                            <td>{{ m.description }}</td>
+                            <td>
+                                {% if m.status == 'Pendiente' %}
+                                    <span class="badge badge-danger-soft">Pendiente</span>
+                                {% else %}
+                                    <span class="badge badge-soft">Completado</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted">{{ m.date.strftime("%Y-%m-%d %H:%M") }}</td>
+                            <td class="d-flex flex-wrap gap-2">
+                                {% if session.get('role')|lower == 'admin' %}
+                                <form action="{{ url_for('maintenance.toggle_maintenance', m_id=m.id) }}" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Cambiar estado
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('maintenance.delete_maintenance', m_id=m.id) }}" method="POST" class="d-inline"
+                                      onsubmit="return confirm('Eliminar mantenimiento ID {{ m.id }} del bus {{ m.bus.plate }}?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="text-muted">Solo lectura</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
     </div>
-    {% else %}
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>ID</th>
-                    <th>Bus</th>
-                    <th>Descripción</th>
-                    <th>Estado</th>
-                    <th>Fecha</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for m in maintenances %}
-                <tr>
-                    <td>{{ m.id }}</td>
-                    <td>{{ m.bus.plate }} - {{ m.bus.driver or 'Sin conductor' }}</td>
-                    <td>{{ m.description }}</td>
-                    <td>
-                        <span class="badge {% if m.status == 'Pendiente' %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                            {{ m.status }}
-                        </span>
-                    </td>
-                    <td>{{ m.date.strftime("%Y-%m-%d %H:%M") }}</td>
-                    <td>
-                        {% if session.get('role')|lower == 'admin' %}
-                        <!-- Toggle estado -->
-                        <form action="{{ url_for('maintenance.toggle_maintenance', m_id=m.id) }}" 
-                              method="POST" style="display:inline;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm {% if m.status == 'Pendiente' %}btn-success{% else %}btn-warning{% endif %}">
-                                {% if m.status == 'Pendiente' %}✅ Marcar Completado{% else %}↩️ Marcar Pendiente{% endif %}
-                            </button>
-                        </form>
-
-                        <!-- Eliminar -->
-                        <form action="{{ url_for('maintenance.delete_maintenance', m_id=m.id) }}" 
-                              method="POST" style="display:inline;"
-                              onsubmit="return confirm('¿Eliminar mantenimiento ID {{ m.id }} del bus {{ m.bus.plate }}?');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-danger btn-sm">
-                                <i class="bi bi-trash"></i> Eliminar
-                            </button>
-                        </form>
-                        {% else %}
-                        <span class="text-muted">Solo lectura</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

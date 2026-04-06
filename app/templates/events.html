@@ -1,63 +1,87 @@
 {% extends "base.html" %}
-{% block title %}Eventos Registrados{% endblock %}
+{% block title %}Eventos{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>Eventos Registrados</h2>
-
-    <div class="table-responsive">
-        <table class="table table-hover table-bordered">
-            <thead class="table-dark">
-                <tr>
-                    <th>ID Bus</th>
-                    <th>Placa</th>
-                    <th>Conductor</th>
-                    <th>Tipo</th>
-                    <th>Valor / Unidad</th>
-                    <th>Posición (Lat / Lon)</th>
-                    <th>Fecha/Hora</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for e in events %}
-                <tr>
-                    <td>{{ e.bus.id }}</td>
-                    <td>{{ e.bus.plate }}</td>
-                    <td>{{ e.bus.driver or 'Sin asignar' }}</td>
-                    <td>{{ e.type }}</td>
-                    <td>
-                        {% if e.type == 'Frenado brusco' %}
-                            {{ e.value }} m/s²
-                        {% elif e.type == 'Curva pronunciada' %}
-                            {{ e.value }} m/s² (lateral)
-                        {% elif e.type == 'Exceso de velocidad' %}
-                            {{ e.value }} km/h
-                        {% elif e.type == 'Conducción agresiva' %}
-                            {{ e.value }} RPM
-                        {% elif e.type == 'Sobrecalentamiento' %}
-                            {{ e.value }} °C
-                        {% else %}
-                            {{ e.value or 'N/A' }}
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if e.latitude and e.longitude %}
-                            {{ e.latitude|round(6) }} / {{ e.longitude|round(6) }}
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </td>
-                    <td>{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-exclamation-triangle me-2"></i>Eventos</h2>
+        <div class="text-muted">Mostrando eventos recientes. Usa paginacion para ver mas registros.</div>
     </div>
-
-    {% if events|length == 0 %}
-    <div class="alert alert-info mt-4">
-        No hay eventos registrados aún.
+    <div class="d-flex gap-2 align-items-center">
+        <span class="text-muted small">Total: {{ total }}</span>
+        <a class="btn btn-outline-secondary" href="{{ url_for('reports.reports') }}">
+            <i class="bi bi-graph-up me-1"></i> Reportes
+        </a>
     </div>
-    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <div class="fw-semibold">Ultimos registros</div>
+        <div class="text-muted small">Pagina {{ page }}</div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Bus</th>
+                        <th>Tipo</th>
+                        <th class="text-end">Valor</th>
+                        <th>Posicion</th>
+                        <th>Fecha/Hora</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in events %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">{{ e.bus.plate if e.bus else e.bus_id }}</div>
+                            <div class="text-muted small">{{ e.bus.driver if e.bus and e.bus.driver else 'Sin conductor' }}</div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ e.type }}</div>
+                            {% if e.description %}
+                                <div class="text-muted small">{{ e.description }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ e.value if e.value is not none else 'N/A' }}</td>
+                        <td class="text-muted">
+                            {% if e.latitude and e.longitude %}
+                                {{ e.latitude|round(6) }} / {{ e.longitude|round(6) }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if events|length == 0 %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">No hay eventos registrados aun</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="text-muted small">Mostrando {{ events|length }} de {{ per_page }} por pagina</div>
+        <div class="d-flex gap-2">
+            {% if has_prev %}
+                <a class="btn btn-outline-secondary" href="{{ url_for('events.events', page=page-1, per_page=per_page) }}">
+                    <i class="bi bi-arrow-left me-1"></i> Anterior
+                </a>
+            {% else %}
+                <button class="btn btn-outline-secondary" disabled><i class="bi bi-arrow-left me-1"></i> Anterior</button>
+            {% endif %}
+
+            {% if has_next %}
+                <a class="btn btn-primary" href="{{ url_for('events.events', page=page+1, per_page=per_page) }}">
+                    Siguiente <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            {% else %}
+                <button class="btn btn-primary" disabled>Siguiente <i class="bi bi-arrow-right ms-1"></i></button>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock %}
