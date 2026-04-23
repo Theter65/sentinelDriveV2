@@ -2,6 +2,12 @@
 {% block title %}Usuarios{% endblock %}
 
 {% block content %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">Inicio</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Usuarios</li>
+    </ol>
+</nav>
 <div class="container mt-4">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
         <div>

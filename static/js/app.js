@@ -97,7 +97,6 @@ async function pollEventNotifications() {
     const payload = await res.json();
     const latestId = typeof payload.latest_id === "number" ? payload.latest_id : null;
     if (latestId !== null && latestId < lastId) {
-      // La BD pudo ser purgada y los IDs reiniciaron (SQLite sin AUTOINCREMENT).
       try {
         localStorage.setItem("sd_last_event_id", String(latestId));
       } catch {
@@ -106,7 +105,6 @@ async function pollEventNotifications() {
       return;
     }
     if (lastId === 0 && latestId && latestId > 0) {
-      // Primer arranque: sincroniza sin disparar toasts historicos.
       try {
         localStorage.setItem("sd_last_event_id", String(latestId));
       } catch {
@@ -117,13 +115,7 @@ async function pollEventNotifications() {
     const events = Array.isArray(payload.events) ? payload.events : [];
     if (!events.length) return;
 
-    const badge = $("eventsBadge");
-    if (badge) {
-      const current = clampInt(badge.textContent, 0);
-      badge.textContent = String(current + events.length);
-      badge.classList.remove("d-none");
-    }
-
+    // Solo muestra toasts, no actualiza el badge aqui (loadEventsBadge ya lo hace)
     for (const evt of events) {
       const type = evt.type || "Evento";
       const plate = evt.plate || `Bus ${evt.bus_id ?? "?"}`;
@@ -160,6 +152,22 @@ async function pollEventNotifications() {
   }
 }
 
+async function loadEventsBadge() {
+  const badge = $("eventsBadge");
+  if (!badge) return;
+  try {
+    const res = await fetch("/api/events/count", { credentials: "same-origin" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.total > 0) {
+      badge.textContent = String(data.total);
+      badge.classList.remove("d-none");
+    }
+  } catch {
+    // ignore
+  }
+}
+
 function initEventNotifications() {
   const endpoint = document.body.getAttribute("data-events-poll-url");
   if (!endpoint) return;
@@ -172,7 +180,8 @@ function initEventNotifications() {
     return;
   }
 
-  // Primera consulta y luego polling suave.
+  // Cargar conteo inicial y luego polling suave.
+  loadEventsBadge();
   pollEventNotifications();
   setInterval(pollEventNotifications, 6000);
 }

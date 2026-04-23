@@ -60,29 +60,29 @@
 
             <!-- 3 gráficos horizontales -->
             <div class="row text-center">
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4 chart-container">
                     <h6 class="fw-bold">Eventos por Tipo</h6>
                     {% if individual_chart_data %}
                     <canvas id="individualEventsChart" height="144"></canvas>
-                    <button onclick="downloadImage('individualEventsChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                    <button onclick="downloadImage('individualEventsChart')" class="btn btn-sm btn-outline-secondary mt-2 btn-download">Descargar Imagen</button>
                     {% else %}
                     <p class="text-muted mt-3">No hay eventos registrados</p>
                     {% endif %}
                 </div>
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4 chart-container">
                     <h6 class="fw-bold">Eventos por Hora del Día</h6>
                     {% if individual_chart_data %}
                     <canvas id="individualHourChart" height="144"></canvas>
-                    <button onclick="downloadImage('individualHourChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                    <button onclick="downloadImage('individualHourChart')" class="btn btn-sm btn-outline-secondary mt-2 btn-download">Descargar Imagen</button>
                     {% else %}
                     <p class="text-muted mt-3">No hay eventos registrados</p>
                     {% endif %}
                 </div>
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4 chart-container">
                     <h6 class="fw-bold">Distribución de Velocidad</h6>
                     {% if individual_stats.speed_histogram %}
                     <canvas id="individualSpeedHist" height="144"></canvas>
-                    <button onclick="downloadImage('individualSpeedHist')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                    <button onclick="downloadImage('individualSpeedHist')" class="btn btn-sm btn-outline-secondary mt-2 btn-download">Descargar Imagen</button>
                     {% else %}
                     <p class="text-muted mt-3">No hay datos de velocidad</p>
                     {% endif %}
@@ -122,20 +122,20 @@
 
             <!-- 3 gráficos horizontales -->
             <div class="row text-center">
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4 chart-container">
                     <h6 class="fw-bold">Eventos por Tipo</h6>
                     <canvas id="groupEventsChart" height="144"></canvas>
-                    <button onclick="downloadImage('groupEventsChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                    <button onclick="downloadImage('groupEventsChart')" class="btn btn-sm btn-outline-secondary mt-2 btn-download">Descargar Imagen</button>
                 </div>
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4 chart-container">
                     <h6 class="fw-bold">Eventos por Hora del Día</h6>
                     <canvas id="groupHourChart" height="144"></canvas>
-                    <button onclick="downloadImage('groupHourChart')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                    <button onclick="downloadImage('groupHourChart')" class="btn btn-sm btn-outline-secondary mt-2 btn-download">Descargar Imagen</button>
                 </div>
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-4 chart-container">
                     <h6 class="fw-bold">Distribución de Velocidad</h6>
                     <canvas id="groupSpeedHist" height="144"></canvas>
-                    <button onclick="downloadImage('groupSpeedHist')" class="btn btn-sm btn-outline-secondary mt-2">Descargar Imagen</button>
+                    <button onclick="downloadImage('groupSpeedHist')" class="btn btn-sm btn-outline-secondary mt-2 btn-download">Descargar Imagen</button>
                 </div>
             </div>
 
@@ -241,14 +241,14 @@ document.addEventListener("DOMContentLoaded", () => {
         return Array.from({ length: n }, (_, i) => palette[i % palette.length]);
     }
 
-    // Gráficos grupales
+    // Gráficos grupales - pie más pequeño
     safeChart('groupEventsChart', {
         type: 'pie',
         data: {
             labels: {{ group_chart_data.labels | tojson }},
             datasets: [{ data: {{ group_chart_data.data | tojson }}, backgroundColor: pieColors({{ group_chart_data.labels|length }}) }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.2, plugins: { legend: { position: 'bottom' } } }
     });
 
     safeChart('groupHourChart', {

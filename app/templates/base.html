@@ -43,51 +43,51 @@
             <div class="collapse navbar-collapse" id="navbarMenu">
                 <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
                     <li class="nav-item">
-                        <a href="{{ url_for('dashboard.dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}">
+                        <a href="{{ url_for('dashboard.dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}" data-tooltip="Panel principal">
                             <i class="bi bi-house-door-fill"></i>
                             <span>Inicio</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ url_for('events.events') }}" class="nav-link {% if 'events' in request.endpoint %}active{% endif %}">
+                        <a href="{{ url_for('events.events') }}" class="nav-link {% if 'events' in request.endpoint %}active{% endif %}" data-tooltip="Ver eventos registrados">
                             <i class="bi bi-exclamation-triangle-fill"></i>
                             <span>Eventos</span>
                             <span id="eventsBadge" class="badge events-badge d-none">0</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ url_for('tracking.tracking') }}" class="nav-link {% if 'tracking' in request.endpoint %}active{% endif %}">
+                        <a href="{{ url_for('tracking.tracking') }}" class="nav-link {% if 'tracking' in request.endpoint %}active{% endif %}" data-tooltip="Ubicacion en tiempo real">
                             <i class="bi bi-geo-alt-fill"></i>
                             <span>Seguimiento</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ url_for('reports.reports') }}" class="nav-link {% if 'reports' in request.endpoint %}active{% endif %}">
+                        <a href="{{ url_for('reports.reports') }}" class="nav-link {% if 'reports' in request.endpoint %}active{% endif %}" data-tooltip="Estadisticas y reportes">
                             <i class="bi bi-graph-up"></i>
                             <span>Reportes</span>
                         </a>
                     </li>
                     {% if (session.get('role') or '')|lower == 'admin' %}
                     <li class="nav-item">
-                        <a href="{{ url_for('buses.buses') }}" class="nav-link {% if 'buses' in request.endpoint %}active{% endif %}">
+                        <a href="{{ url_for('buses.buses') }}" class="nav-link {% if 'buses' in request.endpoint %}active{% endif %}" data-tooltip="Gestionar buses">
                             <i class="bi bi-bus-front-fill"></i>
                             <span>Buses</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ url_for('maintenance.maintenance') }}" class="nav-link {% if 'maintenance' in request.endpoint %}active{% endif %}">
+                        <a href="{{ url_for('maintenance.maintenance') }}" class="nav-link {% if 'maintenance' in request.endpoint %}active{% endif %}" data-tooltip="Mantenimientos">
                             <i class="bi bi-tools"></i>
                             <span>Mantenimientos</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ url_for('users.users') }}" class="nav-link {% if 'users' in request.endpoint %}active{% endif %}">
+                        <a href="{{ url_for('users.users') }}" class="nav-link {% if 'users' in request.endpoint %}active{% endif %}" data-tooltip="Gestion de usuarios">
                             <i class="bi bi-people-fill"></i>
                             <span>Usuarios</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ url_for('admin.admin_panel') }}" class="nav-link {% if 'admin' in request.endpoint %}active{% endif %}">
+                        <a href="{{ url_for('admin.admin_panel') }}" class="nav-link {% if 'admin' in request.endpoint %}active{% endif %}" data-tooltip="Configuracion del sistema">
                             <i class="bi bi-shield-lock-fill"></i>
                             <span>Administracion</span>
                         </a>

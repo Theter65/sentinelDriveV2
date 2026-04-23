@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request, session
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
@@ -28,6 +28,10 @@ def events():
     has_next = len(items) > per_page
     items = items[:per_page]
     has_prev = page > 1
+
+    latest_id = db.session.query(func.max(Event.id)).scalar() or 0
+    session['events_last_seen_id'] = latest_id
+    session.modified = True
 
     return render_template(
         "events.html",
@@ -73,3 +77,13 @@ def api_event_updates():
         )
 
     return jsonify({"latest_id": latest_id, "events": payload})
+
+
+@events_bp.route("/api/events/count")
+@login_required
+def api_events_count():
+    """Devuelve el total de eventos nuevos desde la ultima visita."""
+    latest_id = db.session.query(func.max(Event.id)).scalar() or 0
+    last_seen_id = session.get('events_last_seen_id', 0)
+    new_events_count = max(0, latest_id - last_seen_id)
+    return jsonify({"total": new_events_count, "latest_id": latest_id})

@@ -14,6 +14,13 @@
     </div>
 </div>
 
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">Inicio</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Administracion</li>
+    </ol>
+</nav>
+
 <div class="row g-3">
     <div class="col-12 col-xl-7">
         <div class="card">
@@ -185,25 +192,23 @@
     </div>
 </div>
 
-<div class="modal fade" id="purgeHistoryModal" tabindex="-1" aria-labelledby="purgeHistoryModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade modal-danger" id="purgeHistoryModal" tabindex="-1" aria-labelledby="purgeHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="purgeHistoryModalLabel">Confirmar borrado de historial</h5>
+                <h5 class="modal-title" id="purgeHistoryModalLabel"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Confirmar borrado de historial</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ url_for('admin.purge_history') }}" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
-                    <div class="alert alert-warning" role="alert">
-                        Esta accion es irreversible. Se recomienda exportar reportes o hacer backup antes de continuar.
+                    <div class="alert alert-danger" role="alert">
+                        <strong><i class="bi bi-exclamation-octagon me-1"></i>Advertencia:</strong> Esta accion es irreversible. Todos los registros de ubicaciones (GPS) y eventos seran eliminados permanentemente.
                     </div>
+                    <p class="text-muted mb-3">Se recomienda exportar tus reportes o hacer un backup antes de continuar.</p>
                     <div class="mb-3">
                         <label class="form-label">Re-ingrese su contrasena de administrador</label>
                         <input type="password" name="password" class="form-control" autocomplete="current-password" required>
-                    </div>
-                    <div class="text-muted small">
-                        Consejo: para rendimiento, suele ser buena practica eliminar datos antiguos (p. ej. cada 12 meses).
                     </div>
                 </div>
                 <div class="modal-footer">
