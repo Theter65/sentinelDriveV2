@@ -2,6 +2,7 @@ from functools import wraps
 
 from flask import redirect, session, url_for
 
+from app.models.user import User
 from app.utils.logging import get_logger
 
 
@@ -13,7 +14,14 @@ def login_required(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
-        if "user" not in session:
+        username = session.get("user")
+        if not username:
+            return redirect(url_for("auth.login"))
+
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            logger.warning("Sesion invalida detectada para usuario inexistente: %s", username)
+            session.clear()
             return redirect(url_for("auth.login"))
         return f(*args, **kwargs)
 
@@ -25,10 +33,21 @@ def require_admin(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
-        user = session.get("user")
-        if not user or session.get("role") != "admin":
-            logger.warning("Acceso denegado a ruta admin para usuario %s", user)
+        username = session.get("user")
+        if not username:
+            return redirect(url_for("auth.login"))
+
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            logger.warning("Sesion admin invalida para usuario inexistente: %s", username)
+            session.clear()
+            return redirect(url_for("auth.login"))
+
+        if user.role.lower() != "admin":
+            logger.warning("Acceso denegado a ruta admin para usuario %s", username)
             return redirect(url_for("dashboard.dashboard"))
+
+        session["role"] = user.role.lower()
         return f(*args, **kwargs)
 
     return decorated

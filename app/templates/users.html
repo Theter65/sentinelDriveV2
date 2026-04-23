@@ -65,24 +65,28 @@
                     </thead>
                     <tbody>
                         {% for u in users %}
+                        {% set protected_admin = u.role == 'admin' and admin_user_count <= 1 %}
                         <tr>
                             <td>{{ u.id }}</td>
                             <td class="fw-semibold">{{ u.username }}</td>
                             <td>
                                 <form action="{{ url_for('users.change_user_role', u_id=u.id) }}" method="POST" class="d-inline">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <select name="role" class="form-select d-inline-block w-auto" onchange="this.form.submit()">
+                                    <select name="role" class="form-select d-inline-block w-auto" onchange="this.form.submit()" {% if protected_admin %}disabled{% endif %}>
                                         <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Administrador</option>
                                         <option value="user" {% if u.role == 'user' %}selected{% endif %}>Usuario</option>
                                     </select>
                                 </form>
+                                {% if protected_admin %}
+                                <div class="text-muted small mt-1">Debe existir al menos un administrador.</div>
+                                {% endif %}
                             </td>
                             <td class="d-flex flex-wrap gap-2">
                                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#pwdModal{{ u.id }}">
                                     <i class="bi bi-key me-1"></i> Cambiar clave
                                 </button>
 
-                                {% if u.username != 'admin' %}
+                                {% if not protected_admin %}
                                 <form action="{{ url_for('users.delete_user', u_id=u.id) }}" method="POST" class="d-inline"
                                       onsubmit="return confirm('Eliminar usuario {{ u.username }}? Esta accion no se puede deshacer.');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -91,7 +95,7 @@
                                     </button>
                                 </form>
                                 {% else %}
-                                <span class="text-muted align-self-center">Protegido (Admin)</span>
+                                <span class="text-muted align-self-center">Protegido</span>
                                 {% endif %}
                             </td>
                         </tr>

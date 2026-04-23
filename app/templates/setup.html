@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Configuracion inicial de SENTINLDRIVE">
+    <meta name="theme-color" content="#161a1e">
+    <title>Configuracion inicial - SENTINLDRIVE</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=static_version) }}">
+</head>
+<body class="d-flex align-items-stretch" style="min-height: 100vh;">
+<div class="container-fluid">
+    <div class="row g-0" style="min-height: 100vh;">
+        <div class="col-xl-5 d-none d-xl-flex align-items-center p-5">
+            <div class="w-100">
+                <div class="mb-4">
+                    <img src="{{ url_for('static', filename='img/logoname.png') }}" alt="SENTINLDRIVE" class="img-fluid" style="max-height: 140px;">
+                    <div class="text-muted mt-3">Aqui dejaras lista la cuenta principal y, si ya la tienes, tambien la conexion para recibir ubicaciones y alertas.</div>
+                </div>
+
+                <div class="card p-4">
+                    <div class="h5 mb-3">Que configuraras hoy</div>
+                    <div class="settings-summary">
+                        <div class="settings-summary-item">
+                            <strong>Cuenta principal</strong>
+                            <span>Esta sera la cuenta con la que podras entrar al sistema y hacer cambios importantes.</span>
+                        </div>
+                        <div class="settings-summary-item">
+                            <strong>Conexion de seguimiento</strong>
+                            <span>Si ya tienes los datos del servidor, puedes dejarlos guardados ahora para empezar a recibir informacion de los buses.</span>
+                        </div>
+                        <div class="settings-summary-item">
+                            <strong>Seguridad de cambios</strong>
+                            <span>Cada cambio delicado volvera a pedir tu clave para evitar errores o modificaciones accidentales.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-7 d-flex align-items-center justify-content-center p-4 p-lg-5">
+            <div class="w-100" style="max-width: 820px;">
+                <div class="text-center mb-4 d-xl-none">
+                    <img src="{{ url_for('static', filename='img/logoname.png') }}" alt="SENTINLDRIVE" class="img-fluid" style="max-height: 120px;">
+                    <div class="text-muted mt-2">Configuracion inicial del sistema</div>
+                </div>
+
+                <div class="card p-4 p-lg-5">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+                        <div>
+                            <div class="h4 mb-1">Configuracion inicial</div>
+                            <div class="text-muted">Crea la cuenta principal y, si quieres, deja lista la conexion para que el sistema empiece a recibir datos.</div>
+                        </div>
+                        <span class="badge badge-soft">Primer arranque</span>
+                    </div>
+
+                    {% if error %}
+                    <div class="alert alert-danger" role="alert">{{ error }}</div>
+                    {% endif %}
+
+                    <form method="POST" class="d-grid gap-4">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div>
+                            <div class="settings-section-title"><i class="bi bi-person-badge"></i>Cuenta principal</div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Nombre de usuario</label>
+                                    <input type="text" name="admin_username" class="form-control" minlength="4" required value="{{ form_data.admin_username }}">
+                                    <div class="field-explain">Este nombre se usara para entrar al sistema.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Clave</label>
+                                    <input type="password" name="admin_password" class="form-control" minlength="8" autocomplete="new-password" required>
+                                    <div class="field-explain">Usa una clave que recuerdes con facilidad, pero que otras personas no puedan adivinar.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Repite la clave</label>
+                                    <input type="password" name="confirm_password" class="form-control" minlength="8" autocomplete="new-password" required>
+                                    <div class="field-explain">Es solo para confirmar que escribiste la clave correctamente.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card settings-panel border-0">
+                            <div class="card-body">
+                                <div class="settings-section-title"><i class="bi bi-broadcast"></i>Conexion para recibir datos</div>
+                                <div class="settings-intro">
+                                    Esta parte sirve para enlazar la aplicacion con el servicio que envia la ubicacion y las alertas de los buses. Si decides completarla ahora, la aplicacion comprobara la conexion antes de guardar.
+                                </div>
+                                <div class="switch-block">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="configureMqttNow" name="configure_mqtt_now" {% if form_data.configure_mqtt_now %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold" for="configureMqttNow">Quiero dejar esta conexion lista ahora</label>
+                                    </div>
+                                    <div class="switch-copy text-muted small">
+                                        Si activas esta opcion, ya podras guardar aqui el servidor, la cuenta y los canales por donde llegaran los datos.
+                                    </div>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-8">
+                                        <label class="form-label">Direccion del servidor</label>
+                                        <input type="text" name="mqtt_broker" class="form-control" value="{{ form_data.mqtt_broker }}">
+                                        <div class="field-explain">Es la direccion del servicio que enviara la informacion a esta aplicacion.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Puerto</label>
+                                        <input type="number" name="mqtt_port" class="form-control" min="1" value="{{ form_data.mqtt_port }}">
+                                        <div class="field-explain">Es el numero de acceso que usa el servidor para la conexion.</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Usuario del servidor</label>
+                                        <input type="text" name="mqtt_username" class="form-control" value="{{ form_data.mqtt_username }}">
+                                        <div class="field-explain">La cuenta autorizada para conectar esta aplicacion.</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Clave del servidor</label>
+                                        <input type="password" name="mqtt_password" class="form-control" autocomplete="new-password">
+                                        <div class="field-explain">La clave asociada a la cuenta anterior.</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Canal de ubicaciones</label>
+                                        <input type="text" name="mqtt_topic_gps" class="form-control" value="{{ form_data.mqtt_topic_gps }}">
+                                        <div class="field-explain"><strong>Ubicaciones:</strong> por aqui llegara la posicion de cada bus.</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Canal de alertas</label>
+                                        <input type="text" name="mqtt_topic_event" class="form-control" value="{{ form_data.mqtt_topic_event }}">
+                                        <div class="field-explain"><strong>Alertas:</strong> por aqui llegaran los eventos importantes, como avisos o incidentes.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div class="text-muted small">Cuando termines, entraras directamente al panel principal.</div>
+                            <button type="submit" class="btn btn-primary btn-lg">Finalizar configuracion</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

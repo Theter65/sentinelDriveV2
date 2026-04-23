@@ -10,6 +10,8 @@ from pathlib import Path
 from .config import Config
 from .extensions import db, csrf
 from .models.init_data import ensure_database_indexes
+from .models.system_setting import SystemSetting  # noqa: F401
+from .utils.time import ecuador_now
 
 # Importación de blueprints (rutas modulares)
 from .routes.auth import auth_bp
@@ -46,7 +48,25 @@ def create_app(config_class=Config):
                 v = max(v, int(p.stat().st_mtime))
             except OSError:
                 pass
-        return {"static_version": v}
+        from .mqtt.subscriber import MQTT_STATE
+
+        mqtt_ready = bool(MQTT_STATE.get("configuration_ready"))
+        mqtt_connected = bool(MQTT_STATE.get("connected"))
+        if not mqtt_ready:
+            mqtt_label = "Configuracion pendiente"
+        elif mqtt_connected:
+            mqtt_label = "Datos en linea"
+        else:
+            mqtt_label = "Sin comunicacion"
+
+        return {
+            "static_version": v,
+            "layout_mqtt_state": MQTT_STATE,
+            "layout_mqtt_ready": mqtt_ready,
+            "layout_mqtt_connected": mqtt_connected,
+            "layout_mqtt_label": mqtt_label,
+            "current_year": ecuador_now().year,
+        }
 
     # Inicializar extensiones globales
     db.init_app(app)

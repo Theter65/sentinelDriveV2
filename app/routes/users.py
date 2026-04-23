@@ -1,4 +1,4 @@
-from flask import Blueprint, flash, render_template, request, redirect, url_for
+from flask import Blueprint, flash, render_template, request, redirect, session, url_for
 from werkzeug.security import generate_password_hash
 
 from app.decorators import require_admin
@@ -12,11 +12,17 @@ logger = get_logger(__name__)
 users_bp = Blueprint("users", __name__)
 
 
+def _admin_count() -> int:
+    return User.query.filter_by(role="admin").count()
+
+
 def _users_page(error=None):
     return render_template(
         "users.html",
         users=User.query.order_by(User.username.asc()).all(),
         error=error,
+        admin_user_count=_admin_count(),
+        current_username=session.get("user"),
     )
 
 
@@ -60,6 +66,9 @@ def change_user_role(u_id):
     user = User.query.get_or_404(u_id)
     new_role = (request.form.get("role") or "").strip().lower()
     if new_role in ["admin", "user"]:
+        if user.role == "admin" and new_role != "admin" and _admin_count() <= 1:
+            flash("Debe existir al menos un administrador activo en el sistema.", "danger")
+            return redirect(url_for("users.users"))
         old_role = user.role
         user.role = new_role
         db.session.commit()
@@ -72,10 +81,11 @@ def change_user_role(u_id):
 @users_bp.route("/users/delete/<int:u_id>", methods=["POST"])
 @require_admin
 def delete_user(u_id):
-    """Elimina un usuario, excepto el admin principal."""
+    """Elimina un usuario, preservando al menos un administrador activo."""
     user = User.query.get_or_404(u_id)
-    if user.username == "admin":
-        logger.warning("Intento de eliminar usuario admin bloqueado")
+    if user.role == "admin" and _admin_count() <= 1:
+        flash("No puedes eliminar al ultimo administrador del sistema.", "danger")
+        logger.warning("Intento de eliminar el ultimo administrador bloqueado")
         return redirect(url_for("users.users"))
     username = user.username
     db.session.delete(user)

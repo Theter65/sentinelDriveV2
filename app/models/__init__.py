@@ -5,3 +5,4 @@ from .bus import Bus
 from .event import Event
 from .location import Location
 from .maintenance import Maintenance
+from .system_setting import SystemSetting

@@ -44,7 +44,15 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <div class="kpi-label">MQTT</div>
-                        <div class="kpi-value">{% if mqtt_connected %}Conectado{% else %}Desconectado{% endif %}</div>
+                        <div class="kpi-value">
+                            {% if not mqtt_state.configuration_ready %}
+                                Sin configurar
+                            {% elif mqtt_connected %}
+                                Conectado
+                            {% else %}
+                                Desconectado
+                            {% endif %}
+                        </div>
                         <div class="text-muted small">
                             {% if mqtt_state.last_message %}Ultimo mensaje: {{ mqtt_state.last_message.strftime('%H:%M:%S') }}{% else %}Sin mensajes aun{% endif %}
                             {% if mqtt_state.last_error %} · Error: {{ mqtt_state.last_error }}{% endif %}
@@ -52,7 +60,7 @@
                     </div>
                     <div class="badge {% if mqtt_connected %}badge-soft{% else %}badge-danger-soft{% endif %}">
                         <i class="bi {% if mqtt_connected %}bi-broadcast{% else %}bi-broadcast-pin{% endif %} me-1"></i>
-                        {% if mqtt_connected %}Online{% else %}Offline{% endif %}
+                        {% if not mqtt_state.configuration_ready %}Pendiente{% elif mqtt_connected %}Online{% else %}Offline{% endif %}
                     </div>
                 </div>
             </div>

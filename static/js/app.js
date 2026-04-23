@@ -1,4 +1,4 @@
-/* Global UI behavior: sidebar toggle, flash auto-dismiss, event toasts. */
+/* Global UI behavior: layout readiness, nav highlighting and event toasts. */
 
 function $(id) {
   return document.getElementById(id);
@@ -27,45 +27,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function setSidebarCollapsed(isCollapsed) {
-  const sidebar = $("sidebar");
-  const mainContent = $("mainContent");
-  const toggleBtn = $("sidebarToggle");
-  if (!sidebar || !mainContent || !toggleBtn) return;
-
-  sidebar.classList.toggle("collapsed", isCollapsed);
-  mainContent.style.marginLeft = isCollapsed ? "78px" : "268px";
-  toggleBtn.style.left = isCollapsed ? "56px" : "248px";
-  toggleBtn.innerHTML = isCollapsed ? '<i class="bi bi-arrow-right"></i>' : '<i class="bi bi-list"></i>';
-}
-
-function initSidebar() {
-  const sidebar = $("sidebar");
-  const toggleBtn = $("sidebarToggle");
-  const mainContent = $("mainContent");
-  if (!sidebar || !toggleBtn || !mainContent) return;
-
-  toggleBtn.addEventListener("click", () => {
-    const isCollapsed = !sidebar.classList.contains("collapsed");
-    setSidebarCollapsed(isCollapsed);
-    try {
-      localStorage.setItem("sd_sidebar_collapsed", String(isCollapsed));
-    } catch {
-      // ignore
-    }
-  });
-
-  let initialCollapsed = false;
-  try {
-    initialCollapsed = localStorage.getItem("sd_sidebar_collapsed") === "true";
-  } catch {
-    // ignore
-  }
-
-  if (window.innerWidth < 992) initialCollapsed = true;
-  setSidebarCollapsed(initialCollapsed);
-
-  // Reactivar transiciones despues del primer layout.
+function initLayout() {
   setTimeout(() => document.body.classList.remove("no-transition"), 100);
 }
 
@@ -73,6 +35,20 @@ function initActiveNav() {
   const currentPath = window.location.pathname;
   document.querySelectorAll(".nav-link").forEach((link) => {
     if (link.getAttribute("href") === currentPath) link.classList.add("active");
+  });
+}
+
+function initNavbarMenu() {
+  const navbarMenu = $("navbarMenu");
+  if (!navbarMenu || !window.bootstrap) return;
+
+  const collapse = bootstrap.Collapse.getOrCreateInstance(navbarMenu, { toggle: false });
+  navbarMenu.querySelectorAll(".nav-link").forEach((link) => {
+    link.addEventListener("click", () => {
+      if (window.innerWidth < 992 && navbarMenu.classList.contains("show")) {
+        collapse.hide();
+      }
+    });
   });
 }
 
@@ -202,7 +178,8 @@ function initEventNotifications() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  initSidebar();
+  initLayout();
   initActiveNav();
+  initNavbarMenu();
   initEventNotifications();
 });
