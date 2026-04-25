@@ -11,6 +11,11 @@ from app.models.bus import Bus
 from app.models.event import Event
 from app.models.location import Location
 from app.models.maintenance import Maintenance
+from app.services.analytics_service import (
+    build_analytics_payload,
+    build_chart_data as build_analytics_chart_data,
+    resolve_filter_values,
+)
 from app.utils.logging import get_logger
 from app.utils.time import ecuador_now
 
@@ -34,12 +39,15 @@ def get_time_filter(period):
     return now - delta, now
 
 
-def calculate_risk_score(events_by_type):
-    weights = {
-        "Frenado brusco": 0.6,
-        "Exceso de velocidad": 0.4,
-    }
-    return round(sum(weights.get(event_type, 0) * count for event_type, count in events_by_type), 2)
+def get_report_filter_values():
+    selected_period = request.args.get("period", "month")
+    default_start, default_end = get_time_filter(selected_period)
+    start_time, end_time, speed_limit = resolve_filter_values(
+        request.args,
+        default_start=default_start,
+        default_end=default_end,
+    )
+    return selected_period, start_time, end_time, speed_limit
 
 
 def get_speed_stats(*filters):
@@ -102,15 +110,6 @@ def get_events_by_hour(*filters):
     )
 
 
-def build_chart_data(events_by_type, events_by_hour):
-    return {
-        "labels": [row[0] for row in events_by_type],
-        "data": [row[1] for row in events_by_type],
-        "hour_labels": [int(row[0]) for row in events_by_hour],
-        "hour_data": [row[1] for row in events_by_hour],
-    }
-
-
 def get_bus_events_table(start_time, end_time):
     return (
         db.session.query(
@@ -170,66 +169,59 @@ def get_maintenance_by_driver(start_time, end_time):
     return results
 
 
-def build_group_stats(start_time, end_time):
+def build_group_stats(start_time, end_time, speed_limit):
     event_filter = Event.timestamp.between(start_time, end_time)
-    location_filter = Location.timestamp.between(start_time, end_time)
     events_by_type = get_events_by_type(event_filter)
     events_by_hour = get_events_by_hour(event_filter)
-    speed_stats = get_speed_stats(location_filter)
+    analytics = build_analytics_payload(None, start_time, end_time, speed_limit)
+    summary = analytics["summary"]
     return {
         "total_events": sum(row[1] for row in events_by_type),
         "events_by_type": events_by_type,
         "events_by_hour": events_by_hour,
-        "avg_speed": speed_stats["avg_speed"],
-        "max_speed": speed_stats["max_speed"],
-        "min_speed": speed_stats["min_speed"],
-        "risk_score": calculate_risk_score(events_by_type),
-        "speed_histogram": get_speed_histogram(location_filter),
+        "avg_speed": summary["speed_avg"],
+        "max_speed": summary["speed_max"],
+        "min_speed": summary["speed_min"],
+        "analytics": analytics,
+        "summary": summary,
         "bus_events_table": get_bus_events_table(start_time, end_time),
         "maintenance_by_driver": get_maintenance_by_driver(start_time, end_time),
     }
 
 
-def build_individual_stats(selected_bus_id, start_time, end_time):
+def build_individual_stats(selected_bus_id, start_time, end_time, speed_limit):
     bus = Bus.query.get_or_404(selected_bus_id)
     event_filters = [
         Event.bus_id == selected_bus_id,
         Event.timestamp.between(start_time, end_time),
     ]
-    location_filters = [
-        Location.bus_id == selected_bus_id,
-        Location.timestamp.between(start_time, end_time),
-    ]
     events_by_type = get_events_by_type(*event_filters)
     events_by_hour = get_events_by_hour(*event_filters)
-    speed_stats = get_speed_stats(*location_filters)
+    analytics = build_analytics_payload(selected_bus_id, start_time, end_time, speed_limit)
+    summary = analytics["summary"]
     individual_stats = {
         "bus": bus,
         "total_events": sum(row[1] for row in events_by_type),
         "events_by_type": events_by_type,
         "events_by_hour": events_by_hour,
-        "avg_speed": speed_stats["avg_speed"],
-        "max_speed": speed_stats["max_speed"],
-        "min_speed": speed_stats["min_speed"],
-        "risk_score": calculate_risk_score(events_by_type),
-        "speed_histogram": get_speed_histogram(*location_filters),
+        "avg_speed": summary["speed_avg"],
+        "max_speed": summary["speed_max"],
+        "min_speed": summary["speed_min"],
+        "analytics": analytics,
+        "summary": summary,
     }
-    return individual_stats, build_chart_data(events_by_type, events_by_hour)
+    return individual_stats, build_analytics_chart_data(analytics)
 
 
 @reports_bp.route("/reports")
 @login_required
 def reports():
-    selected_period = request.args.get("period", "month")
     selected_bus_id = request.args.get("bus_id", type=int)
-    start_time, end_time = get_time_filter(selected_period)
+    selected_period, start_time, end_time, selected_speed_limit = get_report_filter_values()
     buses = Bus.query.order_by(Bus.plate.asc()).all()
 
-    group_stats = build_group_stats(start_time, end_time)
-    group_chart_data = build_chart_data(
-        group_stats["events_by_type"],
-        group_stats["events_by_hour"],
-    )
+    group_stats = build_group_stats(start_time, end_time, selected_speed_limit)
+    group_chart_data = build_analytics_chart_data(group_stats["analytics"])
 
     individual_stats = None
     individual_chart_data = None
@@ -238,6 +230,7 @@ def reports():
             selected_bus_id,
             start_time,
             end_time,
+            selected_speed_limit,
         )
 
     return render_template(
@@ -249,15 +242,17 @@ def reports():
         individual_chart_data=individual_chart_data,
         selected_period=selected_period,
         selected_bus_id=selected_bus_id,
+        selected_speed_limit=selected_speed_limit,
+        date_from_value=start_time.date().isoformat(),
+        date_to_value=end_time.date().isoformat(),
     )
 
 
 @reports_bp.route("/reports/download_csv")
 @login_required
 def download_csv():
-    selected_period = request.args.get("period", "month")
+    selected_period, start_time, end_time, _speed_limit = get_report_filter_values()
     selected_bus_id = request.args.get("bus_id", type=int)
-    start_time, end_time = get_time_filter(selected_period)
     output = io.StringIO()
     writer = csv.writer(output)
 

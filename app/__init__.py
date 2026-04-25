@@ -11,6 +11,7 @@ from .config import Config
 from .extensions import db, csrf
 from .models.init_data import ensure_database_indexes
 from .models.system_setting import SystemSetting  # noqa: F401
+from .models.analytics import AnalyticsRun  # noqa: F401
 from .utils.time import ecuador_now
 
 # Importación de blueprints (rutas modulares)
@@ -23,6 +24,7 @@ from .routes.reports import reports_bp
 from .routes.maintenance import maintenance_bp
 from .routes.users import users_bp
 from .routes.admin import admin_bp
+from .routes.analytics import analytics_bp
 
 def create_app(config_class=Config):
     """
@@ -82,6 +84,7 @@ def create_app(config_class=Config):
     app.register_blueprint(maintenance_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(analytics_bp)
 
     # Crear tablas (sin datos iniciales)
     with app.app_context():
