@@ -1540,3 +1540,552 @@ html[data-theme="glass-dark"] .toast-header {
     max-height: 78vh;
   }
 }
+
+/* Mobile polish and lighter glass performance pass */
+.liquid-glass,
+.glass-card,
+.glass-panel,
+.glass-chart,
+.glass-chart-card,
+.glass-table,
+html[data-theme="glass-dark"] .card,
+html[data-theme="glass-dark"] .chart-card,
+html[data-theme="glass-dark"] .analytics-filter,
+html[data-theme="glass-dark"] .analytics-hero {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 38px 12px rgba(255, 255, 255, 0.018) !important;
+}
+
+.liquid-glass-strong,
+.glass-card-strong,
+.glass-panel-strong,
+html[data-theme="glass-dark"] .ico-card,
+html[data-theme="glass-dark"] .login-page .login-card,
+html[data-theme="glass-dark"] .login-page .features-card,
+html[data-theme="glass-dark"] .notification-center {
+  box-shadow:
+    0 10px 36px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 42px 14px rgba(255, 255, 255, 0.020) !important;
+}
+
+.liquid-glass::before,
+.liquid-glass-strong::before,
+.glass-card::before,
+.glass-card-sm::before,
+.glass-card-strong::before,
+.glass-panel::before,
+.glass-panel-strong::before,
+.glass-chart::before,
+.glass-chart-card::before,
+.glass-table::before,
+html[data-theme="glass-dark"] .card::before,
+html[data-theme="glass-dark"] .chart-card::before,
+html[data-theme="glass-dark"] .analytics-filter::before,
+html[data-theme="glass-dark"] .analytics-hero::before,
+html[data-theme="glass-dark"] .login-page .login-card::before,
+html[data-theme="glass-dark"] .login-page .features-card::before,
+html[data-theme="glass-dark"] .notification-center::before {
+  inset: 0 0 auto 0;
+  width: 100%;
+  height: 1px;
+  padding: 0;
+  border-radius: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.62), transparent) !important;
+  -webkit-mask: none;
+  mask: none;
+  opacity: 0.74;
+}
+
+.liquid-glass::after,
+.liquid-glass-strong::after,
+.glass-card::after,
+.glass-card-sm::after,
+.glass-card-strong::after,
+.glass-panel::after,
+.glass-panel-strong::after,
+.glass-chart::after,
+.glass-chart-card::after,
+.glass-table::after,
+html[data-theme="glass-dark"] .card::after,
+html[data-theme="glass-dark"] .chart-card::after,
+html[data-theme="glass-dark"] .analytics-filter::after,
+html[data-theme="glass-dark"] .analytics-hero::after,
+html[data-theme="glass-dark"] .login-page .login-card::after,
+html[data-theme="glass-dark"] .login-page .features-card::after,
+html[data-theme="glass-dark"] .notification-center::after {
+  inset: 0 auto 0 0;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.56), transparent 58%, rgba(255, 255, 255, 0.20)) !important;
+  opacity: 0.66;
+}
+
+@media (max-width: 991.98px) {
+  body.nav-drawer-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  .mobile-nav-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1048;
+    background: rgba(0, 0, 0, 0.36);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 180ms ease, visibility 180ms ease;
+    pointer-events: none;
+  }
+
+  .mobile-nav-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .container-fluid {
+    align-items: center;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 1051;
+    display: block !important;
+    width: min(86vw, 380px);
+    height: 100dvh;
+    max-height: none;
+    margin-top: 0;
+    padding: calc(var(--header-height, 64px) + 1.25rem) 1rem 1.2rem;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    border-radius: 28px 0 0 28px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.060), rgba(255, 255, 255, 0.026)),
+      rgba(12, 16, 22, 0.78) !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transform: translate3d(105%, 0, 0);
+    transition: transform 220ms ease, opacity 220ms ease, visibility 220ms ease;
+    will-change: transform, opacity;
+    contain: layout paint;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      -18px 0 42px rgba(0, 0, 0, 0.36);
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translate3d(0, 0, 0);
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse.collapsing,
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse.collapse:not(.show) {
+    display: block !important;
+    height: 100dvh !important;
+    transition: transform 220ms ease, opacity 220ms ease, visibility 220ms ease;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-nav {
+    width: 100%;
+    margin-left: 0 !important;
+    padding: 0;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 0.58rem;
+    text-align: left;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-item,
+  html[data-theme="glass-dark"] .app-navbar .nav-item form {
+    width: 100%;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button {
+    width: 100%;
+    justify-content: flex-start !important;
+    text-align: left;
+    min-height: 52px;
+    padding: 0.84rem 1.05rem;
+    border-radius: 999px;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .events-badge {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 767.98px) {
+  html[data-theme="glass-dark"] body::before,
+  html[data-theme="glass-dark"] body::after {
+    opacity: 0.22;
+  }
+
+  .ambient-bg {
+    opacity: 0.62;
+  }
+
+  .ambient-bg span {
+    animation: none !important;
+    opacity: 0 !important;
+    transform: none !important;
+    filter: blur(0.6px) saturate(0.68) contrast(0.88);
+  }
+
+  .ambient-bg span:first-child {
+    opacity: 0.14 !important;
+  }
+
+  .ambient-bg::after {
+    opacity: 0.16;
+    mix-blend-mode: normal;
+  }
+
+  html[data-theme="glass-dark"] .card,
+  html[data-theme="glass-dark"] .glass-panel,
+  html[data-theme="glass-dark"] .glass-card,
+  html[data-theme="glass-dark"] .liquid-glass,
+  html[data-theme="glass-dark"] .liquid-glass-strong {
+    animation: none !important;
+  }
+
+  .liquid-glass,
+  .liquid-glass-strong,
+  .glass-card,
+  .glass-card-strong,
+  .glass-panel,
+  .glass-panel-strong,
+  html[data-theme="glass-dark"] .card,
+  html[data-theme="glass-dark"] .chart-card,
+  html[data-theme="glass-dark"] .notification-center {
+    backdrop-filter: blur(11px) saturate(118%) !important;
+    -webkit-backdrop-filter: blur(11px) saturate(118%) !important;
+    box-shadow:
+      0 8px 26px rgba(0, 0, 0, 0.20),
+      inset 0 1px 0 rgba(255, 255, 255, 0.26),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.07),
+      inset 0 0 28px 8px rgba(255, 255, 255, 0.014) !important;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link:hover,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button:hover,
+  html[data-theme="glass-dark"] .btn:hover {
+    transform: none;
+  }
+
+  .main-content {
+    will-change: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav-overlay,
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse {
+    transition: none !important;
+  }
+}
+
+.event-position-cell {
+  min-width: 142px;
+}
+
+.event-position-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  max-width: 100%;
+  padding: 0.34rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.event-position-link i {
+  color: var(--accent-green);
+  flex: 0 0 auto;
+}
+
+.event-position-link:hover,
+.event-position-link:focus {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.075);
+  color: var(--text-primary);
+}
+
+.event-position-disabled {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 767.98px) {
+  html[data-theme="glass-dark"] .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html[data-theme="glass-dark"] .table {
+    font-size: 0.78rem;
+  }
+
+  .event-position-cell {
+    min-width: 118px;
+  }
+
+  .event-position-link {
+    align-items: flex-start;
+    border-radius: 16px;
+    white-space: normal;
+  }
+
+  .event-position-link span {
+    display: inline-block;
+    max-width: 7.5rem;
+    line-height: 1.35;
+  }
+}
+
+/* Mobile sidebar final tuning: compact right-aligned links and cheap animation */
+@media (max-width: 991.98px) {
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse {
+    top: 0;
+    right: 0;
+    width: min(82vw, 360px);
+    height: 100dvh;
+    padding: calc(var(--header-height, 64px) + 1.05rem) 0.92rem 1rem;
+    border-radius: 26px 0 0 26px;
+    background: rgba(8, 12, 18, 0.94) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: -18px 0 42px rgba(0, 0, 0, 0.36) !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    transform: translate3d(104%, 0, 0);
+    transition:
+      transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 180ms ease,
+      visibility 180ms ease;
+    will-change: transform, opacity;
+    contain: layout paint;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse.is-open {
+    transform: translate3d(0, 0, 0);
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse::before,
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse::after {
+    display: none !important;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-nav {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end !important;
+    justify-content: flex-start !important;
+    gap: 0.62rem;
+    margin: 0 !important;
+    padding: 0;
+    overflow: visible;
+    text-align: right;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-item {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-item form {
+    width: auto !important;
+    display: flex;
+    justify-content: flex-end;
+    margin-left: auto !important;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button {
+    width: fit-content !important;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    margin-left: auto !important;
+    padding: 0.72rem 0.95rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end !important;
+    gap: 0.62rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    text-align: right;
+    background: rgba(255, 255, 255, 0.055) !important;
+    border: 1px solid rgba(255, 255, 255, 0.085) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transform: translateZ(0);
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link::before,
+  html[data-theme="glass-dark"] .app-navbar .nav-link::after,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button::before,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button::after {
+    display: none !important;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link:hover,
+  html[data-theme="glass-dark"] .app-navbar .nav-link:focus,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button:hover,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button:focus {
+    background: rgba(255, 255, 255, 0.082) !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    transform: translateZ(0);
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link.active {
+    background: rgba(255, 255, 255, 0.075) !important;
+    border-color: rgba(34, 214, 122, 0.32) !important;
+    box-shadow: inset 0 -2px 0 rgba(34, 214, 122, 0.50) !important;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link i,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button i {
+    flex: 0 0 auto;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .events-badge {
+    margin-left: 0.45rem;
+  }
+
+  .mobile-nav-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transition: opacity 180ms ease, visibility 180ms ease;
+  }
+}
+
+@media (max-width: 420px) {
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse {
+    width: min(84vw, 330px);
+    padding-inline: 0.78rem;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button {
+    min-height: 44px;
+    padding: 0.66rem 0.86rem;
+    font-size: 0.88rem;
+  }
+}
+
+/* Mobile sidebar card mode: compact floating menu, hamburger remains visible */
+@media (max-width: 991.98px) {
+  html[data-theme="glass-dark"] .app-navbar-toggler {
+    position: relative;
+    z-index: 1060;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse {
+    top: calc(var(--header-height, 64px) + var(--nav-height, 58px) + 0.55rem);
+    right: 1rem;
+    z-index: 1049;
+    width: auto;
+    min-width: 230px;
+    max-width: min(82vw, 340px);
+    height: auto;
+    max-height: calc(100dvh - 120px);
+    padding: 0.82rem;
+    border-radius: 28px;
+    background: rgba(8, 12, 18, 0.94) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38) !important;
+    transform: translate3d(16px, -8px, 0) scale(0.98);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    transition:
+      transform 180ms ease,
+      opacity 160ms ease,
+      visibility 160ms ease;
+    will-change: transform, opacity;
+    contain: layout paint;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse.is-open {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse.collapsing,
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse.collapse:not(.show) {
+    height: auto !important;
+    max-height: calc(100dvh - 120px) !important;
+    transition:
+      transform 180ms ease,
+      opacity 160ms ease,
+      visibility 160ms ease;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .navbar-nav {
+    align-items: flex-end !important;
+    gap: 0.58rem;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button {
+    min-height: 42px;
+    padding: 0.64rem 0.9rem;
+    background: rgba(255, 255, 255, 0.052) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link.active {
+    background: rgba(255, 255, 255, 0.072) !important;
+    border-color: rgba(34, 214, 122, 0.30) !important;
+    box-shadow: inset 0 -2px 0 rgba(34, 214, 122, 0.42) !important;
+  }
+
+  .mobile-nav-overlay {
+    background: rgba(0, 0, 0, 0.38);
+    transition: opacity 160ms ease, visibility 160ms ease;
+  }
+}
+
+@media (max-width: 420px) {
+  html[data-theme="glass-dark"] .app-navbar .navbar-collapse {
+    right: 0.8rem;
+    min-width: 218px;
+    max-width: min(84vw, 320px);
+    padding: 0.74rem;
+  }
+
+  html[data-theme="glass-dark"] .app-navbar .nav-link,
+  html[data-theme="glass-dark"] .app-navbar .nav-logout-button {
+    min-height: 40px;
+    padding: 0.58rem 0.78rem;
+  }
+}

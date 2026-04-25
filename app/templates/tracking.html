@@ -74,11 +74,44 @@
         maxZoom: 18,
     }).addTo(map);
 
+    const selectedEvent = {{ selected_event|tojson }};
     let currentMarker = null;
+    let selectedEventMarker = null;
 
     function setText(id, value) {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
+    function showSelectedEventMarker() {
+        if (!selectedEvent || selectedEvent.lat === null || selectedEvent.lon === null) return;
+        const lat = Number(selectedEvent.lat);
+        const lon = Number(selectedEvent.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+        const timestamp = selectedEvent.timestamp ? new Date(selectedEvent.timestamp).toLocaleString('es-EC') : 'Sin fecha';
+        const valueLine = selectedEvent.value === null || selectedEvent.value === undefined ? '' : `<br><b>Valor:</b> ${escapeHtml(selectedEvent.value)}`;
+        const descriptionLine = selectedEvent.description ? `<br><b>Detalle:</b> ${escapeHtml(selectedEvent.description)}` : '';
+        selectedEventMarker = L.marker([lat, lon], {
+            title: 'Evento seleccionado',
+            zIndexOffset: 1000,
+        }).addTo(map);
+        selectedEventMarker.bindPopup(
+            `<b>${escapeHtml(selectedEvent.type || 'Evento seleccionado')}</b><br>
+             <b>Bus:</b> ${escapeHtml(selectedEvent.bus_label || 'Sin bus')}${valueLine}${descriptionLine}<br>
+             <b>Hora:</b> ${escapeHtml(timestamp)}<br>
+             <b>Coordenadas:</b> ${lat.toFixed(6)}, ${lon.toFixed(6)}`
+        ).openPopup();
+        map.setView([lat, lon], 16);
     }
 
     function setTelemetryBadge(isConnected) {
@@ -148,5 +181,7 @@
         const busId = document.getElementById('bus-select').value;
         if (busId) loadBusPosition(busId);
     }, 15000);
+
+    showSelectedEventMarker();
 </script>
 {% endblock %}

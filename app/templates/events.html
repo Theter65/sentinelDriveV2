@@ -52,11 +52,20 @@
                             {% endif %}
                         </td>
                         <td class="text-end">{{ e.value if e.value is not none else 'N/A' }}</td>
-                        <td class="text-muted">
-                            {% if e.latitude and e.longitude %}
-                                {{ e.latitude|round(6) }} / {{ e.longitude|round(6) }}
+                        <td class="text-muted event-position-cell">
+                            {% if e.latitude is not none and e.longitude is not none %}
+                                <a
+                                    class="event-position-link"
+                                    href="{{ url_for('tracking.tracking', lat=e.latitude, lon=e.longitude, event_id=e.id, bus_id=e.bus_id) }}"
+                                    title="Ver ubicación en mapa"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-placement="top"
+                                >
+                                    <i class="bi bi-geo-alt-fill"></i>
+                                    <span>{{ e.latitude|round(6) }} / {{ e.longitude|round(6) }}</span>
+                                </a>
                             {% else %}
-                                N/A
+                                <span class="event-position-disabled">Sin posición</span>
                             {% endif %}
                         </td>
                         <td class="text-muted">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
