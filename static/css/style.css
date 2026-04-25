@@ -34,6 +34,10 @@
   --transition: 0.22s ease;
   --sidebar-width: 268px;
   --sidebar-collapsed-width: 78px;
+  --header-height: 64px;
+  --nav-height: 58px;
+  --logo-size-navbar: 42px;
+  --logo-size-compact: 36px;
 
   /* ======= FONT SIZES (compact) ======= */
   --font-size-body: 14px;
@@ -669,24 +673,41 @@ h6, .h6 { font-size: 13px; }
 }
 
 .site-header {
-  position: relative;
-  z-index: 1030;
+  position: sticky;
+  top: 0;
+  z-index: 1050;
+  overflow: visible;
+  background: rgba(12, 16, 20, 0.72);
+  border-bottom: 1px solid rgba(34, 197, 94, 0.18);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .top-bar {
-  background: linear-gradient(90deg, rgba(9, 12, 15, 0.98), rgba(22, 26, 30, 0.96));
-  border-bottom: 1px solid rgba(34, 197, 94, 0.12);
-  padding: 0.5rem 0;
+  min-height: var(--logo-size-compact);
+  background: linear-gradient(90deg, rgba(9, 12, 15, 0.64), rgba(22, 26, 30, 0.46));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 0.22rem 0;
 }
 
+.top-compact,
 .top-info-list {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.5rem;
+  gap: 0.65rem;
   color: rgba(255, 255, 255, 0.82);
-  font-size: 0.84rem;
+  font-size: 0.78rem;
+  min-height: 28px;
+}
+
+.top-compact-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  min-width: 0;
 }
 
 .top-info-list span {
@@ -695,65 +716,116 @@ h6, .h6 { font-size: 13px; }
   gap: 0.55rem;
 }
 
-.top-info-list i {
+.top-info-list i,
+.top-info-button i,
+.top-user-pill i,
+.top-status-pill i {
   color: #4ade80;
 }
 
+.top-info-button,
+.top-user-pill,
 .top-status-pill {
-  padding: 0.35rem 0.75rem;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.24rem 0.62rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.top-info-button,
+.top-user-pill {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.top-info-button {
+  width: 30px;
+  justify-content: center;
+  padding: 0;
+}
+
+.top-user-pill span {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-status-pill.is-ok {
-  border-color: rgba(34, 197, 94, 0.28);
-  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.34);
+  background: rgba(34, 197, 94, 0.13);
 }
 
 .top-status-pill.is-warn {
-  border-color: rgba(245, 158, 11, 0.28);
-  background: rgba(245, 158, 11, 0.10);
+  border-color: rgba(245, 158, 11, 0.34);
+  background: rgba(245, 158, 11, 0.11);
+}
+
+.top-info-button:hover,
+.top-user-pill:hover,
+.top-status-pill:hover {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .app-navbar {
   background:
-    radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 32%),
-    rgba(29, 32, 37, 0.96);
-  backdrop-filter: blur(10px);
+    linear-gradient(90deg, rgba(29, 32, 37, 0.64), rgba(14, 18, 22, 0.58));
+  min-height: var(--nav-height);
+  max-height: none;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  padding: 10px 0;
+  box-shadow: none;
+  position: relative;
+  z-index: 1;
+  padding: 0.32rem 0;
 }
 
 .app-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.85rem;
-  margin-right: 1rem;
+  gap: 0.62rem;
+  min-height: var(--nav-height);
+  margin-right: 0.8rem;
+  padding: 0;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .app-brand .brand-mark {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
+  width: var(--logo-size-navbar);
+  height: var(--logo-size-navbar);
+  max-height: var(--logo-size-navbar);
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 12px;
   border: 1px solid rgba(34, 197, 94, 0.24);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
-  display: none;
+  display: block;
 }
 
-.app-brand .brand-name {
-  height: 72px;
-  max-width: 280px;
+.app-brand .brand-text {
+  color: var(--text);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  font-size: 0.98rem;
+  white-space: nowrap;
 }
 
 .app-navbar-toggler {
   color: var(--text);
-  font-size: 1.75rem;
-  padding: 0.25rem 0.5rem;
+  font-size: 1.45rem;
+  min-height: 40px;
+  padding: 0.18rem 0.42rem;
+  border-radius: 12px;
 }
 
 .app-navbar-toggler:focus {
@@ -761,22 +833,36 @@ h6, .h6 { font-size: 13px; }
 }
 
 .app-navbar .navbar-collapse {
-  padding-top: 0.25rem;
+  min-width: 0;
+  padding-top: 0;
+}
+
+.app-navbar .navbar-nav {
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .app-navbar .nav-link,
 .app-navbar .nav-logout-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: center;
+  gap: 0.42rem;
   margin: 0;
-  padding: 0.5rem 0.75rem;
+  min-height: 38px;
+  padding: 0.42rem 0.68rem;
   color: rgba(255, 255, 255, 0.84);
   border-radius: 999px;
-  border: 1px solid transparent;
-  font-size: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 0.8rem;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
   transition: background-color var(--transition), color var(--transition), border-color var(--transition), transform var(--transition);
   position: relative;
 }
@@ -792,15 +878,16 @@ h6, .h6 { font-size: 13px; }
 .app-navbar .nav-link:hover,
 .app-navbar .nav-logout-button:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(34, 197, 94, 0.22);
   transform: translateY(-1px);
 }
 
 .app-navbar .nav-link.active {
   color: var(--text);
-  background: rgba(34, 197, 94, 0.12);
-  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.08);
 }
 
 .app-navbar .nav-item-logout {
@@ -822,6 +909,21 @@ h6, .h6 { font-size: 13px; }
 
 .app-navbar .events-badge {
   margin-left: 0.2rem;
+}
+
+.glass-popover {
+  --bs-popover-bg: rgba(22, 26, 30, 0.94);
+  --bs-popover-border-color: rgba(34, 197, 94, 0.24);
+  --bs-popover-header-bg: rgba(34, 197, 94, 0.10);
+  --bs-popover-header-color: var(--text);
+  --bs-popover-body-color: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+}
+
+.glass-popover .popover-body {
+  white-space: pre-line;
 }
 
 .main-content {
@@ -1023,31 +1125,50 @@ h6, .h6 { font-size: 13px; }
 }
 
 @media (max-width: 991.98px) {
-  .top-info-list {
-    justify-content: center;
+  .top-compact {
+    justify-content: space-between;
   }
 
-  .app-brand .brand-name {
-    height: 48px;
-    max-width: 180px;
+  .top-user-pill span {
+    max-width: 8rem;
+  }
+
+  .app-brand {
+    min-height: 48px;
+  }
+
+  .app-brand .brand-mark {
+    width: var(--logo-size-compact);
+    height: var(--logo-size-compact);
+    max-height: var(--logo-size-compact);
+  }
+
+  .app-brand .brand-text {
+    font-size: 0.9rem;
   }
 
   .app-navbar .navbar-collapse {
-    margin-top: 1rem;
-    padding: 1rem;
-    border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(9, 12, 15, 0.72);
+    max-height: min(68vh, 520px);
+    margin-top: 0.45rem;
+    padding: 0.55rem;
+    overflow-y: auto;
+    border-radius: 16px;
+    border: 1px solid rgba(34, 197, 94, 0.16);
+    background: rgba(9, 12, 15, 0.86);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
   }
 
   .app-navbar .navbar-nav {
-    gap: 0.4rem;
+    gap: 0.35rem;
+    overflow-x: visible;
   }
 
   .app-navbar .nav-link,
   .app-navbar .nav-logout-button {
     width: 100%;
     justify-content: flex-start;
+    min-height: 38px;
   }
 
   .app-navbar .nav-item-logout {
@@ -1069,18 +1190,34 @@ h6, .h6 { font-size: 13px; }
     padding: 1.25rem 1rem 2.2rem;
   }
 
-  .top-info-list {
-    font-size: 0.78rem;
-    gap: 0.55rem 0.9rem;
+  .top-bar {
+    padding: 0.18rem 0;
   }
 
-  .app-brand .brand-mark {
-    width: 40px;
-    height: 40px;
+  .top-compact {
+    font-size: 0.74rem;
+    gap: 0.4rem;
   }
 
-  .app-brand .brand-name {
-    height: 40px;
-    max-width: 140px;
+  .top-status-pill {
+    max-width: 52vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .top-user-pill span {
+    display: none;
+  }
+
+  .app-brand .brand-text {
+    display: none;
+  }
+
+  .app-navbar {
+    min-height: 50px;
+  }
+
+  .app-brand {
+    min-height: 46px;
   }
 }

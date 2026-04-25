@@ -21,7 +21,7 @@ from app.models.location import Location
 from app.utils.time import ECUADOR_TZ, ecuador_now
 
 
-DEFAULT_SPEED_LIMIT = 50.0
+DEFAULT_SPEED_LIMIT = 80.0
 ICO_DESCRIPTION = (
     "Indicador estadistico descriptivo de criticidad operativa; no representa "
     "una prediccion de accidentes."
