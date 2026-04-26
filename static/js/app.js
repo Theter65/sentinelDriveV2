@@ -104,6 +104,16 @@ function initBootstrapPopovers() {
   });
 }
 
+function initModalLayering() {
+  document.querySelectorAll(".modal").forEach((modal) => {
+    modal.addEventListener("show.bs.modal", () => {
+      if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+      }
+    });
+  });
+}
+
 const NOTIFICATION_ITEMS_KEY = "sd_notification_items";
 const NOTIFICATION_READ_KEY = "sd_notification_read_ids";
 const MAX_STORED_NOTIFICATIONS = 60;
@@ -499,6 +509,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initActiveNav();
   initNavbarMenu();
   initBootstrapPopovers();
+  initModalLayering();
   initNotificationCenter();
   initEventNotifications();
 });

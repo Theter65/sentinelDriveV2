@@ -2089,3 +2089,23 @@ html[data-theme="glass-dark"] .notification-center::after {
     padding: 0.58rem 0.78rem;
   }
 }
+
+/* Bootstrap modals must stay above app overlays/backdrops */
+body.modal-open .main-content,
+body.modal-open .site-footer {
+  z-index: auto;
+}
+
+.modal {
+  z-index: 2300;
+}
+
+.modal-backdrop {
+  z-index: 2290;
+}
+
+body.modal-open .mobile-nav-overlay,
+body.modal-open .notification-backdrop,
+body.modal-open .notification-center {
+  display: none !important;
+}
