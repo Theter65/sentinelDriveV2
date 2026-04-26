@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import threading
 
 from dotenv import load_dotenv
@@ -19,7 +20,17 @@ logger.setLevel(log_level)
 app = create_app()
 
 
-if __name__ == "__main__":
+def run_mqtt_worker():
+    """Proceso dedicado para Render/Raspberry: solo escucha MQTT."""
+    logger.info("Iniciando worker MQTT dedicado")
+    with app.app_context():
+        initialize_database()
+        logger.info("Base de datos verificada para worker MQTT")
+    start_mqtt_subscriber(app)
+
+
+def run_development_server():
+    """Servidor local: Flask + suscriptor MQTT en background."""
     try:
         with app.app_context():
             initialize_database()
@@ -45,3 +56,10 @@ if __name__ == "__main__":
         logger.info("Servidor detenido por el usuario (Ctrl+C)")
     except Exception as exc:
         logger.critical("Error critico al iniciar el servidor: %s", exc, exc_info=True)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] in {"mqtt-worker", "worker", "mqtt"}:
+        run_mqtt_worker()
+    else:
+        run_development_server()

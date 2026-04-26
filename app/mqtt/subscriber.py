@@ -11,8 +11,8 @@ from app.models.event import Event
 from app.models.location import Location
 from app.mqtt.deduplication import should_process_message
 from app.utils.logging import get_logger
-from app.utils.system_settings import get_runtime_mqtt_settings
-from app.utils.time import ECUADOR_TZ
+from app.utils.system_settings import get_runtime_mqtt_settings, update_mqtt_runtime_state
+from app.utils.time import ECUADOR_TZ, ecuador_now
 
 
 logger = get_logger(__name__)
@@ -20,12 +20,14 @@ logger = get_logger(__name__)
 MQTT_STATE = {
     "connected": False,
     "configuration_ready": False,
+    "status": "no_config",
     "broker": None,
     "topic_gps": None,
     "topic_event": None,
     "last_connect": None,
     "last_disconnect": None,
     "last_message": None,
+    "last_heartbeat": None,
     "last_error": None,
 }
 
@@ -172,26 +174,73 @@ def test_mqtt_connection(
 def on_connect(client, userdata, flags, reason_code, properties=None):
     if reason_code == 0:
         logger.info("MQTT: conexion exitosa al broker")
-        MQTT_STATE["connected"] = True
-        MQTT_STATE["last_connect"] = datetime.now(ECUADOR_TZ)
-        MQTT_STATE["last_error"] = None
         for topic, qos in userdata.get("topics", []):
             client.subscribe(topic, qos=qos)
             logger.info("MQTT: suscrito a %s (QoS %s)", topic, qos)
+        app = userdata.get("app") if userdata else None
+        now = datetime.now(ECUADOR_TZ)
+        if app:
+            with app.app_context():
+                _set_mqtt_state(
+                    connected=True,
+                    configuration_ready=True,
+                    status="online",
+                    last_connect=now,
+                    last_heartbeat=now,
+                    last_error=None,
+                )
+                db.session.remove()
+        else:
+            _update_memory_state(
+                connected=True,
+                configuration_ready=True,
+                status="online",
+                last_connect=now,
+                last_heartbeat=now,
+                last_error=None,
+            )
     else:
         logger.error("MQTT: fallo de conexion - codigo %s", reason_code)
-        MQTT_STATE["connected"] = False
-        MQTT_STATE["last_error"] = f"connect_rc={reason_code}"
+        app = userdata.get("app") if userdata else None
+        if app:
+            with app.app_context():
+                _set_mqtt_state(
+                    connected=False,
+                    status="error",
+                    last_error=f"connect_rc={reason_code}",
+                )
+                db.session.remove()
+        else:
+            _update_memory_state(connected=False, status="error", last_error=f"connect_rc={reason_code}")
 
 
 def on_disconnect(client, userdata, disconnect_flags, reason_code, properties=None):
+    status = "offline" if reason_code == 0 else "error"
+    last_error = None
     if reason_code == 0:
         logger.info("MQTT: desconexion limpia")
     else:
         logger.warning("MQTT: desconexion inesperada - codigo %s", reason_code)
-        MQTT_STATE["last_error"] = f"disconnect_rc={reason_code}"
-    MQTT_STATE["connected"] = False
-    MQTT_STATE["last_disconnect"] = datetime.now(ECUADOR_TZ)
+        last_error = f"disconnect_rc={reason_code}"
+
+    app = userdata.get("app") if userdata else None
+    now = datetime.now(ECUADOR_TZ)
+    if app:
+        with app.app_context():
+            _set_mqtt_state(
+                connected=False,
+                status=status,
+                last_disconnect=now,
+                last_error=last_error,
+            )
+            db.session.remove()
+    else:
+        _update_memory_state(
+            connected=False,
+            status=status,
+            last_disconnect=now,
+            last_error=last_error,
+        )
 
 
 def _parse_timestamp(timestamp_value: str) -> datetime | None:
@@ -322,27 +371,47 @@ def on_message(client, userdata, msg):
                     return
                 db.session.add(event)
 
+            _set_mqtt_state(
+                commit=False,
+                connected=True,
+                status="online",
+                last_message=datetime.now(ECUADOR_TZ),
+                last_heartbeat=datetime.now(ECUADOR_TZ),
+                last_error=None,
+            )
             db.session.commit()
-            MQTT_STATE["last_message"] = datetime.now(ECUADOR_TZ)
             logger.info("MQTT: datos procesados - bus %s | tipo: %s", bus_id, message_kind)
         except json.JSONDecodeError:
             logger.error("MQTT: payload JSON invalido")
-            MQTT_STATE["last_error"] = "json_decode"
             db.session.rollback()
+            _set_mqtt_state(last_error="json_decode")
         except ValueError as exc:
             logger.error("MQTT: error de validacion: %s", exc)
-            MQTT_STATE["last_error"] = "validation"
             db.session.rollback()
+            _set_mqtt_state(last_error="validation")
         except Exception as exc:
             logger.error("MQTT: error al procesar mensaje: %s", exc, exc_info=True)
-            MQTT_STATE["last_error"] = "processing"
             db.session.rollback()
+            _set_mqtt_state(last_error="processing")
         finally:
             db.session.remove()
 
 
 def request_mqtt_reload():
     MQTT_RELOAD_EVENT.set()
+
+
+def _update_memory_state(**state):
+    for key, value in state.items():
+        if key in MQTT_STATE:
+            MQTT_STATE[key] = value
+
+
+def _set_mqtt_state(commit: bool = True, **state):
+    _update_memory_state(**state)
+    update_mqtt_runtime_state(**state)
+    if commit:
+        db.session.commit()
 
 
 def _build_client(app, mqtt_config: dict):
@@ -375,33 +444,61 @@ def start_mqtt_subscriber(app):
             with app.app_context():
                 mqtt_config = get_runtime_mqtt_settings(app.config)
 
-            MQTT_STATE["configuration_ready"] = mqtt_config["ready"]
-            MQTT_STATE["broker"] = mqtt_config["broker"] or None
-            MQTT_STATE["topic_gps"] = mqtt_config["topic_gps"] or None
-            MQTT_STATE["topic_event"] = mqtt_config["topic_event"] or None
+                _set_mqtt_state(
+                    configuration_ready=mqtt_config["ready"],
+                    broker=mqtt_config["broker"] or None,
+                    topic_gps=mqtt_config["topic_gps"] or None,
+                    topic_event=mqtt_config["topic_event"] or None,
+                )
 
-            if not mqtt_config["ready"]:
-                MQTT_STATE["connected"] = False
-                MQTT_STATE["last_error"] = "missing_config"
-                if not waiting_for_config_logged:
-                    logger.warning("MQTT: configuracion incompleta. Se esperaran credenciales desde la interfaz.")
-                    waiting_for_config_logged = True
-                MQTT_RELOAD_EVENT.wait(timeout=5)
-                MQTT_RELOAD_EVENT.clear()
-                continue
+                if not mqtt_config["ready"]:
+                    _set_mqtt_state(
+                        connected=False,
+                        status="no_config",
+                        last_error="missing_config",
+                    )
+                    if not waiting_for_config_logged:
+                        logger.warning("MQTT: configuracion incompleta; esperando configuracion desde la interfaz.")
+                        waiting_for_config_logged = True
+                    db.session.remove()
+                    MQTT_RELOAD_EVENT.wait(timeout=5)
+                    MQTT_RELOAD_EVENT.clear()
+                    continue
 
-            waiting_for_config_logged = False
+                waiting_for_config_logged = False
+                logger.info("MQTT: configuracion encontrada, iniciando conexion")
+                _set_mqtt_state(
+                    connected=False,
+                    status="connecting",
+                    last_error=None,
+                    last_heartbeat=ecuador_now(),
+                )
+                db.session.remove()
+
             client = _build_client(app, mqtt_config)
             client.connect(mqtt_config["broker"], mqtt_config["port"], keepalive=60)
             client.loop_start()
 
+            last_heartbeat = 0.0
             while not MQTT_RELOAD_EVENT.wait(timeout=1):
+                now_ts = datetime.now(ECUADOR_TZ).timestamp()
+                if now_ts - last_heartbeat >= 30:
+                    with app.app_context():
+                        _set_mqtt_state(last_heartbeat=datetime.now(ECUADOR_TZ))
+                        db.session.remove()
+                    last_heartbeat = now_ts
                 continue
 
             logger.info("MQTT: recarga solicitada; reiniciando conexion")
         except Exception as exc:
-            MQTT_STATE["connected"] = False
-            MQTT_STATE["last_error"] = "connect_failed"
+            with app.app_context():
+                _set_mqtt_state(
+                    connected=False,
+                    status="error",
+                    last_error="connect_failed",
+                    last_disconnect=datetime.now(ECUADOR_TZ),
+                )
+                db.session.remove()
             logger.error("MQTT: error fatal de conexion: %s. Reintentando en 5s", exc, exc_info=True)
             MQTT_RELOAD_EVENT.wait(timeout=5)
         finally:

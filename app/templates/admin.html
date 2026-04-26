@@ -66,19 +66,25 @@
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
-                        {% if not mqtt_state.configuration_ready %}
-                        <div class="h5 mb-1">Sin completar</div>
+                        {% if mqtt_state.status == 'no_config' %}
+                        <div class="h5 mb-1">No configurado</div>
                         <div class="text-muted small">Todavia faltan los datos necesarios para empezar a recibir ubicaciones y alertas.</div>
+                        {% elif mqtt_state.status == 'connecting' %}
+                        <div class="h5 mb-1">Conectando</div>
+                        <div class="text-muted small">El suscriptor MQTT esta intentando conectarse con los datos guardados.</div>
                         {% elif mqtt_state.connected %}
                         <div class="h5 mb-1">Recibiendo datos</div>
                         <div class="text-muted small">La conexion con el servidor esta activa y lista para trabajar.</div>
+                        {% elif mqtt_state.status == 'error' %}
+                        <div class="h5 mb-1">Error de conexion</div>
+                        <div class="text-muted small">Revisa servidor, puerto, usuario, clave y conectividad del equipo.</div>
                         {% else %}
                         <div class="h5 mb-1">Sin comunicacion</div>
                         <div class="text-muted small">La aplicacion intentara reconectarse automaticamente.</div>
                         {% endif %}
                     </div>
                     <span class="badge {% if mqtt_state.connected %}badge-soft{% else %}badge-danger-soft{% endif %}">
-                        {% if mqtt_state.connected %}Online{% else %}Offline{% endif %}
+                        {{ mqtt_state.label }}
                     </span>
                 </div>
 
@@ -111,7 +117,7 @@
                     <div class="status-row">
                         <div>
                             <span class="status-row-label">Clave del servidor</span>
-                            <span class="status-row-value">{% if mqtt_settings.mqtt_password_saved %}Guardada en la aplicacion{% elif mqtt_settings.mqtt_password_available %}Disponible por respaldo{% else %}Aun pendiente{% endif %}</span>
+                            <span class="status-row-value">{% if mqtt_settings.mqtt_password_saved %}Guardada en la aplicacion{% elif mqtt_settings.mqtt_password_available %}Disponible por variables de entorno{% else %}Aun pendiente{% endif %}</span>
                         </div>
                     </div>
                     {% if mqtt_settings.mqtt_using_env_fallback %}

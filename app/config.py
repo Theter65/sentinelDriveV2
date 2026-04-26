@@ -13,6 +13,26 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent
 INSTANCE_DIR = BASE_DIR / "instance"
 SECRET_KEY_FILE = INSTANCE_DIR / ".secret_key"
+DEFAULT_MQTT_PORT = 8883
+DEFAULT_MQTT_TOPIC_GPS = "flota/ecuador/buses/+/gps"
+DEFAULT_MQTT_TOPIC_EVENT = "flota/ecuador/buses/+/event"
+
+
+def _database_url() -> str:
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        if database_url.startswith("postgres://"):
+            return database_url.replace("postgres://", "postgresql://", 1)
+        return database_url
+    return "sqlite:///sentinldrive.db"
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        logger.warning("%s invalido. Se usara %s.", name, default)
+        return default
 
 
 def _load_or_create_secret_key() -> str:
@@ -40,16 +60,16 @@ def _load_or_create_secret_key() -> str:
 class Config:
     SECRET_KEY = _load_or_create_secret_key()
 
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL") or "sqlite:///sentinldrive.db"
+    SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "False").lower() == "true"
 
-    MQTT_BROKER = os.getenv("MQTT_BROKER", "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud")
-    MQTT_PORT = int(os.getenv("MQTT_PORT", "8883"))
-    MQTT_USERNAME = os.getenv("MQTT_USERNAME", "CajaN3gr4")
+    MQTT_BROKER = os.getenv("MQTT_BROKER", "")
+    MQTT_PORT = _env_int("MQTT_PORT", DEFAULT_MQTT_PORT)
+    MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
     MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
-    MQTT_TOPIC_GPS = os.getenv("MQTT_TOPIC_GPS", "flota/ecuador/buses/+/gps")
-    MQTT_TOPIC_EVENT = os.getenv("MQTT_TOPIC_EVENT", "flota/ecuador/buses/+/event")
+    MQTT_TOPIC_GPS = os.getenv("MQTT_TOPIC_GPS", DEFAULT_MQTT_TOPIC_GPS)
+    MQTT_TOPIC_EVENT = os.getenv("MQTT_TOPIC_EVENT", DEFAULT_MQTT_TOPIC_EVENT)
 
     DEBUG = os.getenv("FLASK_DEBUG", "False").lower() == "true"
     TESTING = False

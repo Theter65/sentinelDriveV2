@@ -6,9 +6,14 @@ from app.models.event import Event
 from app.models.location import Location
 from app.models.system_setting import SystemSetting
 from app.models.user import User
-from app.mqtt.subscriber import MQTT_STATE, request_mqtt_reload, test_mqtt_connection
+from app.mqtt.subscriber import request_mqtt_reload, test_mqtt_connection
 from app.utils.logging import get_logger
-from app.utils.system_settings import get_mqtt_form_defaults, get_runtime_mqtt_settings
+from app.utils.system_settings import (
+    get_mqtt_form_defaults,
+    get_persisted_mqtt_state,
+    get_runtime_mqtt_settings,
+    update_mqtt_runtime_state,
+)
 
 
 logger = get_logger(__name__)
@@ -38,7 +43,7 @@ def _admin_panel_context(mqtt_settings_override: dict | None = None) -> dict:
     return {
         "total_events": total_events,
         "total_locations": total_locations,
-        "mqtt_state": MQTT_STATE,
+        "mqtt_state": get_persisted_mqtt_state(current_app.config),
         "mqtt_settings": mqtt_settings_override or get_mqtt_form_defaults(current_app.config),
         "mqtt_runtime": get_runtime_mqtt_settings(current_app.config),
     }
@@ -125,9 +130,13 @@ def update_mqtt_settings():
         flash("El puerto MQTT debe ser mayor a cero.", "danger")
         return _render_admin_panel(mqtt_settings_override=form_state, status_code=422)
 
-    effective_password = mqtt_password or SystemSetting.get_value("mqtt_password") or current_app.config.get("MQTT_PASSWORD") or ""
-    if not all([broker, mqtt_username, topic_gps, topic_event, effective_password]):
-        flash("Completa broker, usuario, topics y password MQTT antes de guardar.", "danger")
+    saved_password = SystemSetting.get_value("mqtt_password") or current_app.config.get("MQTT_PASSWORD") or ""
+    effective_password = mqtt_password or saved_password
+    if not effective_password:
+        flash("Debes ingresar la clave del servidor MQTT.", "danger")
+        return _render_admin_panel(mqtt_settings_override=form_state, status_code=422)
+    if not all([broker, mqtt_username, topic_gps, topic_event]):
+        flash("Completa broker, usuario y canales MQTT antes de guardar.", "danger")
         return _render_admin_panel(mqtt_settings_override=form_state, status_code=422)
 
     mqtt_ok, mqtt_message = test_mqtt_connection(
@@ -153,10 +162,16 @@ def update_mqtt_settings():
         SystemSetting.set_value("mqtt_topic_event", topic_event)
         if mqtt_password:
             SystemSetting.set_value("mqtt_password", mqtt_password)
+        update_mqtt_runtime_state(
+            configuration_ready=True,
+            connected=False,
+            status="connecting",
+            last_error=None,
+        )
 
         db.session.commit()
         request_mqtt_reload()
-        flash("Configuracion MQTT actualizada. La conexion se reiniciara en unos segundos.", "success")
+        flash("Configuracion MQTT guardada. El suscriptor se reiniciara.", "success")
         logger.warning("AUDIT mqtt_update success user=%s ip=%s", username, _client_ip())
     except Exception as exc:
         db.session.rollback()

@@ -28,7 +28,7 @@
             <div class="top-compact">
                 <span class="top-status-pill {% if layout_mqtt_connected %}is-ok{% else %}is-warn{% endif %}">
                     <i class="bi bi-broadcast"></i>
-                    {% if layout_mqtt_connected %}Datos en línea{% elif layout_mqtt_ready %}Sin comunicación{% else %}Pendiente{% endif %}
+                    {% if layout_mqtt_connected %}Datos en línea{% else %}{{ layout_mqtt_label }}{% endif %}
                 </span>
                 <div class="top-compact-actions">
                     <button
@@ -193,6 +193,8 @@
                 <p>
                     {% if layout_mqtt_connected %}
                     El sistema esta recibiendo datos del servicio de seguimiento.
+                    {% elif layout_mqtt_state.status == 'connecting' %}
+                    El suscriptor MQTT esta intentando conectarse con la configuracion guardada.
                     {% elif layout_mqtt_ready %}
                     La configuracion esta lista, pero en este momento no hay comunicacion con el servicio.
                     {% else %}

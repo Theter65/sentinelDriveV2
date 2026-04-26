@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.env
+instance/*.db
+instance/.secret_key
+instance/*.sqlite
+.DS_Store
+.vscode/
+*.log

@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from flask import Blueprint, render_template
+from flask import Blueprint, current_app, render_template
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
@@ -10,8 +10,8 @@ from app.models.bus import Bus
 from app.models.event import Event
 from app.models.location import Location
 from app.models.maintenance import Maintenance
-from app.mqtt.subscriber import MQTT_STATE
 from app.utils.logging import get_logger
+from app.utils.system_settings import get_persisted_mqtt_state
 from app.utils.time import ECUADOR_TZ, ecuador_now
 
 
@@ -78,13 +78,14 @@ def dashboard():
         .all()
     )
 
-    mqtt_connected = bool(MQTT_STATE.get("connected"))
+    mqtt_state = get_persisted_mqtt_state(current_app.config)
+    mqtt_connected = bool(mqtt_state.get("connected"))
     system_ok = mqtt_connected and connected_count > 0
 
     return render_template(
         "dashboard.html",
         now=now,
-        mqtt_state=MQTT_STATE,
+        mqtt_state=mqtt_state,
         mqtt_connected=mqtt_connected,
         system_ok=system_ok,
         total_buses=total_buses,

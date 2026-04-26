@@ -1,4 +1,5 @@
 import json
+import os
 import random
 import ssl
 import time
@@ -28,11 +29,14 @@ EVENT_CHECK_INTERVAL = 1      # segundos
 EVENT_MIN_INTERVAL  = 5 * 60  # 5 minutos
 EVENT_MAX_INTERVAL  = 10 * 60 # 10 minutos
 
-# Broker (HiveMQ Cloud ejemplo)
-BROKER_HOST = "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud"
-BROKER_PORT = int("8883")
-USERNAME    = "CajaN3gr4"
-PASSWORD    = "Proyecto12"
+# Broker MQTT del simulador. Se toma de variables de entorno/.env local.
+BROKER_HOST = os.getenv("MQTT_BROKER", "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud").strip()
+try:
+    BROKER_PORT = int(os.getenv("MQTT_PORT", "8883"))
+except ValueError:
+    BROKER_PORT = 0
+USERNAME    = os.getenv("MQTT_USERNAME", "CajaN3gr4").strip()
+PASSWORD    = os.getenv("MQTT_PASSWORD", "Proyecto12")
 
 BASE_TOPIC = "flota/ecuador/buses"
 
@@ -88,6 +92,10 @@ client.tls_set(tls_version=ssl.PROTOCOL_TLS_CLIENT)
 client.username_pw_set(USERNAME, PASSWORD)
 
 # Intentamos conectar con logging
+if not all([BROKER_HOST, BROKER_PORT, USERNAME, PASSWORD]):
+    logger.error("Configura MQTT_BROKER, MQTT_PORT, MQTT_USERNAME y MQTT_PASSWORD para usar el simulador.")
+    exit(1)
+
 logger.info("Intentando conectar a %s:%s ...", BROKER_HOST, BROKER_PORT)
 try:
     client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)

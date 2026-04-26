@@ -6,7 +6,7 @@ from app.models.system_setting import SystemSetting
 from app.models.user import User
 from app.mqtt.subscriber import request_mqtt_reload, test_mqtt_connection
 from app.utils.logging import get_logger
-from app.utils.system_settings import get_mqtt_form_defaults, has_admin_user
+from app.utils.system_settings import get_mqtt_form_defaults, get_runtime_mqtt_settings, has_admin_user
 
 
 logger = get_logger(__name__)
@@ -53,6 +53,9 @@ def login():
             session["role"] = user.role.lower()
             session.permanent = True
             logger.info("Login exitoso: %s (role=%s)", username, session["role"])
+            if session["role"] == "admin" and not get_runtime_mqtt_settings(current_app.config)["ready"]:
+                flash("Configura MQTT para empezar a recibir ubicaciones y alertas.", "warning")
+                return redirect(url_for("admin.admin_panel"))
             return redirect(url_for("dashboard.dashboard"))
         logger.warning("Intento de login fallido para usuario: %s", username or "<vacio>")
         return render_template("login.html", error="Credenciales incorrectas")
@@ -116,13 +119,18 @@ def initial_setup():
                     error="El puerto MQTT debe ser mayor a cero.",
                     form_data=form_state,
                 )
+            if not mqtt_password:
+                return render_template(
+                    "setup.html",
+                    error="Debes ingresar la clave del servidor MQTT.",
+                    form_data=form_state,
+                )
             if not all(
                 [
                     form_state["mqtt_broker"],
                     form_state["mqtt_username"],
                     form_state["mqtt_topic_gps"],
                     form_state["mqtt_topic_event"],
-                    mqtt_password,
                 ]
             ):
                 return render_template(
@@ -164,12 +172,14 @@ def initial_setup():
 
             if form_state["configure_mqtt_now"]:
                 request_mqtt_reload()
-                flash("Configuracion inicial completada y MQTT guardado correctamente.", "success")
+                flash("Configuracion MQTT guardada. El suscriptor se reiniciara.", "success")
             else:
-                flash("Configuracion inicial completada. Puedes configurar MQTT luego desde Administracion.", "success")
+                flash("Administrador creado. Configura MQTT para recibir ubicaciones y alertas.", "warning")
 
             logger.info("Configuracion inicial completada con admin: %s", admin_username)
-            return redirect(url_for("dashboard.dashboard"))
+            if form_state["configure_mqtt_now"]:
+                return redirect(url_for("dashboard.dashboard"))
+            return redirect(url_for("admin.admin_panel"))
         except Exception as exc:
             db.session.rollback()
             logger.error("Error al guardar configuracion inicial: %s", exc, exc_info=True)

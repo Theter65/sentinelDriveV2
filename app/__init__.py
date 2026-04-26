@@ -12,7 +12,9 @@ from .extensions import db, csrf
 from .models.init_data import ensure_database_indexes
 from .models.system_setting import SystemSetting  # noqa: F401
 from .models.analytics import AnalyticsRun  # noqa: F401
+from .utils.logging import get_logger
 from .utils.time import ecuador_now
+from .utils.system_settings import get_persisted_mqtt_state
 
 # Importación de blueprints (rutas modulares)
 from .routes.auth import auth_bp
@@ -26,6 +28,9 @@ from .routes.users import users_bp
 from .routes.admin import admin_bp
 from .routes.analytics import analytics_bp
 
+
+logger = get_logger(__name__)
+
 def create_app(config_class=Config):
     """
     Fábrica de aplicación Flask.
@@ -35,7 +40,15 @@ def create_app(config_class=Config):
     """
     # static/ lives at repo root (../static). Without this, Flask looks for app/static.
     base_dir = Path(__file__).resolve().parent.parent
-    app = Flask(__name__, static_folder=str(base_dir / "static"))
+    instance_dir = base_dir / "instance"
+    instance_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Instance folder verificado/creado: %s", instance_dir)
+
+    app = Flask(
+        __name__,
+        static_folder=str(base_dir / "static"),
+        instance_path=str(instance_dir),
+    )
     app.config.from_object(config_class)
 
     @app.context_processor
@@ -50,23 +63,14 @@ def create_app(config_class=Config):
                 v = max(v, int(p.stat().st_mtime))
             except OSError:
                 pass
-        from .mqtt.subscriber import MQTT_STATE
-
-        mqtt_ready = bool(MQTT_STATE.get("configuration_ready"))
-        mqtt_connected = bool(MQTT_STATE.get("connected"))
-        if not mqtt_ready:
-            mqtt_label = "Configuracion pendiente"
-        elif mqtt_connected:
-            mqtt_label = "Datos en linea"
-        else:
-            mqtt_label = "Sin comunicacion"
+        mqtt_state = get_persisted_mqtt_state(app.config)
 
         return {
             "static_version": v,
-            "layout_mqtt_state": MQTT_STATE,
-            "layout_mqtt_ready": mqtt_ready,
-            "layout_mqtt_connected": mqtt_connected,
-            "layout_mqtt_label": mqtt_label,
+            "layout_mqtt_state": mqtt_state,
+            "layout_mqtt_ready": bool(mqtt_state.get("configuration_ready")),
+            "layout_mqtt_connected": bool(mqtt_state.get("connected")),
+            "layout_mqtt_label": mqtt_state.get("label", "MQTT no configurado"),
             "current_year": ecuador_now().year,
         }
 
@@ -90,5 +94,6 @@ def create_app(config_class=Config):
     with app.app_context():
         db.create_all()
         ensure_database_indexes()
+        logger.info("Base de datos inicializada/verificada")
 
     return app

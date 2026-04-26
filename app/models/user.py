@@ -6,7 +6,8 @@
 # =============================================================================
 
 from app.extensions import db
-from werkzeug.security import generate_password_hash, check_password_hash
+import bcrypt
+from werkzeug.security import check_password_hash
 
 class User(db.Model):
     """Modelo de usuario con autenticación y roles (admin/user)."""
@@ -17,9 +18,14 @@ class User(db.Model):
     role = db.Column(db.String(20), default="user")
 
     def set_password(self, password):
-        """Establece la contraseña hasheada (método seguro)."""
-        self.password_hash = generate_password_hash(password)
+        """Establece la contraseña hasheada con bcrypt."""
+        password_bytes = password.encode("utf-8")
+        self.password_hash = bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
 
     def check_password(self, password):
-        """Verifica si la contraseña coincide (usado en login)."""
+        """Verifica bcrypt y conserva compatibilidad con hashes previos."""
+        if not self.password_hash:
+            return False
+        if self.password_hash.startswith("$2"):
+            return bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8"))
         return check_password_hash(self.password_hash, password)
