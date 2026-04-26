@@ -46,6 +46,7 @@ def vehicle_summary(bus_id):
             "filters": payload["filters"],
             "summary": payload["summary"],
             "derived": payload["derived"],
+            "intervention_summary": payload["intervention_summary"],
         }
     )
 
@@ -112,9 +113,8 @@ def download_summary_csv(bus_id):
         ["Coeficiente de variacion", summary["speed_cv"]],
         ["Conteo exceso de velocidad", summary["speeding_count"]],
         ["Porcentaje exceso de velocidad", summary["speeding_percentage"]],
-        ["Indice de Criticidad Operativa", summary["ico_score"]],
-        ["Nivel ICO", summary["ico_level"]],
-        ["Nota", summary["ico_description"]],
+        ["Nivel de Intervencion Operativa", payload["intervention_summary"]["global_level"]],
+        ["Recomendacion global", payload["intervention_summary"]["global_recommendation"]],
     ]
     return _csv_response(rows, f"analytics_summary_bus_{bus_id}.csv")
 
@@ -164,12 +164,49 @@ def download_event_magnitudes_csv(bus_id):
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
-    rows = [["Tipo de evento", "Valor maximo", "Valor promedio", "Cantidad"]]
+    rows = [["Tipo de evento", "Valor maximo", "Valor promedio", "Cantidad", "Unidad"]]
     rows.extend(
-        [row["event_type"], row["max_value"], row["avg_value"], row["count"]]
+        [row["event_type"], row["max_value"], row["avg_value"], row["count"], row.get("unit", "")]
         for row in payload["event_magnitudes"]
     )
     return _csv_response(rows, f"analytics_event_magnitudes_bus_{bus_id}.csv")
+
+
+@analytics_bp.route("/analytics/vehicle/<int:bus_id>/intervention-matrix.csv")
+@login_required
+def download_intervention_matrix_csv(bus_id):
+    payload, status = _vehicle_payload(bus_id)
+    if status != 200:
+        return payload, status
+    rows = [["Indicador", "Valor observado", "Umbral usado", "Nivel", "Recomendacion"]]
+    rows.extend(
+        [
+            row["indicator"],
+            row["observed_value"],
+            row["threshold_used"],
+            row["level"],
+            row["recommendation"],
+        ]
+        for row in payload["intervention_summary"]["matrix"]
+    )
+    return _csv_response(rows, f"analytics_intervention_matrix_bus_{bus_id}.csv")
+
+
+@analytics_bp.route("/analytics/vehicle/<int:bus_id>/recommendations.csv")
+@login_required
+def download_recommendations_csv(bus_id):
+    payload, status = _vehicle_payload(bus_id)
+    if status != 200:
+        return payload, status
+    rows = [["#", "Recomendacion"]]
+    rows.extend(
+        [index, recommendation]
+        for index, recommendation in enumerate(
+            payload["intervention_summary"]["recommendations"],
+            start=1,
+        )
+    )
+    return _csv_response(rows, f"analytics_recommendations_bus_{bus_id}.csv")
 
 
 def _vehicle_payload(bus_id: int):

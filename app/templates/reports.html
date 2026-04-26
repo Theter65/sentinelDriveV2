@@ -5,6 +5,7 @@
 {% set active_stats = individual_stats if individual_stats else group_stats %}
 {% set active_chart_data = individual_chart_data if individual_stats else group_chart_data %}
 {% set analytics = active_stats.summary %}
+{% set intervention = active_stats.analytics.intervention_summary %}
 {% set chart_prefix = 'individual' if individual_stats else 'group' %}
 {% set scope_title = 'Vehículo: ' ~ individual_stats.bus.plate if individual_stats else 'Flota completa' %}
 {% set scope_subtitle = individual_stats.bus.driver or 'Sin conductor' if individual_stats else 'Todos los vehículos registrados' %}
@@ -25,7 +26,7 @@
 <div class="reports-page">
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
         <div>
-            <h2 class="mb-1">Módulo de Análisis Estadístico e Índice de Criticidad Operativa</h2>
+            <h2 class="mb-1">Módulo de Análisis Estadístico y Nivel de Intervención Operativa</h2>
             <div class="text-muted">
                 Analítica descriptiva para eventos, velocidades y magnitudes operativas. No corresponde a predicción de accidentes.
             </div>
@@ -103,24 +104,27 @@
 
     <div class="row g-3 mb-4">
         <div class="col-12 col-xl-4">
-            <div class="card ico-card liquid-glass-strong h-100">
+            <div class="card intervention-card liquid-glass-strong h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
                         <div>
-                            <div class="kpi-label stat-title">Índice de Criticidad Operativa {{ info_tip("Indicador estadístico descriptivo que resume eventos, exceso de velocidad y variabilidad operativa. No representa una predicción de accidentes.") }}</div>
-                            <div class="ico-score">{{ analytics.ico_score }}</div>
+                            <div class="kpi-label stat-title">Nivel de Intervención Operativa {{ info_tip("Sistema de criterios operativos descriptivos basado en indicadores separados. No representa una predicción de accidentes.") }}</div>
+                            <div class="intervention-level-text">{{ intervention.global_level }}</div>
                         </div>
-                        <span class="ico-level ico-level-{{ analytics.ico_level|lower|replace('í', 'i') }}">
-                            {{ analytics.ico_level }}
+                        <span class="intervention-level-badge intervention-level-{{ intervention.global_level_key }}">
+                            {{ intervention.global_level }}
                         </span>
                     </div>
-                    <canvas id="{{ chart_prefix }}IcoGauge" height="160"></canvas>
-                    <p class="text-muted small mt-3 mb-0">
-                        {{ analytics.ico_description }}
+                    <p class="text-muted small mb-3">
+                        {{ intervention.global_recommendation }}
                     </p>
-                    <button onclick="downloadImage('{{ chart_prefix }}IcoGauge')" class="btn btn-sm btn-outline-secondary mt-3 btn-download">
-                        <i class="bi bi-download me-1"></i>Imagen
-                    </button>
+                    <div class="intervention-mini-grid">
+                        <span class="intervention-mini-pill intervention-level-{{ intervention.speeding.level_key }}"><i class="bi bi-speedometer2"></i> Velocidad</span>
+                        <span class="intervention-mini-pill intervention-level-{{ intervention.braking.level_key }}"><i class="bi bi-sign-stop"></i> Frenado</span>
+                        <span class="intervention-mini-pill intervention-level-{{ intervention.event_types.level_key }}"><i class="bi bi-tags"></i> Tipos</span>
+                        <span class="intervention-mini-pill intervention-level-{{ intervention.event_hours.level_key }}"><i class="bi bi-clock"></i> Horas</span>
+                        <span class="intervention-mini-pill intervention-level-{{ intervention.magnitudes.level_key }}"><i class="bi bi-activity"></i> Magnitudes</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -137,6 +141,44 @@
                 <div class="card kpi-card liquid-glass"><div class="card-body"><div class="kpi-label">Exceso de velocidad {{ info_tip("Porcentaje de registros que superan el límite configurado.") }}</div><div class="kpi-value">{{ analytics.speeding_percentage }}<span>%</span></div></div></div>
             </div>
         </div>
+    </div>
+
+    <div class="reports-intervention-grid mb-4">
+        <div class="card liquid-glass h-100">
+            <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <span class="fw-semibold chart-title">Matriz de intervención {{ info_tip("Clasifica indicadores independientes y usa la regla del peor indicador para el nivel global.") }}</span>
+                {% if individual_stats %}
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('analytics.download_intervention_matrix_csv', bus_id=selected_bus_id, **common_query) }}"><i class="bi bi-filetype-csv me-1"></i>CSV matriz</a>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive analytics-table-scroll intervention-matrix-scroll">
+                    <table class="table table-hover table-bordered mb-0 intervention-matrix-table">
+                        <thead>
+                            <tr>
+                                <th>Indicador</th>
+                                <th>Valor observado</th>
+                                <th>Umbral usado</th>
+                                <th>Nivel</th>
+                                <th>Recomendación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in intervention.matrix %}
+                            <tr>
+                                <td class="fw-semibold">{{ row.indicator }}</td>
+                                <td>{{ row.observed_value }}</td>
+                                <td>{{ row.threshold_used }}</td>
+                                <td><span class="intervention-level-badge intervention-level-{{ row.level_key }}">{{ row.level }}</span></td>
+                                <td>{{ row.recommendation }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <div class="reports-chart-grid">
@@ -278,13 +320,13 @@
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover table-bordered mb-0">
-                            <thead><tr><th>Tipo</th><th class="text-end">Máximo</th><th class="text-end">Promedio</th><th class="text-end">Cantidad</th></tr></thead>
+                            <thead><tr><th>Tipo</th><th class="text-end">Máximo</th><th class="text-end">Promedio</th><th class="text-end">Cantidad</th><th>Unidad</th></tr></thead>
                             <tbody>
                                 {% for row in active_stats.analytics.event_magnitudes %}
-                                <tr><td>{{ row.event_type }}</td><td class="text-end">{{ row.max_value }}</td><td class="text-end">{{ row.avg_value }}</td><td class="text-end">{{ row.count }}</td></tr>
+                                <tr><td>{{ row.event_type }}</td><td class="text-end">{{ row.max_value }}</td><td class="text-end">{{ row.avg_value }}</td><td class="text-end">{{ row.count }}</td><td>{{ row.unit }}</td></tr>
                                 {% endfor %}
                                 {% if not active_stats.analytics.event_magnitudes %}
-                                <tr><td colspan="4" class="text-center text-muted py-3">No hay magnitudes críticas en este rango</td></tr>
+                                <tr><td colspan="5" class="text-center text-muted py-3">No hay magnitudes críticas en este rango</td></tr>
                                 {% endif %}
                             </tbody>
                         </table>
@@ -405,7 +447,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (window.SDChartTheme) window.SDChartTheme.applyChartDefaults();
     const chartPrefix = {{ chart_prefix | tojson }};
     const chartData = {{ active_chart_data | tojson }};
-    const summary = {{ analytics | tojson }};
     const rootStyles = getComputedStyle(document.documentElement);
     const themedPalette = window.SDChartTheme ? window.SDChartTheme.palette() : null;
     const chartText = themedPalette?.text || rootStyles.getPropertyValue("--chart-text").trim() || rootStyles.getPropertyValue("--chart-text-color").trim() || "#ffffff";
@@ -413,7 +454,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const accent = themedPalette?.accent || rootStyles.getPropertyValue("--accent").trim() || rootStyles.getPropertyValue("--accent-color").trim() || "#22c55e";
     const info = themedPalette?.info || rootStyles.getPropertyValue("--info").trim() || "#42d7ff";
     const warning = themedPalette?.warning || rootStyles.getPropertyValue("--warning").trim() || rootStyles.getPropertyValue("--warning-color").trim() || "#f59e0b";
-    const danger = themedPalette?.danger || rootStyles.getPropertyValue("--danger").trim() || rootStyles.getPropertyValue("--danger-color").trim() || "#ef4444";
     const success = themedPalette?.success || rootStyles.getPropertyValue("--success").trim() || rootStyles.getPropertyValue("--success-color").trim() || "#22c55e";
     const chartTooltip = window.SDChartTheme ? window.SDChartTheme.tooltipOptions() : {};
 
@@ -431,13 +471,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return { labels: ["Sin datos"], data: [0] };
     }
 
-    function icoColor(level) {
-        if (level === "Crítico" || level === "Critico") return danger;
-        if (level === "Alto") return "#ff8a3d";
-        if (level === "Moderado") return warning;
-        return success;
-    }
-
     function barOptions(horizontal = false) {
         return {
             responsive: true,
@@ -450,34 +483,6 @@ document.addEventListener("DOMContentLoaded", () => {
             },
         };
     }
-
-    const icoTooltip = {
-        ...chartTooltip,
-        filter: (context) => context.label === "ICO",
-        callbacks: {
-            label: () => `ICO: ${summary.ico_score} · Nivel ${summary.ico_level}`,
-        },
-    };
-
-    safeChart(`${chartPrefix}IcoGauge`, {
-        type: "doughnut",
-        data: {
-            labels: ["ICO", "Restante"],
-            datasets: [{
-                data: [chartData.ico_score, chartData.ico_remainder],
-                backgroundColor: [icoColor(summary.ico_level), "rgba(255,255,255,0.08)"],
-                borderWidth: 0,
-            }],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            circumference: 180,
-            rotation: 270,
-            cutout: "72%",
-            plugins: { legend: { display: false }, tooltip: icoTooltip },
-        },
-    });
 
     const eventsByType = barData(chartData.event_type_labels, chartData.event_type_data);
     safeChart(`${chartPrefix}EventsByType`, {

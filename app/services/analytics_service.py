@@ -30,7 +30,15 @@ MAGNITUDE_EVENT_TYPES = (
     "Exceso de velocidad",
     "Frenado brusco",
     "Curva pronunciada",
+    "ConducciÃ³n agresiva",
     "Sobrecalentamiento",
+    "Otros",
+)
+INTERVENTION_LEVELS = (
+    "Aceptable",
+    "Monitoreo",
+    "IntervenciÃ³n correctiva",
+    "IntervenciÃ³n prioritaria",
 )
 
 
@@ -90,6 +98,14 @@ def build_analytics_payload(
     total_events = len(events)
     most_frequent_event = event_rows[0]["event_type"] if event_rows else None
     peak_event_hour = _peak_event_hour(hourly_rows)
+    intervention_summary = _build_intervention_summary(
+        speed_summary=speed_summary,
+        events=events,
+        event_rows=event_rows,
+        hourly_rows=hourly_rows,
+        magnitude_rows=magnitude_rows,
+        speed_limit=speed_limit,
+    )
 
     ico_score = _calculate_ico_score(
         total_events=total_events,
@@ -130,6 +146,7 @@ def build_analytics_payload(
         "events_by_hour": hourly_rows,
         "speed_histogram": speed_histogram,
         "event_magnitudes": magnitude_rows,
+        "intervention_summary": intervention_summary,
         "derived": {
             "most_frequent_event": most_frequent_event,
             "peak_event_hour": peak_event_hour,
@@ -248,8 +265,6 @@ def build_chart_data(payload: dict) -> dict:
         "speed_data": [row["frequency"] for row in payload["speed_histogram"]],
         "magnitude_labels": [row["event_type"] for row in payload["event_magnitudes"]],
         "magnitude_data": [row["max_value"] for row in payload["event_magnitudes"]],
-        "ico_score": payload["summary"]["ico_score"],
-        "ico_remainder": max(0, _round(100 - payload["summary"]["ico_score"])),
     }
 
 
@@ -352,9 +367,315 @@ def _build_magnitude_rows(events: list[Event]) -> list[dict]:
                 "max_value": _round(max(values)),
                 "avg_value": _round(mean(values)),
                 "count": len(values),
+                "unit": _event_unit(event_type),
             }
         )
     return rows
+
+
+def _build_intervention_summary(
+    speed_summary: dict,
+    events: list[Event],
+    event_rows: list[dict],
+    hourly_rows: list[dict],
+    magnitude_rows: list[dict],
+    speed_limit: float,
+) -> dict:
+    speed_indicator = _speeding_intervention(speed_summary, speed_limit)
+    braking_indicator = _braking_intervention(events)
+    event_type_indicator = _event_type_intervention(event_rows)
+    hourly_indicator = _hourly_intervention(hourly_rows)
+    magnitude_indicator = _magnitude_intervention(magnitude_rows)
+    indicators = [
+        speed_indicator,
+        braking_indicator,
+        event_type_indicator,
+        hourly_indicator,
+        magnitude_indicator,
+    ]
+    global_level = _worst_intervention_level(indicator["level"] for indicator in indicators)
+    recommendations = _unique_non_empty(
+        [indicator["recommendation"] for indicator in indicators]
+        + [_global_intervention_recommendation(global_level)]
+    )
+
+    matrix = [
+        _matrix_row("Velocidad", speed_indicator),
+        _matrix_row("Frenado brusco", braking_indicator),
+        _matrix_row("Eventos por tipo", event_type_indicator),
+        _matrix_row("Eventos por hora", hourly_indicator),
+        _matrix_row("Magnitud de eventos", magnitude_indicator),
+    ]
+
+    return {
+        "global_level": global_level,
+        "global_level_key": _level_key(global_level),
+        "global_recommendation": _global_intervention_recommendation(global_level),
+        "speeding": speed_indicator,
+        "braking": braking_indicator,
+        "events": {
+            "level": event_type_indicator["level"],
+            "level_key": event_type_indicator["level_key"],
+            "total_events": event_type_indicator["total_events"],
+            "dominant_event": event_type_indicator["dominant_event"],
+            "critical_hour": hourly_indicator["critical_hour"],
+            "recommendation": event_type_indicator["recommendation"],
+        },
+        "event_types": event_type_indicator,
+        "event_hours": hourly_indicator,
+        "magnitudes": magnitude_indicator,
+        "recommendations": recommendations,
+        "matrix": matrix,
+    }
+
+
+def _speeding_intervention(speed_summary: dict, speed_limit: float) -> dict:
+    max_speed = _round(speed_summary.get("speed_max", 0))
+    max_excess = _round(max(0, max_speed - speed_limit))
+    monitoring_threshold = _round(speed_limit + 5)
+    corrective_threshold = _round(speed_limit * 1.10)
+    priority_threshold = _round(speed_limit + 15)
+
+    if max_speed >= priority_threshold:
+        level = "Intervención prioritaria"
+        threshold_used = f"Velocidad máxima >= {priority_threshold} km/h"
+        recommendation = "Se recomienda intervención prioritaria por exceso severo de velocidad."
+    elif max_speed >= corrective_threshold:
+        level = "Intervención correctiva"
+        threshold_used = f"Velocidad máxima >= {corrective_threshold} km/h (aprox. 10% sobre el límite)"
+        recommendation = "Se recomienda intervención correctiva por superar aproximadamente el 10% del límite operativo configurado."
+    elif max_speed > speed_limit or max_speed >= monitoring_threshold:
+        level = "Monitoreo"
+        threshold_used = f"Velocidad máxima > {speed_limit:g} km/h; monitoreo desde {monitoring_threshold:g} km/h"
+        recommendation = "Se recomienda monitorear episodios de exceso de velocidad."
+    else:
+        level = "Aceptable"
+        threshold_used = f"Velocidad máxima <= {speed_limit:g} km/h"
+        recommendation = "Operación dentro del límite de velocidad configurado."
+
+    return {
+        "level": level,
+        "level_key": _level_key(level),
+        "max_speed": max_speed,
+        "speed_limit": _round(speed_limit),
+        "max_excess": max_excess,
+        "threshold_used": threshold_used,
+        "observed_value": f"{max_speed:g} km/h; exceso máximo {max_excess:g} km/h",
+        "recommendation": recommendation,
+        "methodological_source": "OMS, gestión de velocidad; umbrales operativos sobre límite.",
+    }
+
+
+def _braking_intervention(events: list[Event]) -> dict:
+    values = [
+        value
+        for value in (_safe_float(event.value, None) for event in events if event.type == "Frenado brusco")
+        if value is not None
+    ]
+    total_harsh_brakes = len(values)
+    critical_count = sum(1 for value in values if value <= -3.92)
+    moderate_count = sum(1 for value in values if value <= -3.0)
+    severe_count = sum(1 for value in values if value <= -6.0)
+    max_deceleration = _round(min(values)) if values else 0
+
+    if severe_count or critical_count >= 2:
+        level = "Intervención prioritaria"
+        threshold_used = "value <= -6.0 m/s² o 2+ frenados críticos <= -3.92 m/s²"
+        recommendation = "Se detectó un frenado muy severo o repetición de frenados críticos; se recomienda intervención prioritaria."
+    elif critical_count:
+        level = "Intervención correctiva"
+        threshold_used = "value <= -3.92 m/s² (aprox. 0.4g)"
+        recommendation = "Se detectaron frenados críticos; se recomienda revisar el patrón de conducción."
+    elif moderate_count:
+        level = "Monitoreo"
+        threshold_used = "value <= -3.0 m/s²"
+        recommendation = "Se detectaron frenados bruscos moderados; revisar anticipación y distancia de seguridad."
+    elif total_harsh_brakes:
+        level = "Monitoreo"
+        threshold_used = "Evento de frenado brusco registrado sin superar umbral crítico"
+        recommendation = "Se registraron frenados bruscos leves; mantener monitoreo del patrón de conducción."
+    else:
+        level = "Aceptable"
+        threshold_used = "Sin frenados bruscos moderados o críticos"
+        recommendation = "No se registraron frenados bruscos relevantes en el periodo seleccionado."
+
+    return {
+        "level": level,
+        "level_key": _level_key(level),
+        "total_harsh_brakes": total_harsh_brakes,
+        "critical_harsh_brakes": critical_count,
+        "max_deceleration": max_deceleration,
+        "threshold_used": threshold_used,
+        "observed_value": f"{total_harsh_brakes} frenados; más fuerte {max_deceleration:g} m/s²; críticos {critical_count}",
+        "recommendation": recommendation,
+        "methodological_source": "Hard braking 0.4g en estudios naturalísticos.",
+    }
+
+
+def _event_type_intervention(event_rows: list[dict]) -> dict:
+    total_events = sum(row["event_count"] for row in event_rows)
+    dominant = event_rows[0] if event_rows else None
+    dominant_event = dominant["event_type"] if dominant else None
+    dominant_count = dominant["event_count"] if dominant else 0
+    dominant_percentage = dominant["event_percentage"] if dominant else 0
+    level = "Monitoreo" if total_events else "Aceptable"
+    recommendation = _dominant_event_recommendation(dominant_event) if dominant_event else "No se registraron eventos operativos en el periodo seleccionado."
+
+    return {
+        "level": level,
+        "level_key": _level_key(level),
+        "total_events": total_events,
+        "dominant_event": dominant_event,
+        "dominant_count": dominant_count,
+        "dominant_percentage": dominant_percentage,
+        "threshold_used": "Identificación de evento dominante",
+        "observed_value": (
+            f"{dominant_event}: {dominant_count} eventos ({dominant_percentage:g}%)"
+            if dominant_event
+            else "Sin eventos"
+        ),
+        "recommendation": recommendation,
+        "methodological_source": "Near-miss events modelados por tipo.",
+    }
+
+
+def _hourly_intervention(hourly_rows: list[dict]) -> dict:
+    peak_hour = _peak_event_hour(hourly_rows)
+    peak_count = 0
+    if peak_hour is not None:
+        peak_count = next((row["total_events"] for row in hourly_rows if row["hour"] == peak_hour), 0)
+    level = "Monitoreo" if peak_count else "Aceptable"
+    critical_hour = f"{peak_hour:02d}:00-{(peak_hour + 1) % 24:02d}:00" if peak_hour is not None else None
+    recommendation = (
+        "Se recomienda revisar la operación durante la hora con mayor concentración de eventos."
+        if peak_count
+        else "No se identificó una franja horaria con concentración de eventos."
+    )
+
+    return {
+        "level": level,
+        "level_key": _level_key(level),
+        "critical_hour": critical_hour,
+        "peak_event_hour": peak_hour,
+        "peak_event_count": peak_count,
+        "threshold_used": "Hora con mayor concentración de eventos",
+        "observed_value": f"{critical_hour}: {peak_count} eventos" if critical_hour else "Sin concentración horaria",
+        "recommendation": recommendation,
+        "methodological_source": "Telemática operativa y análisis temporal de eventos.",
+    }
+
+
+def _magnitude_intervention(magnitude_rows: list[dict]) -> dict:
+    main = _main_magnitude_row(magnitude_rows)
+    if not main:
+        return {
+            "level": "Aceptable",
+            "level_key": _level_key("Aceptable"),
+            "main_magnitude_event": None,
+            "max_value": 0,
+            "unit": None,
+            "threshold_used": "Sin magnitudes críticas registradas",
+            "observed_value": "Sin magnitudes de eventos",
+            "recommendation": "No se registraron magnitudes críticas en el periodo seleccionado.",
+            "methodological_source": "Intensidad del evento según variable registrada.",
+        }
+
+    event_type = main["event_type"]
+    recommendation = _magnitude_recommendation(event_type)
+    return {
+        "level": "Monitoreo",
+        "level_key": _level_key("Monitoreo"),
+        "main_magnitude_event": event_type,
+        "max_value": main["max_value"],
+        "unit": main.get("unit"),
+        "threshold_used": "Magnitud máxima dentro de cada tipo; no compara unidades distintas",
+        "observed_value": f"{event_type}: {main['max_value']:g} {main.get('unit') or ''}".strip(),
+        "recommendation": recommendation,
+        "methodological_source": "Intensidad del evento según variable registrada.",
+    }
+
+
+def _matrix_row(indicator: str, data: dict) -> dict:
+    return {
+        "indicator": indicator,
+        "observed_value": data["observed_value"],
+        "threshold_used": data["threshold_used"],
+        "level": data["level"],
+        "level_key": data.get("level_key") or _level_key(data["level"]),
+        "recommendation": data["recommendation"],
+    }
+
+
+def _worst_intervention_level(levels) -> str:
+    rank = {level: index for index, level in enumerate(INTERVENTION_LEVELS)}
+    return max(levels, key=lambda level: rank.get(level, 0), default="Aceptable")
+
+
+def _level_key(level: str) -> str:
+    mapping = {
+        "Aceptable": "acceptable",
+        "Monitoreo": "monitoring",
+        "Intervención correctiva": "corrective",
+        "Intervención prioritaria": "priority",
+    }
+    return mapping.get(level, "monitoring")
+
+
+def _global_intervention_recommendation(level: str) -> str:
+    if level == "Intervención prioritaria":
+        return "Atender primero los indicadores en nivel prioritario y registrar acciones de intervención operativa."
+    if level == "Intervención correctiva":
+        return "Programar revisión correctiva sobre los indicadores que superaron umbrales operativos."
+    if level == "Monitoreo":
+        return "Mantener monitoreo y revisar tendencias si los eventos se repiten en próximos periodos."
+    return "Mantener operación y monitoreo regular bajo los criterios configurados."
+
+
+def _dominant_event_recommendation(event_type: str | None) -> str:
+    recommendations = {
+        "Exceso de velocidad": "Los eventos predominantes están relacionados con velocidad; se recomienda reforzar el control del límite operativo.",
+        "Frenado brusco": "Los eventos predominantes están relacionados con frenado; se recomienda revisar anticipación, distancia de seguridad y comportamiento del conductor.",
+        "Curva pronunciada": "Los eventos predominantes están relacionados con curvas; se recomienda revisar conducción en tramos sinuosos.",
+        "Conducción agresiva": "Los eventos predominantes están relacionados con conducción agresiva; se recomienda revisar comportamiento operativo o RPM elevadas.",
+        "Sobrecalentamiento": "Los eventos predominantes están relacionados con temperatura; se recomienda revisión mecánica del sistema de enfriamiento.",
+        "Otros": "Los eventos predominantes requieren revisión del sensor o componente reportado.",
+    }
+    return recommendations.get(event_type, "Se recomienda revisar el tipo de evento predominante en el periodo seleccionado.")
+
+
+def _magnitude_recommendation(event_type: str) -> str:
+    if event_type == "Exceso de velocidad":
+        return "Se recomienda revisar el evento de mayor velocidad registrado en el periodo."
+    if event_type == "Frenado brusco":
+        return "Se recomienda revisar el evento de frenado de mayor intensidad registrado en el periodo."
+    if event_type == "Sobrecalentamiento":
+        return "Se recomienda revisar el evento de mayor temperatura y el sistema de enfriamiento."
+    return "Se recomienda revisar la magnitud máxima dentro de su propio tipo de evento."
+
+
+def _main_magnitude_row(magnitude_rows: list[dict]) -> dict | None:
+    priority = {
+        "Exceso de velocidad": 0,
+        "Frenado brusco": 1,
+        "Sobrecalentamiento": 2,
+        "Curva pronunciada": 3,
+        "Conducción agresiva": 4,
+        "Otros": 5,
+    }
+    if not magnitude_rows:
+        return None
+    return sorted(magnitude_rows, key=lambda row: (priority.get(row["event_type"], 99), -row["count"]))[0]
+
+
+def _unique_non_empty(items: list[str]) -> list[str]:
+    seen = set()
+    unique = []
+    for item in items:
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        unique.append(item)
+    return unique
 
 
 def _calculate_ico_score(
@@ -477,6 +798,18 @@ def _magnitude_value(event_type: str, value: float) -> float:
     if event_type in ("Frenado brusco", "Curva pronunciada"):
         return abs(value)
     return value
+
+
+def _event_unit(event_type: str) -> str:
+    units = {
+        "Exceso de velocidad": "km/h",
+        "Frenado brusco": "m/s²",
+        "Curva pronunciada": "m/s²",
+        "Sobrecalentamiento": "°C",
+        "Conducción agresiva": "rpm",
+        "Otros": "según sensor",
+    }
+    return units.get(event_type, "según sensor")
 
 
 def _bus_payload(bus: Bus | None) -> dict:

@@ -1858,6 +1858,121 @@ html[data-theme="glass-dark"] .notification-center::after {
   }
 }
 
+/* Operational intervention methodology */
+.reports-page .intervention-card .card-body {
+  padding: 1rem;
+}
+
+.reports-page .intervention-level-text {
+  max-width: 18rem;
+  margin-top: 0.25rem;
+  color: var(--text-primary);
+  font-size: clamp(1.55rem, 2.2vw, 2.1rem);
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.intervention-level-badge,
+.intervention-mini-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: fit-content;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.intervention-level-badge {
+  padding: 0.34rem 0.58rem;
+}
+
+.intervention-mini-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.48rem;
+}
+
+.intervention-mini-pill {
+  padding: 0.42rem 0.62rem;
+  color: var(--text-secondary);
+}
+
+.intervention-mini-pill i {
+  font-size: 0.9rem;
+}
+
+.intervention-level-acceptable {
+  border-color: rgba(34, 214, 122, 0.32);
+  background: rgba(34, 214, 122, 0.12);
+  color: #baf7d2;
+}
+
+.intervention-level-monitoring {
+  border-color: rgba(66, 215, 255, 0.32);
+  background: rgba(66, 215, 255, 0.12);
+  color: #c7f4ff;
+}
+
+.intervention-level-corrective {
+  border-color: rgba(255, 176, 32, 0.36);
+  background: rgba(255, 176, 32, 0.13);
+  color: #ffe2a8;
+}
+
+.intervention-level-priority {
+  border-color: rgba(255, 95, 109, 0.38);
+  background: rgba(255, 95, 109, 0.14);
+  color: #ffd1d6;
+}
+
+.reports-intervention-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.intervention-matrix-scroll {
+  max-height: 360px;
+}
+
+.intervention-matrix-table {
+  min-width: 820px;
+  font-size: 0.76rem;
+}
+
+@media (max-width: 1199.98px) {
+  .reports-intervention-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .reports-page .intervention-level-text {
+    max-width: 100%;
+    font-size: 1.45rem;
+  }
+
+  .intervention-mini-grid {
+    gap: 0.4rem;
+  }
+
+  .intervention-mini-pill {
+    padding: 0.38rem 0.55rem;
+    font-size: 0.68rem;
+  }
+
+  .intervention-matrix-scroll {
+    max-height: 420px;
+  }
+}
+
 /* Mobile sidebar final tuning: compact right-aligned links and cheap animation */
 @media (max-width: 991.98px) {
   html[data-theme="glass-dark"] .app-navbar .navbar-collapse {
