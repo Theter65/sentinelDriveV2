@@ -1,5 +1,4 @@
 import json
-import os
 import random
 import ssl
 import time
@@ -26,8 +25,8 @@ load_dotenv()
 FLEET_SIZE          = 3
 GPS_INTERVAL        = 12      # segundos
 EVENT_CHECK_INTERVAL = 1      # segundos
-EVENT_PROBABILITY   = 0.3    # ~2% por chequeo (~cada segundo)
-EVENT_COOLDOWN      = 2 * 60  # 2 minutos
+EVENT_MIN_INTERVAL  = 5 * 60  # 5 minutos
+EVENT_MAX_INTERVAL  = 10 * 60 # 10 minutos
 
 # Broker (HiveMQ Cloud ejemplo)
 BROKER_HOST = "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud"
@@ -46,6 +45,14 @@ CURVE_THRESHOLD    = 4.0
 RPM_THRESHOLD      = 4000
 ACCEL_AGGRESSIVE   = 3.5
 TEMP_THRESHOLD     = 95.0
+SCHEDULED_EVENTS = (
+    "exceso_velocidad",
+    "frenado_brusco",
+    "curva_peligrosa",
+    "conduccion_agresiva",
+    "sobrecalentamiento",
+    "otros",
+)
 
 # Sensores opcionales para eventos extendidos ("otros").
 # Estos eventos representan alertas provenientes de hardware no presente en todos los vehiculos.
@@ -93,41 +100,148 @@ except Exception as e:
 #  Variables de estado
 # ────────────────────────────────────────────────
 last_gps_send   = [0.0] * FLEET_SIZE
-last_event_time = [0.0] * FLEET_SIZE
+next_event_time = [0.0] * FLEET_SIZE
 
 def now_iso():
     return datetime.now().isoformat(timespec="seconds")
 
-def can_generate_event(bus_index: int) -> bool:
-    now_ts = time.time()
-    if now_ts - last_event_time[bus_index] < EVENT_COOLDOWN:
-        return False
-    return random.random() < EVENT_PROBABILITY
+def schedule_next_event(bus_index: int, from_time: float | None = None) -> None:
+    base_time = from_time if from_time is not None else time.time()
+    next_event_time[bus_index] = base_time + random.uniform(EVENT_MIN_INTERVAL, EVENT_MAX_INTERVAL)
 
-def generate_gps():
+def choose_scheduled_event() -> str:
+    return random.choice(SCHEDULED_EVENTS)
+
+def simulate_bus_sample(bus_id: int, forced_event: str | None = None) -> dict:
+    """Genera una sola muestra coherente de ubicación, velocidad y sensores.
+
+    La velocidad normal se mantiene bajo el límite. Si la muestra fuerza exceso
+    de velocidad, el mismo dato se publica como GPS y como evento.
+    """
+
+    bus_offset = (bus_id - 1) * 0.002
+    speed = round(random.uniform(18, SPEED_LIMIT - 2), 1)
+    rpm = random.randint(850, 3600)
+    temp = round(random.uniform(72, TEMP_THRESHOLD - 4), 1)
+    accel_x = round(random.uniform(-2.2, 2.4), 2)
+    accel_y = round(random.uniform(-2.2, 2.4), 2)
+
+    if forced_event == "exceso_velocidad":
+        speed = round(random.uniform(SPEED_LIMIT + 5, 110), 1)
+        rpm = random.randint(1800, 4200)
+    elif forced_event == "frenado_brusco":
+        accel_x = round(random.uniform(-6.5, BRAKE_THRESHOLD - 0.1), 2)
+    elif forced_event == "curva_peligrosa":
+        direction = random.choice([-1, 1])
+        accel_y = round(direction * random.uniform(CURVE_THRESHOLD + 0.2, 5.8), 2)
+    elif forced_event == "conduccion_agresiva":
+        rpm = random.randint(RPM_THRESHOLD + 100, 5200)
+        accel_x = round(random.uniform(ACCEL_AGGRESSIVE + 0.2, 5.0), 2)
+    elif forced_event == "sobrecalentamiento":
+        temp = round(random.uniform(TEMP_THRESHOLD + 0.5, 106), 1)
+
     return {
-        "lat": round(LAT_BASE + random.uniform(-0.01, 0.01), 6),
-        "lon": round(LON_BASE + random.uniform(-0.01, 0.01), 6),
-        "speed_gps": round(random.uniform(0, 110), 1),
+        "lat": round(LAT_BASE + bus_offset + random.uniform(-0.01, 0.01), 6),
+        "lon": round(LON_BASE + bus_offset + random.uniform(-0.01, 0.01), 6),
+        "speed_gps": speed,
+        "speed_obd": speed,
+        "rpm": rpm,
+        "temp": temp,
+        "accel_x": accel_x,
+        "accel_y": accel_y,
     }
 
-def simulate_obd():
+def build_gps_payload(bus_id: int, timestamp: str, sample: dict) -> dict:
     return {
-        "speed": round(random.uniform(0, 110), 1),
-        "rpm":   random.randint(800, 5200),
-        "temp":  round(random.uniform(70, 105), 1),
+        "bus_id": bus_id,
+        "type": "gps",
+        "timestamp": timestamp,
+        "lat": sample["lat"],
+        "lon": sample["lon"],
+        "speed_gps": sample["speed_gps"],
     }
 
-def simulate_mpu():
-    return {
-        "accel_x": round(random.uniform(-6, 5), 2),
-        "accel_y": round(random.uniform(-5, 5), 2),
-    }
+def build_event_payload(bus_id: int, timestamp: str, sample: dict, scheduled_event: str | None) -> dict | None:
+    if sample["speed_gps"] > SPEED_LIMIT:
+        return {
+            "bus_id": bus_id,
+            "type": "event",
+            "event": "exceso_velocidad",
+            "timestamp": timestamp,
+            "speed_obd": sample["speed_obd"],
+            "speed_gps": sample["speed_gps"],
+            "lat": sample["lat"],
+            "lon": sample["lon"],
+        }
+
+    if scheduled_event == "frenado_brusco":
+        return {
+            "bus_id": bus_id,
+            "type": "event",
+            "event": "frenado_brusco",
+            "timestamp": timestamp,
+            "accel_x": sample["accel_x"],
+            "lat": sample["lat"],
+            "lon": sample["lon"],
+        }
+
+    if scheduled_event == "curva_peligrosa":
+        return {
+            "bus_id": bus_id,
+            "type": "event",
+            "event": "curva_peligrosa",
+            "timestamp": timestamp,
+            "accel_y": sample["accel_y"],
+            "lat": sample["lat"],
+            "lon": sample["lon"],
+        }
+
+    if scheduled_event == "conduccion_agresiva":
+        return {
+            "bus_id": bus_id,
+            "type": "event",
+            "event": "conduccion_agresiva",
+            "timestamp": timestamp,
+            "rpm": sample["rpm"],
+            "accel_x": sample["accel_x"],
+            "lat": sample["lat"],
+            "lon": sample["lon"],
+        }
+
+    if scheduled_event == "sobrecalentamiento":
+        return {
+            "bus_id": bus_id,
+            "type": "event",
+            "event": "sobrecalentamiento",
+            "timestamp": timestamp,
+            "temperature": sample["temp"],
+            "lat": sample["lat"],
+            "lon": sample["lon"],
+        }
+
+    if scheduled_event == "otros":
+        description, value = generate_other_sensor_event()
+        return {
+            "bus_id": bus_id,
+            "type": "event",
+            "event": "otros",
+            "timestamp": timestamp,
+            "description": description,
+            "value": value,
+            "lat": sample["lat"],
+            "lon": sample["lon"],
+        }
+
+    return None
 
 def generate_other_sensor_event():
     sensor = random.choice(OTHER_SENSORS)
     value = round(random.uniform(sensor["min"], sensor["max"]), int(sensor["decimals"]))
     return sensor["description"], value
+
+boot_time = time.time()
+for bus_index in range(FLEET_SIZE):
+    schedule_next_event(bus_index, boot_time)
 
 # ────────────────────────────────────────────────
 #  Mensaje de bienvenida
@@ -135,8 +249,8 @@ def generate_other_sensor_event():
 print("\n" + "="*45)
 print("   SIMULADOR SENTINELDRIVE   |   MQTT IoT")
 print(f"   Flota: {FLEET_SIZE} buses")
-print(f"   GPS cada {GPS_INTERVAL}s    |   Eventos ~{EVENT_PROBABILITY*100:.1f}%")
-print(f"   Cooldown eventos: {EVENT_COOLDOWN//60} min")
+print(f"   GPS cada {GPS_INTERVAL}s    |   Eventos cada 5-10 min por bus")
+print(f"   Límite velocidad: {SPEED_LIMIT:.0f} km/h")
 print("="*45 + "\n")
 
 # ────────────────────────────────────────────────
@@ -149,103 +263,42 @@ while True:
         for bus_id in range(1, FLEET_SIZE + 1):
             idx = bus_id - 1
 
-            # ─── GPS periódico ───────────────────────────────
+            # ─── Muestra unificada periódica ─────────────────
             if current_time - last_gps_send[idx] >= GPS_INTERVAL:
-                gps = generate_gps()
-                payload = {
-                    "bus_id": bus_id,
-                    "type": "gps",
-                    "timestamp": now_iso(),
-                    "lat": gps["lat"],
-                    "lon": gps["lon"],
-                    "speed_gps": gps["speed_gps"],
-                }
+                scheduled_event = None
+                if current_time >= next_event_time[idx]:
+                    scheduled_event = choose_scheduled_event()
+
+                timestamp = now_iso()
+                sample = simulate_bus_sample(bus_id, scheduled_event)
+                payload = build_gps_payload(bus_id, timestamp, sample)
                 topic = f"{BASE_TOPIC}/{bus_id}/gps"
                 client.publish(topic, json.dumps(payload), qos=0)
-                logger.info(f"GPS enviado → bus {bus_id:2d}  {gps['lat']:.6f}, {gps['lon']:.6f}  {gps['speed_gps']:5.1f} km/h")
+                logger.info(
+                    "GPS enviado → bus %2d  %.6f, %.6f  %5.1f km/h",
+                    bus_id,
+                    sample["lat"],
+                    sample["lon"],
+                    sample["speed_gps"],
+                )
                 last_gps_send[idx] = current_time
 
-            # ─── Simulaciones sensores ───────────────────────
-            obd = simulate_obd()
-            mpu = simulate_mpu()
-            gps_event = generate_gps()   # posición para el evento
+                event = build_event_payload(bus_id, timestamp, sample, scheduled_event)
+                if event:
+                    topic = f"{BASE_TOPIC}/{bus_id}/event"
+                    client.publish(topic, json.dumps(event), qos=1)
+                    logger.warning(
+                        "EVENTO → bus %2d → %-18s  %s  %.6f, %.6f  %5.1f km/h",
+                        bus_id,
+                        event["event"],
+                        timestamp,
+                        sample["lat"],
+                        sample["lon"],
+                        sample["speed_gps"],
+                    )
 
-            event = None
-
-            if obd["speed"] > SPEED_LIMIT and can_generate_event(idx):
-                event = {
-                    "bus_id": bus_id,
-                    "type": "event",
-                    "event": "exceso_velocidad",
-                    "timestamp": now_iso(),
-                    "speed_obd": obd["speed"],
-                    "lat": gps_event["lat"],
-                    "lon": gps_event["lon"],
-                }
-
-            elif mpu["accel_x"] < BRAKE_THRESHOLD and can_generate_event(idx):
-                event = {
-                    "bus_id": bus_id,
-                    "type": "event",
-                    "event": "frenado_brusco",
-                    "timestamp": now_iso(),
-                    "accel_x": mpu["accel_x"],
-                    "lat": gps_event["lat"],
-                    "lon": gps_event["lon"],
-                }
-
-            elif abs(mpu["accel_y"]) > CURVE_THRESHOLD and can_generate_event(idx):
-                event = {
-                    "bus_id": bus_id,
-                    "type": "event",
-                    "event": "curva_peligrosa",
-                    "timestamp": now_iso(),
-                    "accel_y": mpu["accel_y"],
-                    "lat": gps_event["lat"],
-                    "lon": gps_event["lon"],
-                }
-
-            elif obd["rpm"] > RPM_THRESHOLD and mpu["accel_x"] > ACCEL_AGGRESSIVE and can_generate_event(idx):
-                event = {
-                    "bus_id": bus_id,
-                    "type": "event",
-                    "event": "conduccion_agresiva",
-                    "timestamp": now_iso(),
-                    "rpm": obd["rpm"],
-                    "accel_x": mpu["accel_x"],
-                    "lat": gps_event["lat"],
-                    "lon": gps_event["lon"],
-                }
-
-            elif obd["temp"] > TEMP_THRESHOLD and can_generate_event(idx):
-                event = {
-                    "bus_id": bus_id,
-                    "type": "event",
-                    "event": "sobrecalentamiento",
-                    "timestamp": now_iso(),
-                    "temperature": obd["temp"],
-                    "lat": gps_event["lat"],
-                    "lon": gps_event["lon"],
-                }
-
-            elif can_generate_event(idx):
-                description, value = generate_other_sensor_event()
-                event = {
-                    "bus_id": bus_id,
-                    "type": "event",
-                    "event": "otros",
-                    "timestamp": now_iso(),
-                    "description": description,
-                    "value": value,
-                    "lat": gps_event["lat"],
-                    "lon": gps_event["lon"],
-                }
-
-            if event:
-                topic = f"{BASE_TOPIC}/{bus_id}/event"
-                client.publish(topic, json.dumps(event), qos=1)
-                logger.warning(f"EVENTO → bus {bus_id:2d} → {event['event']:<18}  {now_iso()}")
-                last_event_time[idx] = time.time()
+                if scheduled_event:
+                    schedule_next_event(idx, current_time)
 
         time.sleep(EVENT_CHECK_INTERVAL)
 
