@@ -19,7 +19,7 @@ SentinelDrive es una solución web diseñada para gestionar la operación de flo
 Loja, Ecuador
 
 ## Requisitos
-- Python 3.8+
+- Python 3.8 - 12.12
 - pip
 
 ## Instalación y Uso
