@@ -3,7 +3,7 @@
 Aplicación web para la gestión de entradas y administración de flotas de transporte.
 
 ## Descripción
-SentinelDrive es una solución web diseñada para gestionar la operación de flotas de buses, incluyendo el control de entradas y salidas, mantenimientos, eventos y seguimiento en tiempo real.
+SentinelDrive es una solución web diseñada para gestionar la operación de flotas de buses, incluyendo  mantenimientos, eventos y seguimiento en tiempo real.
 
 ## Características
 - Gestión integral de buses (registro, edición, estado)
