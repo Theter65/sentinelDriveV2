@@ -1,10 +1,25 @@
-venv/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Entorno virtual
+venv/
+env/
+ENV/
+
+# Carpeta instance (contiene secret key y base de datos)
+instance/
+
+# Variables de entorno
 .env
-instance/*.db
-instance/.secret_key
-instance/*.sqlite
-.DS_Store
-.vscode/
+.venv
+
+# Flask
+.flaskenv
+
+# Base de datos
+*.db
+
+# Logs
 *.log
