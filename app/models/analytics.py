@@ -1,3 +1,5 @@
+"""Modelos persistentes para corridas y resultados de analitica operativa."""
+
 from app.extensions import db
 from app.utils.time import ecuador_now
 

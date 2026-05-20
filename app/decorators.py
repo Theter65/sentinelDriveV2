@@ -1,3 +1,5 @@
+"""Decoradores de seguridad para rutas autenticadas y administrativas."""
+
 from functools import wraps
 
 from flask import redirect, session, url_for
@@ -14,6 +16,7 @@ def login_required(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
+        """Valida sesion activa antes de ejecutar la vista protegida."""
         username = session.get("user")
         if not username:
             return redirect(url_for("auth.login"))
@@ -33,6 +36,7 @@ def require_admin(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
+        """Valida sesion y rol administrativo antes de ejecutar la vista."""
         username = session.get("user")
         if not username:
             return redirect(url_for("auth.login"))

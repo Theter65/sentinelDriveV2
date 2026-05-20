@@ -1,3 +1,4 @@
+{# Vista de seguimiento GPS con mapa, capas y detalle por bus. #}
 {% extends "base.html" %}
 {% block title %}Seguimiento GPS{% endblock %}
 
@@ -170,6 +171,20 @@
     const selectedEvent = {{ selected_event|tojson }};
     let currentMarker = null;
     let selectedEventMarker = null;
+    let followSelectedBus = true;
+    let programmaticMapMove = false;
+
+    map.on('dragstart zoomstart', () => {
+        if (!programmaticMapMove) followSelectedBus = false;
+    });
+
+    function focusMap(lat, lon, zoom) {
+        programmaticMapMove = true;
+        map.setView([lat, lon], zoom);
+        window.setTimeout(() => {
+            programmaticMapMove = false;
+        }, 250);
+    }
 
     function setText(id, value) {
         const el = document.getElementById(id);
@@ -204,7 +219,7 @@
              <b>Hora:</b> ${escapeHtml(timestamp)}<br>
              <b>Coordenadas:</b> ${lat.toFixed(6)}, ${lon.toFixed(6)}`
         ).openPopup();
-        map.setView([lat, lon], 16);
+        focusMap(lat, lon, 16);
     }
 
     function setTelemetryBadge(isConnected) {
@@ -214,7 +229,8 @@
         badge.textContent = isConnected ? 'Conectado' : 'Desconectado';
     }
 
-    function loadBusPosition(busId) {
+    function loadBusPosition(busId, options = {}) {
+        const shouldFocus = options.focus === true || followSelectedBus;
         if (!busId) {
             setText('busPlate', 'Seleccione un bus');
             setText('busDriver', '-');
@@ -250,15 +266,21 @@
                 setText('adminStatusBadge', `Estado: ${data.bus.status || '-'}`);
                 setText('speedBadge', `Velocidad: ${Number(data.speed || 0).toFixed(1)} km/h`);
 
-                if (currentMarker) map.removeLayer(currentMarker);
-                currentMarker = L.marker([data.lat, data.lon]).addTo(map);
-                currentMarker.bindPopup(
-                    `<b>Bus:</b> ${data.bus.plate}<br>
+                const popupContent = `<b>Bus:</b> ${data.bus.plate}<br>
                      <b>Conductor:</b> ${data.bus.driver || 'Sin conductor'}<br>
                      <b>Velocidad:</b> ${Number(data.speed || 0).toFixed(1)} km/h<br>
-                     <b>Hora:</b> ${ts.toLocaleString('es-EC')}`
-                ).openPopup();
-                map.setView([data.lat, data.lon], 15);
+                     <b>Hora:</b> ${ts.toLocaleString('es-EC')}`;
+                if (currentMarker) {
+                    currentMarker.setLatLng([data.lat, data.lon]);
+                    currentMarker.setPopupContent(popupContent);
+                } else {
+                    currentMarker = L.marker([data.lat, data.lon]).addTo(map);
+                    currentMarker.bindPopup(popupContent);
+                }
+                if (shouldFocus) {
+                    currentMarker.openPopup();
+                    focusMap(data.lat, data.lon, Math.max(map.getZoom(), 15));
+                }
             })
             .catch(() => {
                 setTelemetryBadge(false);
@@ -267,12 +289,13 @@
     }
 
     document.getElementById('bus-select').addEventListener('change', function () {
-        loadBusPosition(this.value);
+        followSelectedBus = true;
+        loadBusPosition(this.value, { focus: true });
     });
 
     setInterval(() => {
         const busId = document.getElementById('bus-select').value;
-        if (busId) loadBusPosition(busId);
+        if (busId) loadBusPosition(busId, { focus: false });
     }, 15000);
 
     showSelectedEventMarker();

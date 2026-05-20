@@ -1,3 +1,5 @@
+/* Sincroniza colores de Chart.js con el tema claro u oscuro activo. */
+
 (function () {
   function cssVar(name, fallback) {
     const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();

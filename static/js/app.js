@@ -1,3 +1,5 @@
+/* Comportamiento global de interfaz, menu movil, notificaciones y polling de eventos. */
+
 /* Global UI behavior: layout readiness, nav highlighting and event toasts. */
 
 function $(id) {

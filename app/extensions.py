@@ -1,3 +1,5 @@
+"""Instancias compartidas de extensiones Flask inicializadas por la factory."""
+
 # =============================================================================
 # EXTENSIONS - Extensiones globales de Flask
 #

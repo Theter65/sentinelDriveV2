@@ -1,3 +1,5 @@
+"""Rutas para listar eventos y alimentar notificaciones en tiempo casi real."""
+
 from flask import Blueprint, jsonify, render_template, request
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload

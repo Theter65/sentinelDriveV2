@@ -1,3 +1,5 @@
+/* Script legado para renderizar posiciones GPS en un mapa Leaflet. */
+
 // static/js/tracking.js
 
 document.addEventListener('DOMContentLoaded', function () {

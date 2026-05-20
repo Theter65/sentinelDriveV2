@@ -1,3 +1,5 @@
+/* Variables de tema claro/oscuro y reglas generales de apariencia. */
+
 :root,
 :root[data-theme="glass-dark"] {
   --bg-base: #060b12;

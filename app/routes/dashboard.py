@@ -1,3 +1,5 @@
+"""Ruta del panel principal y resumen operativo de la flota."""
+
 from datetime import timedelta
 
 from flask import Blueprint, current_app, render_template
@@ -23,6 +25,7 @@ dashboard_bp = Blueprint("dashboard", __name__)
 @dashboard_bp.route("/dashboard")
 @login_required
 def dashboard():
+    """Compone metricas generales y estado de buses para el panel."""
     now = ecuador_now()
     one_minute_ago = now - timedelta(seconds=60)
 

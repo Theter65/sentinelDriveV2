@@ -1,3 +1,5 @@
+"""Rutas para registrar, completar y eliminar mantenimientos."""
+
 from flask import Blueprint, render_template, request, redirect, url_for
 
 from app.decorators import require_admin

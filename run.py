@@ -1,3 +1,5 @@
+"""Punto de entrada local para iniciar Flask y el suscriptor MQTT."""
+
 import logging
 import os
 import sys

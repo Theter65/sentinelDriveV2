@@ -1,3 +1,5 @@
+"""Paquete de blueprints HTTP de la plataforma."""
+
 # app/routes/__init__.py
 # Importación de todos los blueprints para registro centralizado en app/__init__.py
 # Esto facilita la escalabilidad y mantenimiento del sistema

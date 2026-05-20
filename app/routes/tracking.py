@@ -1,3 +1,5 @@
+"""Rutas de seguimiento GPS y API de ultima posicion."""
+
 from flask import Blueprint, jsonify, render_template, request
 
 from app.decorators import login_required

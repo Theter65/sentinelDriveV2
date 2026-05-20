@@ -1,3 +1,5 @@
+"""Configuracion central de entorno, base de datos, sesiones y MQTT."""
+
 import os
 import secrets
 from pathlib import Path
@@ -19,6 +21,7 @@ DEFAULT_MQTT_TOPIC_EVENT = "flota/ecuador/buses/+/event"
 
 
 def _database_url() -> str:
+    """Resuelve la URL de base de datos desde entorno o SQLite local."""
     database_url = os.getenv("DATABASE_URL")
     if database_url:
         if database_url.startswith("postgres://"):
@@ -28,6 +31,7 @@ def _database_url() -> str:
 
 
 def _env_int(name: str, default: int) -> int:
+    """Lee enteros de entorno con valor seguro por defecto."""
     try:
         return int(os.getenv(name, str(default)))
     except (TypeError, ValueError):
@@ -36,6 +40,7 @@ def _env_int(name: str, default: int) -> int:
 
 
 def _env_bool(name: str, default: bool) -> bool:
+    """Convierte flags de entorno a booleanos consistentes."""
     raw = os.getenv(name)
     if raw is None:
         return default
@@ -43,6 +48,7 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 def _load_or_create_secret_key() -> str:
+    """Obtiene o crea una clave secreta local fuera del repositorio."""
     secret_key = os.getenv("SECRET_KEY")
     if secret_key:
         return secret_key
@@ -65,6 +71,7 @@ def _load_or_create_secret_key() -> str:
 
 
 class Config:
+    """Valores de configuracion usados por Flask y los servicios internos."""
     SECRET_KEY = _load_or_create_secret_key()
     IS_RENDER = bool(os.getenv("RENDER")) or bool(os.getenv("RENDER_EXTERNAL_URL"))
 

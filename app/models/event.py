@@ -1,3 +1,5 @@
+"""Modelo de eventos operativos recibidos desde MQTT o consultados en reportes."""
+
 from app.extensions import db
 from app.utils.time import ecuador_now
 

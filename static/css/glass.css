@@ -1,3 +1,5 @@
+/* Capa visual glass, optimizaciones moviles y ajustes finos de componentes. */
+
 html[data-theme="glass-dark"] .glass-page,
 html[data-theme="glass-dark"] .main-content {
   position: relative;
@@ -2539,4 +2541,132 @@ html[data-theme="glass-dark"] .reports-page h2,
 html[data-theme="glass-dark"] .reports-page h3,
 html[data-theme="glass-dark"] .reports-page h5 {
   color: rgba(241, 248, 255, 0.96) !important;
+}
+
+/* Mobile fluency pass: align both themes and remove expensive glass on phones */
+@media (max-width: 991.98px), (hover: none) and (pointer: coarse) {
+  html[data-theme="glass-light"] .app-navbar .navbar-nav {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end !important;
+    justify-content: flex-start !important;
+    gap: 0.58rem;
+    margin: 0 !important;
+    padding: 0;
+    overflow: visible;
+    text-align: right;
+  }
+
+  html[data-theme="glass-light"] .app-navbar .nav-item {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  html[data-theme="glass-light"] .app-navbar .nav-item form {
+    width: auto !important;
+    display: flex;
+    justify-content: flex-end;
+    margin-left: auto !important;
+  }
+
+  html[data-theme="glass-light"] .app-navbar .nav-link,
+  html[data-theme="glass-light"] .app-navbar .nav-logout-button {
+    width: fit-content !important;
+    max-width: 100%;
+    min-width: 0;
+    margin-left: auto !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end !important;
+    text-align: right;
+    white-space: nowrap;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html[data-theme="glass-light"] .app-navbar .nav-link i,
+  html[data-theme="glass-light"] .app-navbar .nav-logout-button i {
+    flex: 0 0 auto;
+  }
+
+  body.mobile-performance .liquid-glass,
+  body.mobile-performance .liquid-glass-strong,
+  body.mobile-performance .glass-card,
+  body.mobile-performance .glass-card-sm,
+  body.mobile-performance .glass-panel,
+  body.mobile-performance .glass-panel-strong,
+  body.mobile-performance .glass-chart-card,
+  body.mobile-performance .notification-center,
+  body.mobile-performance .card {
+    animation: none !important;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease !important;
+  }
+
+  body.mobile-performance .liquid-glass::before,
+  body.mobile-performance .liquid-glass::after,
+  body.mobile-performance .liquid-glass-strong::before,
+  body.mobile-performance .liquid-glass-strong::after,
+  body.mobile-performance .glass-card::before,
+  body.mobile-performance .glass-card::after,
+  body.mobile-performance .glass-card-sm::before,
+  body.mobile-performance .glass-panel::before,
+  body.mobile-performance .glass-panel::after,
+  body.mobile-performance .glass-panel-strong::before,
+  body.mobile-performance .glass-panel-strong::after,
+  body.mobile-performance .glass-chart-card::before,
+  body.mobile-performance .glass-chart-card::after,
+  body.mobile-performance .card::before,
+  body.mobile-performance .card::after {
+    display: none !important;
+  }
+
+  html[data-theme="glass-dark"] body.mobile-performance .ambient-bg {
+    opacity: 0.18 !important;
+  }
+
+  html[data-theme="glass-dark"] body.mobile-performance .site-header,
+  html[data-theme="glass-dark"] body.mobile-performance .top-bar,
+  html[data-theme="glass-dark"] body.mobile-performance .app-navbar,
+  html[data-theme="glass-dark"] body.mobile-performance .notification-center,
+  html[data-theme="glass-dark"] body.mobile-performance .liquid-glass,
+  html[data-theme="glass-dark"] body.mobile-performance .liquid-glass-strong,
+  html[data-theme="glass-dark"] body.mobile-performance .glass-card,
+  html[data-theme="glass-dark"] body.mobile-performance .glass-card-sm,
+  html[data-theme="glass-dark"] body.mobile-performance .glass-panel,
+  html[data-theme="glass-dark"] body.mobile-performance .glass-panel-strong,
+  html[data-theme="glass-dark"] body.mobile-performance .glass-chart-card,
+  html[data-theme="glass-dark"] body.mobile-performance .card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(8, 13, 20, 0.94) !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.30) !important;
+  }
+
+  html[data-theme="glass-dark"] body.mobile-performance .card .table-responsive,
+  html[data-theme="glass-light"] body.mobile-performance .card .table-responsive {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html[data-theme="glass-dark"] body.mobile-performance .table > :not(caption) > * > * {
+    background-color: rgba(10, 16, 25, 0.88) !important;
+  }
+
+  html[data-theme="glass-light"] body.mobile-performance .table > :not(caption) > * > * {
+    background-color: rgba(255, 255, 255, 0.88) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  html[data-theme="glass-light"] .app-navbar .nav-link,
+  html[data-theme="glass-light"] .app-navbar .nav-logout-button {
+    min-height: 40px;
+    padding: 0.58rem 0.78rem;
+  }
 }

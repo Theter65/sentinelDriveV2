@@ -1,3 +1,5 @@
+"""Filtro en memoria para evitar procesar mensajes MQTT repetidos."""
+
 import threading
 import time
 from datetime import datetime

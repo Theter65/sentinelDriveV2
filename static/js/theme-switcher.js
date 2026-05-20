@@ -1,3 +1,5 @@
+/* Gestiona persistencia y cambio de tema por usuario. */
+
 (function () {
   const STORAGE_PREFIX = "sentinldrive_theme";
   const DEFAULT_THEME = "glass-dark";

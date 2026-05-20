@@ -1,3 +1,5 @@
+"""Almacenamiento key/value para configuracion editable en tiempo de ejecucion."""
+
 from app.extensions import db
 from app.utils.time import ecuador_now
 
@@ -18,6 +20,7 @@ class SystemSetting(db.Model):
 
     @classmethod
     def get_value(cls, key: str, default=None):
+        """Lee un valor persistido por clave."""
         row = db.session.get(cls, key)
         if row is None or row.value in (None, ""):
             return default
@@ -25,6 +28,7 @@ class SystemSetting(db.Model):
 
     @classmethod
     def set_value(cls, key: str, value):
+        """Crea o actualiza un valor persistido."""
         row = db.session.get(cls, key)
         if row is None:
             row = cls(key=key)
@@ -34,6 +38,7 @@ class SystemSetting(db.Model):
 
     @classmethod
     def delete_value(cls, key: str):
+        """Elimina una clave persistida si existe."""
         row = db.session.get(cls, key)
         if row is not None:
             db.session.delete(row)

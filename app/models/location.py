@@ -1,3 +1,5 @@
+"""Modelo de posiciones GPS historicas por bus."""
+
 from app.extensions import db
 from app.utils.time import ecuador_now
 

@@ -1,4 +1,6 @@
-﻿import json
+"""Simulador local de datos MQTT para pruebas manuales fuera del repositorio remoto."""
+
+import json
 import os
 import random
 import ssl
@@ -8,9 +10,7 @@ from datetime import datetime
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-#  ConfiguraciÃ³n de logging
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Configuracion de logging para ver publicaciones y errores en consola.
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)-7s | %(message)s',
@@ -18,9 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("SentinelDrive-Simulator")
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-#  Carga variables de entorno
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Carga variables de entorno locales para no dejar credenciales en el codigo.
 load_dotenv()
 
 FLEET_SIZE          = 3
@@ -29,18 +27,18 @@ EVENT_CHECK_INTERVAL = 1      # segundos
 EVENT_MIN_INTERVAL  = 5 * 60  # 5 minutos
 EVENT_MAX_INTERVAL  = 10 * 60 # 10 minutos
 
-# Broker MQTT del simulador. Se toma de variables de entorno/.env local.
-BROKER_HOST = os.getenv("MQTT_BROKER", "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud").strip()
+# Broker MQTT del simulador. Se toma solo de variables de entorno/.env local.
+BROKER_HOST = os.getenv("MQTT_BROKER", "").strip()
 try:
     BROKER_PORT = int(os.getenv("MQTT_PORT", "8883"))
 except ValueError:
     BROKER_PORT = 0
-USERNAME    = os.getenv("MQTT_USERNAME", "CajaN3gr4").strip()
-PASSWORD    = os.getenv("MQTT_PASSWORD", "Proyecto12")
+USERNAME    = os.getenv("MQTT_USERNAME", "").strip()
+PASSWORD    = os.getenv("MQTT_PASSWORD", "")
 
 BASE_TOPIC = "flota/ecuador/buses"
 
-# Constantes fÃ­sicas / umbrales
+# Constantes fisicas y umbrales usados para generar eventos de prueba.
 LAT_BASE = -4.0000
 LON_BASE = -79.2000
 SPEED_LIMIT        = 80.0
@@ -67,16 +65,16 @@ OTHER_SENSORS = [
     {"description": "Nivel de combustible (%)", "min": 0.0, "max": 100.0, "decimals": 0},
 ]
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-#  Cliente MQTT
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Cliente MQTT que publica las muestras simuladas.
 def on_connect(client, userdata, flags, reason_code, properties):
+    """Registra el resultado de la conexion al broker."""
     if reason_code == 0:
-        logger.info("Conectado al broker MQTT âœ“")
+        logger.info("Conectado al broker MQTT correctamente")
     else:
         logger.error("Fallo al conectar - reason_code = %s", reason_code)
 
 def on_publish(client, userdata, mid, reason_codes, properties):
+    """Punto de extension para registrar publicaciones si se activa debug."""
     # Opcional: logger.debug("Mensaje publicado (mid=%s)", mid)
     pass
 
@@ -101,30 +99,31 @@ try:
     client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
     client.loop_start()
 except Exception as e:
-    logger.error("No se pudo conectar al broker â†’ %s", e)
+    logger.error("No se pudo conectar al broker -> %s", e)
     exit(1)
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-#  Variables de estado
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Variables de estado para espaciar publicaciones por bus.
 last_gps_send   = [0.0] * FLEET_SIZE
 next_event_time = [0.0] * FLEET_SIZE
 
 def now_iso():
+    """Devuelve la marca temporal local en formato ISO simple."""
     return datetime.now().isoformat(timespec="seconds")
 
 def schedule_next_event(bus_index: int, from_time: float | None = None) -> None:
+    """Programa el siguiente evento simulado para un bus."""
     base_time = from_time if from_time is not None else time.time()
     next_event_time[bus_index] = base_time + random.uniform(EVENT_MIN_INTERVAL, EVENT_MAX_INTERVAL)
 
 def choose_scheduled_event() -> str:
+    """Elige aleatoriamente el tipo de evento que se publicara."""
     return random.choice(SCHEDULED_EVENTS)
 
 def simulate_bus_sample(bus_id: int, forced_event: str | None = None) -> dict:
-    """Genera una sola muestra coherente de ubicaciÃ³n, velocidad y sensores.
+    """Genera una sola muestra coherente de ubicacion, velocidad y sensores.
 
-    La velocidad normal se mantiene bajo el lÃ­mite. Si la muestra fuerza exceso
-    de velocidad, el mismo dato se publica como velocidad canÃ³nica y como evento.
+    La velocidad normal se mantiene bajo el limite. Si la muestra fuerza exceso
+    de velocidad, el mismo dato se publica como velocidad canonica y como evento.
     """
 
     bus_offset = (bus_id - 1) * 0.002
@@ -159,6 +158,7 @@ def simulate_bus_sample(bus_id: int, forced_event: str | None = None) -> dict:
     }
 
 def build_gps_payload(bus_id: int, timestamp: str, sample: dict) -> dict:
+    """Arma el JSON MQTT de ubicacion GPS."""
     return {
         "bus_id": bus_id,
         "type": "gps",
@@ -169,6 +169,7 @@ def build_gps_payload(bus_id: int, timestamp: str, sample: dict) -> dict:
     }
 
 def build_event_payload(bus_id: int, timestamp: str, sample: dict, scheduled_event: str | None) -> dict | None:
+    """Arma el JSON MQTT de evento segun el tipo programado."""
     if sample["speed"] > SPEED_LIMIT:
         return {
             "bus_id": bus_id,
@@ -241,6 +242,7 @@ def build_event_payload(bus_id: int, timestamp: str, sample: dict, scheduled_eve
     return None
 
 def generate_other_sensor_event():
+    """Genera un evento generico de sensor auxiliar."""
     sensor = random.choice(OTHER_SENSORS)
     value = round(random.uniform(sensor["min"], sensor["max"]), int(sensor["decimals"]))
     return sensor["description"], value
@@ -249,19 +251,15 @@ boot_time = time.time()
 for bus_index in range(FLEET_SIZE):
     schedule_next_event(bus_index, boot_time)
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-#  Mensaje de bienvenida
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Mensaje de bienvenida para confirmar parametros de simulacion.
 print("\n" + "="*45)
 print("   SIMULADOR SENTINELDRIVE   |   MQTT IoT")
 print(f"   Flota: {FLEET_SIZE} buses")
 print(f"   GPS cada {GPS_INTERVAL}s    |   Eventos cada 5-10 min por bus")
-print(f"   LÃ­mite velocidad: {SPEED_LIMIT:.0f} km/h")
+print(f"   Limite velocidad: {SPEED_LIMIT:.0f} km/h")
 print("="*45 + "\n")
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-#  Bucle principal
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Bucle principal de publicacion MQTT.
 while True:
     try:
         current_time = time.time()
@@ -269,7 +267,7 @@ while True:
         for bus_id in range(1, FLEET_SIZE + 1):
             idx = bus_id - 1
 
-            # â”€â”€â”€ Muestra unificada periÃ³dica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # Muestra unificada periodica: una lectura GPS y, si aplica, un evento.
             if current_time - last_gps_send[idx] >= GPS_INTERVAL:
                 scheduled_event = None
                 if current_time >= next_event_time[idx]:
@@ -281,7 +279,7 @@ while True:
                 topic = f"{BASE_TOPIC}/{bus_id}/gps"
                 client.publish(topic, json.dumps(payload), qos=0)
                 logger.info(
-                    "GPS enviado â†’ bus %2d  %.6f, %.6f  %5.1f km/h",
+                    "GPS enviado -> bus %2d  %.6f, %.6f  %5.1f km/h",
                     bus_id,
                     sample["lat"],
                     sample["lon"],
@@ -294,7 +292,7 @@ while True:
                     topic = f"{BASE_TOPIC}/{bus_id}/event"
                     client.publish(topic, json.dumps(event), qos=1)
                     logger.warning(
-                        "EVENTO â†’ bus %2d â†’ %-18s  %s  %.6f, %.6f  %5.1f km/h",
+                        "EVENTO -> bus %2d -> %-18s  %s  %.6f, %.6f  %5.1f km/h",
                         bus_id,
                         event["event"],
                         timestamp,
@@ -314,4 +312,3 @@ while True:
     except Exception as e:
         logger.error("Error en bucle principal: %s", e)
         time.sleep(5)
-

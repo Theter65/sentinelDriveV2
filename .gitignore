@@ -13,6 +13,8 @@ instance/
 
 # Variables de entorno
 .env
+.env.*
+!.env.example
 .venv
 
 # Flask
@@ -20,6 +22,20 @@ instance/
 
 # Base de datos
 *.db
+*.sqlite
+*.sqlite3
 
 # Logs
 *.log
+
+# Archivos locales sensibles o de mantenimiento
+simulator.py
+MANUAL_MANTENIMIENTO_PLATAFORMA.md
+MANUAL_MANTENIMIENTO_PLATAFORMA.docx
+MANUAL_MANTENIMIENTO_PLATAFORMA.pdf
+
+# Credenciales y certificados locales
+*.pem
+*.key
+*.crt
+*.cert

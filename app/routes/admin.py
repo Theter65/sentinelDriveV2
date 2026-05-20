@@ -1,3 +1,5 @@
+"""Rutas administrativas para configuracion MQTT y operaciones sensibles."""
+
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 
 from app.decorators import require_admin
@@ -62,6 +64,7 @@ def _render_admin_panel(mqtt_settings_override: dict | None = None, status_code:
 @admin_bp.route("/admin")
 @require_admin
 def admin_panel():
+    """Renderiza el panel administrativo."""
     return _render_admin_panel()
 
 

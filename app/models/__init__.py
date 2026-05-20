@@ -1,3 +1,5 @@
+"""Paquete de modelos SQLAlchemy de la plataforma."""
+
 # app/models/__init__.py
 # Solo exporta las clases de modelos (no funciones de inicialización)
 from .user import User
@@ -14,3 +16,4 @@ from .analytics import (
     SpeedHistogramBin,
     VehicleStatisticsSummary,
 )
+"""Paquete de modelos SQLAlchemy de la plataforma."""

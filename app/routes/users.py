@@ -1,3 +1,5 @@
+"""Rutas de gestion de usuarios, roles y contrasenas."""
+
 from flask import Blueprint, flash, render_template, request, redirect, session, url_for
 from werkzeug.security import generate_password_hash
 

@@ -1,3 +1,5 @@
+"""Modelo de usuarios, roles y verificacion de contrasenas."""
+
 # =============================================================================
 # app/models/user.py - Modelo de usuario
 #

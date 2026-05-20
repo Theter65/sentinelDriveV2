@@ -1,3 +1,5 @@
+"""Helpers de zona horaria para operar con hora de Ecuador."""
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
 

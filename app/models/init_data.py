@@ -1,3 +1,5 @@
+"""Rutinas livianas para preparar indices y validar datos iniciales."""
+
 from sqlalchemy import text
 
 from app.extensions import db

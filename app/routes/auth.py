@@ -1,3 +1,5 @@
+"""Rutas de inicio de sesion, configuracion inicial y cierre de sesion."""
+
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 
 from app.decorators import login_required
@@ -29,6 +31,7 @@ def _setup_form_state() -> dict:
 
 
 def _save_mqtt_settings(form_data: dict, mqtt_password: str):
+    """Persiste la configuracion MQTT inicial cuando el asistente la valida."""
     SystemSetting.set_value("mqtt_broker", form_data["mqtt_broker"])
     SystemSetting.set_value("mqtt_port", form_data["mqtt_port"])
     SystemSetting.set_value("mqtt_username", form_data["mqtt_username"])

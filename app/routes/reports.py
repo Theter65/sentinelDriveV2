@@ -1,8 +1,8 @@
-import csv
-import io
+"""Rutas de reportes estadisticos y exportaciones CSV."""
+
 from datetime import timedelta
 
-from flask import Blueprint, Response, render_template, request
+from flask import Blueprint, render_template, request
 from sqlalchemy import Integer, and_, case, cast, extract, func
 
 from app.decorators import login_required
@@ -16,6 +16,7 @@ from app.services.analytics_service import (
     build_chart_data as build_analytics_chart_data,
     resolve_filter_values,
 )
+from app.utils.csv_export import csv_response
 from app.utils.logging import get_logger
 from app.utils.time import ecuador_now
 
@@ -34,12 +35,14 @@ PERIODS = {
 
 
 def get_time_filter(period):
+    """Convierte un periodo textual en rango de fechas."""
     now = ecuador_now()
     delta = PERIODS.get(period, PERIODS["month"])
     return now - delta, now
 
 
 def get_report_filter_values():
+    """Normaliza filtros de reporte desde la solicitud."""
     selected_period = request.args.get("period", "month")
     default_start, default_end = get_time_filter(selected_period)
     start_time, end_time, speed_limit = resolve_filter_values(
@@ -51,6 +54,7 @@ def get_report_filter_values():
 
 
 def get_speed_stats(*filters):
+    """Calcula estadisticas basicas de velocidad."""
     query = db.session.query(
         func.avg(Location.speed),
         func.max(Location.speed),
@@ -70,6 +74,7 @@ def get_speed_stats(*filters):
 
 
 def get_speed_histogram(*filters):
+    """Agrupa velocidades en intervalos de 10 km/h."""
     bucket = cast(Location.speed / 10, Integer) * 10
     rows = (
         db.session.query(bucket.label("bucket"), func.count(Location.id))
@@ -89,6 +94,7 @@ def get_speed_histogram(*filters):
 
 
 def get_events_by_type(*filters):
+    """Cuenta eventos por categoria."""
     return (
         db.session.query(Event.type, func.count(Event.id))
         .filter(*filters)
@@ -98,6 +104,7 @@ def get_events_by_type(*filters):
 
 
 def get_events_by_hour(*filters):
+    """Cuenta eventos por hora del dia."""
     return (
         db.session.query(
             extract("hour", Event.timestamp).label("hour"),
@@ -111,6 +118,7 @@ def get_events_by_hour(*filters):
 
 
 def get_bus_events_table(start_time, end_time):
+    """Construye tabla de eventos por bus para la flota."""
     return (
         db.session.query(
             Bus.plate,
@@ -133,6 +141,7 @@ def get_bus_events_table(start_time, end_time):
 
 
 def get_maintenance_by_driver(start_time, end_time):
+    """Resume mantenimientos por conductor."""
     driver_rows = (
         db.session.query(
             Bus.driver.label("driver"),
@@ -170,6 +179,7 @@ def get_maintenance_by_driver(start_time, end_time):
 
 
 def build_group_stats(start_time, end_time, speed_limit):
+    """Construye estadisticas agregadas para toda la flota."""
     event_filter = Event.timestamp.between(start_time, end_time)
     events_by_type = get_events_by_type(event_filter)
     events_by_hour = get_events_by_hour(event_filter)
@@ -190,6 +200,7 @@ def build_group_stats(start_time, end_time, speed_limit):
 
 
 def build_individual_stats(selected_bus_id, start_time, end_time, speed_limit):
+    """Construye estadisticas para un bus seleccionado."""
     bus = Bus.query.get_or_404(selected_bus_id)
     event_filters = [
         Event.bus_id == selected_bus_id,
@@ -216,6 +227,7 @@ def build_individual_stats(selected_bus_id, start_time, end_time, speed_limit):
 @reports_bp.route("/reports")
 @login_required
 def reports():
+    """Renderiza filtros, analitica y tablas de reportes."""
     selected_bus_id = request.args.get("bus_id", type=int)
     selected_period, start_time, end_time, selected_speed_limit = get_report_filter_values()
     buses = Bus.query.order_by(Bus.plate.asc()).all()
@@ -251,83 +263,87 @@ def reports():
 @reports_bp.route("/reports/download_csv")
 @login_required
 def download_csv():
+    """Exporta eventos filtrados a CSV."""
     selected_period, start_time, end_time, _speed_limit = get_report_filter_values()
     selected_bus_id = request.args.get("bus_id", type=int)
-    output = io.StringIO()
-    writer = csv.writer(output)
+    rows = []
 
     if selected_bus_id:
         bus = Bus.query.get_or_404(selected_bus_id)
-        writer.writerow([f"Vehiculo: {bus.plate}"])
-        writer.writerow(["Periodo:", selected_period])
-        writer.writerow([])
-        writer.writerow(["ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud", "Descripcion"])
+        rows.extend([
+            [f"Vehiculo: {bus.plate}"],
+            ["Periodo:", selected_period],
+            ["Rango:", start_time, end_time],
+            [],
+            ["ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud", "Descripcion"],
+        ])
         events = Event.query.filter(
             Event.bus_id == selected_bus_id,
             Event.timestamp.between(start_time, end_time),
-        ).all()
+        ).order_by(Event.timestamp.asc(), Event.id.asc()).all()
         for event in events:
-            writer.writerow([event.id, event.type, event.value, event.timestamp, event.latitude, event.longitude, getattr(event, "description", None)])
+            rows.append([event.id, event.type, event.value, event.timestamp, event.latitude, event.longitude, getattr(event, "description", None)])
     else:
-        writer.writerow(["Flota completa"])
-        writer.writerow(["Periodo:", selected_period])
-        writer.writerow([])
-        writer.writerow(["ID", "Bus ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud", "Descripcion"])
-        events = Event.query.filter(Event.timestamp.between(start_time, end_time)).all()
+        rows.extend([
+            ["Flota completa"],
+            ["Periodo:", selected_period],
+            ["Rango:", start_time, end_time],
+            [],
+            ["ID", "Bus ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud", "Descripcion"],
+        ])
+        events = Event.query.filter(Event.timestamp.between(start_time, end_time)).order_by(Event.timestamp.asc(), Event.id.asc()).all()
         for event in events:
-            writer.writerow([event.id, event.bus_id, event.type, event.value, event.timestamp, event.latitude, event.longitude, getattr(event, "description", None)])
+            rows.append([event.id, event.bus_id, event.type, event.value, event.timestamp, event.latitude, event.longitude, getattr(event, "description", None)])
 
-    output.seek(0)
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=reportes_{selected_period}.csv"},
-    )
+    return csv_response(rows, f"reportes_{selected_period}.csv")
 
 
 @reports_bp.route("/reports/download_tables", methods=["GET", "POST"])
 @login_required
 def download_tables():
+    """Exporta tablas seleccionadas a CSV consolidado."""
     if request.method == "POST":
         selected_tables = request.form.getlist("tables")
         selected_period = request.form.get("period", "month")
         start_time, end_time = get_time_filter(selected_period)
 
-        output = io.StringIO()
-        writer = csv.writer(output)
+        rows = [
+            ["SENTINLDRIVE - Tablas seleccionadas"],
+            ["Periodo:", selected_period],
+            ["Rango:", start_time, end_time],
+            [],
+        ]
 
         for table in selected_tables:
-            writer.writerow([f"Tabla: {table.upper()}"])
-            writer.writerow([])
+            rows.append([f"Tabla: {table.upper()}"])
+            rows.append([])
 
             if table == "bus":
-                writer.writerow(["ID", "Placa", "Conductor", "Estado"])
+                rows.append(["ID", "Placa", "Conductor", "Descripcion", "Estado"])
                 for bus in Bus.query.order_by(Bus.id.asc()).all():
-                    writer.writerow([bus.id, bus.plate, bus.driver, bus.status])
+                    rows.append([bus.id, bus.plate, bus.driver, bus.description, bus.status])
 
             elif table == "event":
-                writer.writerow(["ID", "Bus ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud", "Descripcion"])
-                for event in Event.query.filter(Event.timestamp.between(start_time, end_time)).all():
-                    writer.writerow([event.id, event.bus_id, event.type, event.value, event.timestamp, event.latitude, event.longitude, getattr(event, "description", None)])
+                rows.append(["ID", "Bus ID", "Tipo", "Valor", "Fecha/Hora", "Latitud", "Longitud", "Descripcion"])
+                for event in Event.query.filter(Event.timestamp.between(start_time, end_time)).order_by(Event.timestamp.asc(), Event.id.asc()).all():
+                    rows.append([event.id, event.bus_id, event.type, event.value, event.timestamp, event.latitude, event.longitude, getattr(event, "description", None)])
 
             elif table == "maintenance":
-                writer.writerow(["ID", "Bus ID", "Descripcion", "Fecha", "Estado"])
-                for maintenance in Maintenance.query.filter(Maintenance.date.between(start_time, end_time)).all():
-                    writer.writerow([maintenance.id, maintenance.bus_id, maintenance.description, maintenance.date, maintenance.status])
+                rows.append(["ID", "Bus ID", "Descripcion", "Fecha", "Estado"])
+                for maintenance in Maintenance.query.filter(Maintenance.date.between(start_time, end_time)).order_by(Maintenance.date.asc(), Maintenance.id.asc()).all():
+                    rows.append([maintenance.id, maintenance.bus_id, maintenance.description, maintenance.date, maintenance.status])
 
             elif table == "location":
-                writer.writerow(["ID", "Bus ID", "Latitud", "Longitud", "Velocidad", "Fecha/Hora"])
-                for location in Location.query.filter(Location.timestamp.between(start_time, end_time)).all():
-                    writer.writerow([location.id, location.bus_id, location.lat, location.lon, location.speed, location.timestamp])
+                rows.append(["ID", "Bus ID", "Latitud", "Longitud", "Velocidad", "Fecha/Hora"])
+                for location in Location.query.filter(Location.timestamp.between(start_time, end_time)).order_by(Location.timestamp.asc(), Location.id.asc()).all():
+                    rows.append([location.id, location.bus_id, location.lat, location.lon, location.speed, location.timestamp])
 
-            writer.writerow([])
+            rows.append([])
 
-        output.seek(0)
-        return Response(
-            output.getvalue(),
-            mimetype="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=tables_{selected_period}.csv"},
-        )
+        if not selected_tables:
+            rows.append(["No se seleccionaron tablas."])
+
+        return csv_response(rows, f"tables_{selected_period}.csv")
 
     selected_period = request.args.get("period", "month")
     return render_template("download_tables.html", selected_period=selected_period)

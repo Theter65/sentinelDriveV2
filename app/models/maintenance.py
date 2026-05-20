@@ -1,3 +1,5 @@
+"""Modelo de mantenimientos asociados a cada bus de la flota."""
+
 from app.extensions import db
 from app.utils.time import ecuador_now
 

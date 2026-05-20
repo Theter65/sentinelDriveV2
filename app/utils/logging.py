@@ -1,3 +1,5 @@
+"""Configuracion uniforme de logs para todos los modulos."""
+
 # =============================================================================
 # app/utils/logging.py - Configuración centralizada de logging
 #

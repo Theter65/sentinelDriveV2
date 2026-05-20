@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+"""Calculos descriptivos de analitica, histogramas e intervencion operativa."""
+
+from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime, time, timedelta

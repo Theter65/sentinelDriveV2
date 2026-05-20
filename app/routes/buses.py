@@ -1,11 +1,11 @@
-import csv
-import io
+"""Rutas de administracion y consulta de buses de la flota."""
 
-from flask import Blueprint, Response, render_template, request, redirect, url_for
+from flask import Blueprint, render_template, request, redirect, url_for
 
 from app.decorators import login_required, require_admin
 from app.extensions import db
 from app.models.bus import Bus
+from app.utils.csv_export import csv_response
 from app.utils.logging import get_logger
 
 
@@ -101,15 +101,8 @@ def delete_bus(bus_id):
 @require_admin
 def export_buses_csv():
     """Exporta la tabla de buses a CSV (solo admin)."""
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["ID", "Placa", "Conductor", "Descripcion", "Estado"])
+    rows = [["ID", "Placa", "Conductor", "Descripcion", "Estado"]]
     for b in Bus.query.order_by(Bus.id.asc()).all():
-        writer.writerow([b.id, b.plate, b.driver, b.description or "", b.status])
-    output.seek(0)
+        rows.append([b.id, b.plate, b.driver, b.description or "", b.status])
     logger.info("Export CSV buses solicitado por admin")
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=buses.csv"},
-    )
+    return csv_response(rows, "buses.csv")

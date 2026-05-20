@@ -1,3 +1,5 @@
+"""Lectura y escritura de configuracion persistente del sistema."""
+
 from datetime import datetime
 
 from app.models.system_setting import SystemSetting
@@ -20,6 +22,7 @@ MQTT_STATUS_LABELS = {
 
 
 def has_admin_user() -> bool:
+    """Indica si la plataforma ya tiene administrador inicial."""
     return User.query.filter_by(role="admin").count() > 0
 
 
@@ -31,6 +34,7 @@ def _safe_int(value, default: int) -> int:
 
 
 def get_runtime_mqtt_settings(config: dict) -> dict:
+    """Une configuracion MQTT de base de datos y entorno."""
     stored_password = SystemSetting.get_value("mqtt_password")
     fallback_password = config.get("MQTT_PASSWORD") or ""
 
@@ -69,6 +73,7 @@ def get_runtime_mqtt_settings(config: dict) -> dict:
 
 
 def get_mqtt_form_defaults(config: dict) -> dict:
+    """Prepara valores seguros para formularios MQTT."""
     runtime = get_runtime_mqtt_settings(config)
     return {
         "mqtt_broker": runtime["broker"],

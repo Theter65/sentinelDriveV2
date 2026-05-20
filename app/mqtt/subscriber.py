@@ -1,4 +1,6 @@
-﻿import json
+"""Suscriptor MQTT: valida conexion, procesa telemetria y persiste datos."""
+
+import json
 import ssl
 import threading
 from datetime import datetime
@@ -158,7 +160,7 @@ def test_mqtt_connection(
         logger.warning("MQTT: fallo durante la comprobacion manual de conexion: %s", exc, exc_info=True)
         return (
             False,
-            "No se pudo comprobar la conexion MQTT con esos datos. RevÃ­salos e intenta nuevamente.",
+            "No se pudo comprobar la conexion MQTT con esos datos. Revisalos e intenta nuevamente.",
         )
     finally:
         try:
@@ -172,6 +174,7 @@ def test_mqtt_connection(
 
 
 def on_connect(client, userdata, flags, reason_code, properties=None):
+    """Actualiza estado y suscripciones cuando MQTT conecta."""
     if reason_code == 0:
         logger.info("MQTT: conexion exitosa al broker")
         for topic, qos in userdata.get("topics", []):
@@ -215,6 +218,7 @@ def on_connect(client, userdata, flags, reason_code, properties=None):
 
 
 def on_disconnect(client, userdata, disconnect_flags, reason_code, properties=None):
+    """Registra desconexiones MQTT limpias o inesperadas."""
     status = "offline" if reason_code == 0 else "error"
     last_error = None
     if reason_code == 0:
@@ -336,6 +340,7 @@ def _build_event(bus_id: int, data: dict, timestamp: datetime) -> Event | None:
 
 
 def on_message(client, userdata, msg):
+    """Valida, deduplica y guarda mensajes GPS o eventos MQTT."""
     app = userdata["app"]
     with app.app_context():
         try:
@@ -410,6 +415,7 @@ def on_message(client, userdata, msg):
 
 
 def request_mqtt_reload():
+    """Senala al worker MQTT que debe recargar configuracion."""
     MQTT_RELOAD_EVENT.set()
 
 
@@ -447,6 +453,7 @@ def _build_client(app, mqtt_config: dict):
 
 
 def start_mqtt_subscriber(app):
+    """Mantiene vivo el bucle de conexion MQTT y reintentos."""
     waiting_for_config_logged = False
 
     logger.info("MQTT: iniciando suscriptor...")
@@ -524,4 +531,3 @@ def start_mqtt_subscriber(app):
                     client.loop_stop()
                 except Exception:
                     pass
-

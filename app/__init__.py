@@ -1,3 +1,5 @@
+"""Fabrica principal de la aplicacion Flask y registro de modulos."""
+
 # =============================================================================
 # app/__init__.py - Fábrica de aplicación Flask (Application Factory)
 #
@@ -62,7 +64,11 @@ def create_app(config_class=Config):
         v = 0
         for p in (
             base_dir / "static" / "css" / "style.css",
+            base_dir / "static" / "css" / "theme.css",
+            base_dir / "static" / "css" / "glass.css",
             base_dir / "static" / "js" / "app.js",
+            base_dir / "static" / "js" / "chart-theme.js",
+            base_dir / "static" / "js" / "theme-switcher.js",
         ):
             try:
                 v = max(v, int(p.stat().st_mtime))

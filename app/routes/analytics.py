@@ -1,7 +1,6 @@
-import csv
-import io
+"""Endpoints JSON y CSV del modulo de analitica por vehiculo."""
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, jsonify, request
 
 from app.decorators import login_required
 from app.services.analytics_service import (
@@ -9,6 +8,7 @@ from app.services.analytics_service import (
     generate_analytics_run,
     resolve_filter_values,
 )
+from app.utils.csv_export import csv_response
 
 
 analytics_bp = Blueprint("analytics", __name__)
@@ -37,6 +37,7 @@ def generate_vehicle_analytics(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/summary")
 @login_required
 def vehicle_summary(bus_id):
+    """Entrega resumen analitico en JSON."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -54,6 +55,7 @@ def vehicle_summary(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/events-by-type")
 @login_required
 def vehicle_events_by_type(bus_id):
+    """Entrega eventos agrupados por tipo."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -63,6 +65,7 @@ def vehicle_events_by_type(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/events-by-hour")
 @login_required
 def vehicle_events_by_hour(bus_id):
+    """Entrega eventos agrupados por hora."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -72,6 +75,7 @@ def vehicle_events_by_hour(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/speed-histogram")
 @login_required
 def vehicle_speed_histogram(bus_id):
+    """Entrega histograma de velocidades."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -81,6 +85,7 @@ def vehicle_speed_histogram(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/event-magnitudes")
 @login_required
 def vehicle_event_magnitudes(bus_id):
+    """Entrega magnitudes de eventos por tipo."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -90,6 +95,7 @@ def vehicle_event_magnitudes(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/summary.csv")
 @login_required
 def download_summary_csv(bus_id):
+    """Descarga resumen analitico en CSV."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -122,6 +128,7 @@ def download_summary_csv(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/events-by-type.csv")
 @login_required
 def download_events_by_type_csv(bus_id):
+    """Descarga eventos por tipo en CSV."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -136,6 +143,7 @@ def download_events_by_type_csv(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/events-by-hour.csv")
 @login_required
 def download_events_by_hour_csv(bus_id):
+    """Descarga eventos por hora en CSV."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -147,6 +155,7 @@ def download_events_by_hour_csv(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/speed-histogram.csv")
 @login_required
 def download_speed_histogram_csv(bus_id):
+    """Descarga histograma de velocidad en CSV."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -161,6 +170,7 @@ def download_speed_histogram_csv(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/event-magnitudes.csv")
 @login_required
 def download_event_magnitudes_csv(bus_id):
+    """Descarga magnitudes en CSV."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -175,6 +185,7 @@ def download_event_magnitudes_csv(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/intervention-matrix.csv")
 @login_required
 def download_intervention_matrix_csv(bus_id):
+    """Descarga la matriz de intervencion en CSV."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -195,6 +206,7 @@ def download_intervention_matrix_csv(bus_id):
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/recommendations.csv")
 @login_required
 def download_recommendations_csv(bus_id):
+    """Descarga recomendaciones descriptivas en CSV."""
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
@@ -236,12 +248,4 @@ def _request_value(key: str):
 
 
 def _csv_response(rows, filename: str):
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerows(rows)
-    output.seek(0)
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+    return csv_response(rows, filename)

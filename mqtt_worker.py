@@ -1,3 +1,5 @@
+"""Entrada corta para ejecutar unicamente el worker MQTT en despliegues separados."""
+
 from run import run_mqtt_worker
 
 
