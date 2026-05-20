@@ -2374,6 +2374,58 @@ html[data-theme="glass-light"] .ambient-bg span {
   animation: ambientImageFadeLight 36s linear infinite !important;
 }
 
+@media (max-width: 991.98px), (hover: none) and (pointer: coarse) {
+  body.mobile-performance .ambient-bg span,
+  body.mobile-performance .ambient-bg::before,
+  body.mobile-performance .ambient-bg::after {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  body.mobile-performance .mobile-nav-overlay,
+  body.mobile-performance .notification-backdrop,
+  body.mobile-performance .popover.glass-popover,
+  body.mobile-performance .tooltip.glass-tooltip .tooltip-inner {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html[data-theme="glass-light"] body.mobile-performance .ambient-bg {
+    opacity: 0.22 !important;
+  }
+
+  html[data-theme="glass-light"] body.mobile-performance .site-header,
+  html[data-theme="glass-light"] body.mobile-performance .top-bar,
+  html[data-theme="glass-light"] body.mobile-performance .app-navbar,
+  html[data-theme="glass-light"] body.mobile-performance .notification-center,
+  html[data-theme="glass-light"] body.mobile-performance .liquid-glass,
+  html[data-theme="glass-light"] body.mobile-performance .liquid-glass-strong,
+  html[data-theme="glass-light"] body.mobile-performance .glass-card,
+  html[data-theme="glass-light"] body.mobile-performance .glass-card-sm,
+  html[data-theme="glass-light"] body.mobile-performance .glass-panel,
+  html[data-theme="glass-light"] body.mobile-performance .glass-panel-strong,
+  html[data-theme="glass-light"] body.mobile-performance .glass-chart-card,
+  html[data-theme="glass-light"] body.mobile-performance .card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.86) !important;
+    box-shadow: 0 8px 18px rgba(24, 52, 79, 0.12) !important;
+  }
+
+  html[data-theme="glass-light"] body.mobile-performance .site-header {
+    box-shadow: 0 6px 18px rgba(24, 52, 79, 0.10) !important;
+  }
+
+  body.mobile-performance .app-navbar .nav-link:hover,
+  body.mobile-performance .app-navbar .nav-logout-button:hover,
+  body.mobile-performance .top-info-button:hover,
+  body.mobile-performance .top-user-pill:hover,
+  body.mobile-performance .top-theme-toggle:hover,
+  body.mobile-performance .top-notification-button:hover {
+    transform: none !important;
+  }
+}
+
 html[data-theme="glass-dark"] .table,
 html[data-theme="glass-light"] .table {
   background: transparent !important;

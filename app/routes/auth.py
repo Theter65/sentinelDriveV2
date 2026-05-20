@@ -192,11 +192,11 @@ def initial_setup():
     return render_template("setup.html", form_data=form_state)
 
 
-@auth_bp.route("/logout", methods=["POST"])
+@auth_bp.route("/logout", methods=["GET", "POST"])
 @login_required
 def logout():
     """Cerrar sesion y limpiar datos de sesion."""
     username = session.get("user")
-    logger.info("Logout exitoso: %s", username)
+    logger.info("Logout exitoso: %s (method=%s)", username, request.method)
     session.clear()
-    return redirect(url_for("auth.login"))
+    return redirect(url_for("auth.login"), code=303)

@@ -7,6 +7,7 @@
 
 from flask import Flask
 from pathlib import Path
+from werkzeug.middleware.proxy_fix import ProxyFix
 from .config import Config
 from .extensions import db, csrf
 from .models.init_data import ensure_database_indexes
@@ -50,6 +51,10 @@ def create_app(config_class=Config):
         instance_path=str(instance_dir),
     )
     app.config.from_object(config_class)
+
+    if app.config.get("USE_PROXY_FIX"):
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
+        logger.info("ProxyFix activado para cabeceras X-Forwarded-*")
 
     @app.context_processor
     def _inject_static_version():

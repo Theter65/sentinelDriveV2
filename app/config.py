@@ -35,6 +35,13 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _load_or_create_secret_key() -> str:
     secret_key = os.getenv("SECRET_KEY")
     if secret_key:
@@ -59,6 +66,7 @@ def _load_or_create_secret_key() -> str:
 
 class Config:
     SECRET_KEY = _load_or_create_secret_key()
+    IS_RENDER = bool(os.getenv("RENDER")) or bool(os.getenv("RENDER_EXTERNAL_URL"))
 
     SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -76,7 +84,9 @@ class Config:
     WTF_CSRF_ENABLED = os.getenv("WTF_CSRF_ENABLED", "True").lower() == "true"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
-    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "False").lower() == "true"
+    SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", IS_RENDER)
+    PREFERRED_URL_SCHEME = os.getenv("PREFERRED_URL_SCHEME", "https" if IS_RENDER else "http")
+    USE_PROXY_FIX = _env_bool("USE_PROXY_FIX", IS_RENDER)
     PERMANENT_SESSION_LIFETIME = timedelta(
         minutes=int(os.getenv("SESSION_LIFETIME_MINUTES", 120))
     )

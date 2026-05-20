@@ -727,7 +727,9 @@ h6, .h6 { font-size: 13px; }
 .top-info-button,
 .top-user-pill,
 .top-theme-toggle,
-.top-status-pill {
+.top-status-pill,
+.top-notification-button,
+.app-navbar-toggler {
   min-height: 28px;
   display: inline-flex;
   align-items: center;
@@ -739,6 +741,8 @@ h6, .h6 { font-size: 13px; }
   color: rgba(255, 255, 255, 0.88);
   line-height: 1;
   white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .top-info-button,
@@ -1157,9 +1161,23 @@ h6, .h6 { font-size: 13px; }
     font-size: 0.9rem;
   }
 
+  .app-navbar-toggler {
+    position: relative;
+    z-index: 1060;
+  }
+
   .app-navbar .navbar-collapse {
+    position: fixed;
+    top: calc(var(--header-height, 64px) + var(--nav-height, 58px) + 0.55rem);
+    right: 0.85rem;
+    z-index: 1049;
+    display: block !important;
+    width: auto;
+    min-width: 230px;
+    max-width: min(84vw, 340px);
+    height: auto;
     max-height: min(68vh, 520px);
-    margin-top: 0.45rem;
+    margin-top: 0;
     padding: 0.55rem;
     overflow-y: auto;
     border-radius: 16px;
@@ -1167,6 +1185,26 @@ h6, .h6 { font-size: 13px; }
     background: rgba(9, 12, 15, 0.86);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate3d(16px, -8px, 0) scale(0.98);
+    transition: transform 180ms ease, opacity 160ms ease, visibility 160ms ease;
+    will-change: transform, opacity;
+  }
+
+  .app-navbar .navbar-collapse.is-open,
+  .app-navbar .navbar-collapse.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  .app-navbar .navbar-collapse.collapsing,
+  .app-navbar .navbar-collapse.collapse:not(.show) {
+    display: block !important;
+    height: auto !important;
   }
 
   .app-navbar .navbar-nav {
@@ -1260,6 +1298,20 @@ html[data-theme="glass-light"] .top-bar {
 html[data-theme="glass-light"] .app-navbar {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.54), rgba(235, 242, 250, 0.5));
   border-bottom: 1px solid rgba(20, 36, 56, 0.1);
+}
+
+@media (max-width: 991.98px) {
+  html[data-theme="glass-light"] .app-navbar .navbar-collapse {
+    background: rgba(247, 250, 255, 0.96);
+    border-color: rgba(20, 36, 56, 0.12);
+    box-shadow: 0 16px 42px rgba(24, 52, 79, 0.18);
+  }
+
+  html[data-theme="glass-light"] .app-navbar .nav-link,
+  html[data-theme="glass-light"] .app-navbar .nav-logout-button {
+    background: rgba(255, 255, 255, 0.82);
+    border-color: rgba(20, 36, 56, 0.10);
+  }
 }
 
 html[data-theme="glass-light"] .top-compact,
