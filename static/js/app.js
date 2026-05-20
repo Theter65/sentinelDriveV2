@@ -114,11 +114,39 @@ function initModalLayering() {
   });
 }
 
-const NOTIFICATION_ITEMS_KEY = "sd_notification_items";
-const NOTIFICATION_READ_KEY = "sd_notification_read_ids";
+const NOTIFICATION_ITEMS_KEY_PREFIX = "sd_notification_items";
+const NOTIFICATION_READ_KEY_PREFIX = "sd_notification_read_ids";
+const EVENTS_LAST_POLLED_KEY_PREFIX = "sd_last_event_id";
+const EVENTS_LAST_SEEN_KEY_PREFIX = "sd_events_seen_last_id";
 const MAX_STORED_NOTIFICATIONS = 60;
 let notificationItems = [];
 let notificationReadIds = new Set();
+
+function currentUsername() {
+  const username = document.body?.dataset?.currentUser;
+  return username ? String(username) : "guest";
+}
+
+function scopedStorageKey(prefix) {
+  return `${prefix}::${currentUsername()}`;
+}
+
+function readStoredInt(key, fallback = 0) {
+  try {
+    const parsed = clampInt(localStorage.getItem(key), fallback);
+    return Math.max(0, parsed);
+  } catch {
+    return fallback;
+  }
+}
+
+function setStoredInt(key, value) {
+  try {
+    localStorage.setItem(key, String(Math.max(0, clampInt(value, 0))));
+  } catch {
+    // ignore
+  }
+}
 
 function safeJsonParse(value, fallback) {
   try {
@@ -133,9 +161,11 @@ function notificationKey(notification) {
 }
 
 function loadNotificationState() {
+  const itemsKey = scopedStorageKey(NOTIFICATION_ITEMS_KEY_PREFIX);
+  const readKey = scopedStorageKey(NOTIFICATION_READ_KEY_PREFIX);
   try {
-    notificationItems = safeJsonParse(localStorage.getItem(NOTIFICATION_ITEMS_KEY), []);
-    const readIds = safeJsonParse(localStorage.getItem(NOTIFICATION_READ_KEY), []);
+    notificationItems = safeJsonParse(localStorage.getItem(itemsKey), []);
+    const readIds = safeJsonParse(localStorage.getItem(readKey), []);
     notificationReadIds = new Set(Array.isArray(readIds) ? readIds.map(String) : []);
   } catch {
     notificationItems = [];
@@ -144,9 +174,11 @@ function loadNotificationState() {
 }
 
 function saveNotificationState() {
+  const itemsKey = scopedStorageKey(NOTIFICATION_ITEMS_KEY_PREFIX);
+  const readKey = scopedStorageKey(NOTIFICATION_READ_KEY_PREFIX);
   try {
-    localStorage.setItem(NOTIFICATION_ITEMS_KEY, JSON.stringify(notificationItems.slice(0, MAX_STORED_NOTIFICATIONS)));
-    localStorage.setItem(NOTIFICATION_READ_KEY, JSON.stringify(Array.from(notificationReadIds)));
+    localStorage.setItem(itemsKey, JSON.stringify(notificationItems.slice(0, MAX_STORED_NOTIFICATIONS)));
+    localStorage.setItem(readKey, JSON.stringify(Array.from(notificationReadIds)));
   } catch {
     // ignore
   }
@@ -397,12 +429,8 @@ async function pollEventNotifications() {
   const endpoint = document.body.getAttribute("data-events-poll-url");
   if (!endpoint) return;
 
-  let lastId = 0;
-  try {
-    lastId = clampInt(localStorage.getItem("sd_last_event_id"), 0);
-  } catch {
-    // ignore
-  }
+  const lastPolledKey = scopedStorageKey(EVENTS_LAST_POLLED_KEY_PREFIX);
+  let lastId = readStoredInt(lastPolledKey, 0);
 
   try {
     const res = await fetch(`${endpoint}?after_id=${lastId}`, { credentials: "same-origin" });
@@ -410,19 +438,11 @@ async function pollEventNotifications() {
     const payload = await res.json();
     const latestId = typeof payload.latest_id === "number" ? payload.latest_id : null;
     if (latestId !== null && latestId < lastId) {
-      try {
-        localStorage.setItem("sd_last_event_id", String(latestId));
-      } catch {
-        // ignore
-      }
+      setStoredInt(lastPolledKey, latestId);
       return;
     }
     if (lastId === 0 && latestId && latestId > 0) {
-      try {
-        localStorage.setItem("sd_last_event_id", String(latestId));
-      } catch {
-        // ignore
-      }
+      setStoredInt(lastPolledKey, latestId);
       return;
     }
     const events = Array.isArray(payload.events) ? payload.events : [];
@@ -457,11 +477,8 @@ async function pollEventNotifications() {
       if (typeof eventData.id === "number") lastId = Math.max(lastId, eventData.id);
     }
 
-    try {
-      localStorage.setItem("sd_last_event_id", String(lastId));
-    } catch {
-      // ignore
-    }
+    setStoredInt(lastPolledKey, lastId);
+    loadEventsBadge();
   } catch {
     // ignore
   }
@@ -470,10 +487,23 @@ async function pollEventNotifications() {
 async function loadEventsBadge() {
   const badge = $("eventsBadge");
   if (!badge) return;
+  const seenKey = scopedStorageKey(EVENTS_LAST_SEEN_KEY_PREFIX);
+  const polledKey = scopedStorageKey(EVENTS_LAST_POLLED_KEY_PREFIX);
+  const lastSeenId = readStoredInt(seenKey, 0);
+
   try {
-    const res = await fetch("/api/events/count", { credentials: "same-origin" });
+    const res = await fetch(`/api/events/count?after_id=${lastSeenId}`, { credentials: "same-origin" });
     if (!res.ok) return;
     const data = await res.json();
+
+    if (lastSeenId === 0 && data.latest_id > 0) {
+      setStoredInt(seenKey, data.latest_id);
+      if (readStoredInt(polledKey, 0) === 0) setStoredInt(polledKey, data.latest_id);
+      badge.textContent = "0";
+      badge.classList.add("d-none");
+      return;
+    }
+
     if (data.total > 0) {
       badge.textContent = String(data.total);
       badge.classList.remove("d-none");
@@ -486,10 +516,28 @@ async function loadEventsBadge() {
   }
 }
 
+async function markEventsAsSeen() {
+  const seenKey = scopedStorageKey(EVENTS_LAST_SEEN_KEY_PREFIX);
+  const polledKey = scopedStorageKey(EVENTS_LAST_POLLED_KEY_PREFIX);
+  try {
+    const res = await fetch("/api/events/count?after_id=0", { credentials: "same-origin" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const latestId = clampInt(data.latest_id, 0);
+    setStoredInt(seenKey, latestId);
+    if (latestId > readStoredInt(polledKey, 0)) {
+      setStoredInt(polledKey, latestId);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 function initEventNotifications() {
   const endpoint = document.body.getAttribute("data-events-poll-url");
   if (!endpoint) return;
   if (window.location.pathname === "/events") {
+    markEventsAsSeen();
     const badge = $("eventsBadge");
     if (badge) {
       badge.textContent = "0";

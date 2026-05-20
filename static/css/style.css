@@ -145,7 +145,7 @@ a:hover {
 }
 
 .form-control::placeholder {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .form-control:focus,
@@ -157,7 +157,7 @@ a:hover {
 }
 
 .form-text {
-  color: rgba(255, 255, 255, 0.72) !important;
+  color: var(--text-muted) !important;
 }
 
 .btn {
@@ -301,10 +301,10 @@ h6, .h6 { font-size: 13px; }
   color: var(--accent);
 }
 .breadcrumb-nav .breadcrumb-item.active {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-muted);
 }
 .breadcrumb-nav .breadcrumb-item + .breadcrumb-item::before {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
 }
 
 /* Login Hero Slider */
@@ -477,7 +477,7 @@ h6, .h6 { font-size: 13px; }
 }
 
 .kpi-label {
-  color: #ffffff;
+  color: var(--text-secondary);
   font-weight: 700;
   font-size: var(--font-size-card);
 }
@@ -545,7 +545,7 @@ h6, .h6 { font-size: 13px; }
   border-radius: var(--radius-sm);
   border: 1px solid rgba(34, 197, 94, 0.18);
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-secondary);
 }
 
 .settings-summary {
@@ -567,13 +567,13 @@ h6, .h6 { font-size: 13px; }
 }
 
 .settings-summary-item span {
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--text-secondary);
   line-height: 1.55;
 }
 
 .field-explain {
   margin-top: 0.45rem;
-  color: rgba(255, 255, 255, 0.70);
+  color: var(--text-muted);
   font-size: 0.92rem;
   line-height: 1.45;
 }
@@ -600,7 +600,7 @@ h6, .h6 { font-size: 13px; }
 }
 
 .status-row-label {
-  color: rgba(255, 255, 255, 0.74);
+  color: var(--text-muted);
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -719,12 +719,14 @@ h6, .h6 { font-size: 13px; }
 .top-info-list i,
 .top-info-button i,
 .top-user-pill i,
+.top-theme-toggle i,
 .top-status-pill i {
   color: #4ade80;
 }
 
 .top-info-button,
 .top-user-pill,
+.top-theme-toggle,
 .top-status-pill {
   min-height: 28px;
   display: inline-flex;
@@ -744,6 +746,13 @@ h6, .h6 { font-size: 13px; }
   appearance: none;
   cursor: pointer;
   font: inherit;
+}
+
+.top-theme-toggle {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.74rem;
 }
 
 .top-info-button {
@@ -770,6 +779,7 @@ h6, .h6 { font-size: 13px; }
 
 .top-info-button:hover,
 .top-user-pill:hover,
+.top-theme-toggle:hover,
 .top-status-pill:hover {
   border-color: rgba(34, 197, 94, 0.28);
   background: rgba(255, 255, 255, 0.07);
@@ -1220,4 +1230,179 @@ h6, .h6 { font-size: 13px; }
   .app-brand {
     min-height: 46px;
   }
+
+  .top-theme-toggle span {
+    display: none;
+  }
+}
+
+html[data-theme="glass-light"] .text-muted {
+  color: rgba(20, 36, 56, 0.72) !important;
+}
+
+html[data-theme="glass-light"] .text-secondary,
+html[data-theme="glass-light"] .text-body-secondary,
+html[data-theme="glass-light"] .text-body-tertiary {
+  color: rgba(20, 36, 56, 0.76) !important;
+}
+
+html[data-theme="glass-light"] .site-header {
+  background: rgba(243, 248, 255, 0.64);
+  border-bottom: 1px solid rgba(20, 36, 56, 0.12);
+  box-shadow: 0 10px 28px rgba(24, 52, 79, 0.13);
+}
+
+html[data-theme="glass-light"] .top-bar {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.58), rgba(236, 243, 251, 0.5));
+  border-bottom: 1px solid rgba(20, 36, 56, 0.1);
+}
+
+html[data-theme="glass-light"] .app-navbar {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.54), rgba(235, 242, 250, 0.5));
+  border-bottom: 1px solid rgba(20, 36, 56, 0.1);
+}
+
+html[data-theme="glass-light"] .top-compact,
+html[data-theme="glass-light"] .top-info-list {
+  color: rgba(20, 36, 56, 0.82);
+}
+
+html[data-theme="glass-light"] .top-info-button,
+html[data-theme="glass-light"] .top-user-pill,
+html[data-theme="glass-light"] .top-theme-toggle,
+html[data-theme="glass-light"] .top-status-pill {
+  color: rgba(20, 36, 56, 0.88);
+  border-color: rgba(20, 36, 56, 0.17);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="glass-light"] .top-info-button i,
+html[data-theme="glass-light"] .top-user-pill i,
+html[data-theme="glass-light"] .top-theme-toggle i,
+html[data-theme="glass-light"] .top-status-pill i {
+  color: #129d58;
+}
+
+html[data-theme="glass-light"] .top-info-button:hover,
+html[data-theme="glass-light"] .top-user-pill:hover,
+html[data-theme="glass-light"] .top-theme-toggle:hover,
+html[data-theme="glass-light"] .top-status-pill:hover {
+  border-color: rgba(18, 157, 88, 0.32);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+html[data-theme="glass-light"] .app-navbar .nav-link,
+html[data-theme="glass-light"] .app-navbar .nav-logout-button {
+  color: rgba(20, 36, 56, 0.86);
+  border-color: rgba(20, 36, 56, 0.1);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+html[data-theme="glass-light"] .app-navbar .nav-link:hover,
+html[data-theme="glass-light"] .app-navbar .nav-logout-button:hover {
+  color: #142438;
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(18, 157, 88, 0.26);
+}
+
+html[data-theme="glass-light"] .app-navbar .nav-link.active {
+  background: rgba(18, 157, 88, 0.13);
+  border-color: rgba(18, 157, 88, 0.34);
+}
+
+html[data-theme="glass-light"] .card {
+  box-shadow: 0 10px 28px rgba(24, 52, 79, 0.14);
+}
+
+html[data-theme="glass-light"] .table {
+  --bs-table-bg: transparent;
+  --bs-table-border-color: rgba(20, 36, 56, 0.14);
+  --bs-table-striped-bg: rgba(20, 36, 56, 0.03);
+  --bs-table-hover-bg: rgba(18, 157, 88, 0.08);
+}
+
+html[data-theme="glass-light"] .table > :not(caption) > * > * {
+  background: rgba(255, 255, 255, 0.52);
+  border-color: rgba(20, 36, 56, 0.12);
+}
+
+html[data-theme="glass-light"] .table thead th {
+  background-color: rgba(36, 56, 80, 0.82);
+  color: #f8fbff;
+  border-bottom-color: rgba(20, 36, 56, 0.2);
+}
+
+html[data-theme="glass-light"] .btn-outline-secondary {
+  color: rgba(20, 36, 56, 0.88);
+  border-color: rgba(20, 36, 56, 0.2);
+}
+
+html[data-theme="glass-light"] .btn-outline-secondary:hover {
+  background: rgba(20, 36, 56, 0.08);
+  border-color: rgba(20, 36, 56, 0.32);
+}
+
+html[data-theme="glass-light"] .btn-close {
+  filter: none;
+}
+
+html[data-theme="glass-light"] .events-badge {
+  border-color: rgba(20, 36, 56, 0.15);
+}
+
+html[data-theme="glass-light"] .site-footer {
+  background: linear-gradient(180deg, rgba(236, 243, 251, 0.9), rgba(229, 237, 246, 0.98));
+  border-top: 1px solid rgba(20, 36, 56, 0.12);
+}
+
+html[data-theme="glass-light"] .footer-column h4 {
+  color: #142438;
+  border-bottom-color: rgba(18, 157, 88, 0.48);
+}
+
+html[data-theme="glass-light"] .footer-column p,
+html[data-theme="glass-light"] .footer-column li,
+html[data-theme="glass-light"] .footer-column a {
+  color: rgba(20, 36, 56, 0.8);
+}
+
+html[data-theme="glass-light"] .footer-bottom {
+  color: rgba(20, 36, 56, 0.66);
+  border-top-color: rgba(20, 36, 56, 0.14);
+}
+
+html[data-theme="glass-light"] .ambient-bg {
+  opacity: 0.36;
+}
+
+html[data-theme="glass-light"] .settings-panel {
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(245, 250, 255, 0.82));
+  border-color: rgba(14, 165, 233, 0.2);
+  box-shadow: 0 16px 36px rgba(24, 52, 79, 0.15);
+}
+
+html[data-theme="glass-light"] .settings-panel::before {
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.18), rgba(18, 157, 88, 0.64), rgba(14, 165, 233, 0.18));
+}
+
+html[data-theme="glass-light"] .settings-panel .form-control,
+html[data-theme="glass-light"] .settings-panel .form-select {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
+  border-color: rgba(20, 36, 56, 0.18);
+}
+
+html[data-theme="glass-light"] .settings-panel .form-control:hover,
+html[data-theme="glass-light"] .settings-panel .form-select:hover {
+  border-color: rgba(18, 157, 88, 0.35);
+}
+
+html[data-theme="glass-light"] .settings-intro,
+html[data-theme="glass-light"] .settings-summary-item,
+html[data-theme="glass-light"] .status-row,
+html[data-theme="glass-light"] .switch-block {
+  background: rgba(255, 255, 255, 0.64);
+  border-color: rgba(20, 36, 56, 0.14);
 }

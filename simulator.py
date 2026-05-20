@@ -1,4 +1,4 @@
-import json
+﻿import json
 import os
 import random
 import ssl
@@ -8,9 +8,9 @@ from datetime import datetime
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 
-# ────────────────────────────────────────────────
-#  Configuración de logging
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+#  ConfiguraciÃ³n de logging
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)-7s | %(message)s',
@@ -18,9 +18,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("SentinelDrive-Simulator")
 
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 #  Carga variables de entorno
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 load_dotenv()
 
 FLEET_SIZE          = 3
@@ -40,7 +40,7 @@ PASSWORD    = os.getenv("MQTT_PASSWORD", "Proyecto12")
 
 BASE_TOPIC = "flota/ecuador/buses"
 
-# Constantes físicas / umbrales
+# Constantes fÃ­sicas / umbrales
 LAT_BASE = -4.0000
 LON_BASE = -79.2000
 SPEED_LIMIT        = 80.0
@@ -67,12 +67,12 @@ OTHER_SENSORS = [
     {"description": "Nivel de combustible (%)", "min": 0.0, "max": 100.0, "decimals": 0},
 ]
 
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 #  Cliente MQTT
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
-        logger.info("Conectado al broker MQTT ✓")
+        logger.info("Conectado al broker MQTT âœ“")
     else:
         logger.error("Fallo al conectar - reason_code = %s", reason_code)
 
@@ -101,12 +101,12 @@ try:
     client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
     client.loop_start()
 except Exception as e:
-    logger.error("No se pudo conectar al broker → %s", e)
+    logger.error("No se pudo conectar al broker â†’ %s", e)
     exit(1)
 
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 #  Variables de estado
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 last_gps_send   = [0.0] * FLEET_SIZE
 next_event_time = [0.0] * FLEET_SIZE
 
@@ -121,10 +121,10 @@ def choose_scheduled_event() -> str:
     return random.choice(SCHEDULED_EVENTS)
 
 def simulate_bus_sample(bus_id: int, forced_event: str | None = None) -> dict:
-    """Genera una sola muestra coherente de ubicación, velocidad y sensores.
+    """Genera una sola muestra coherente de ubicaciÃ³n, velocidad y sensores.
 
-    La velocidad normal se mantiene bajo el límite. Si la muestra fuerza exceso
-    de velocidad, el mismo dato se publica como GPS y como evento.
+    La velocidad normal se mantiene bajo el lÃ­mite. Si la muestra fuerza exceso
+    de velocidad, el mismo dato se publica como velocidad canÃ³nica y como evento.
     """
 
     bus_offset = (bus_id - 1) * 0.002
@@ -151,8 +151,7 @@ def simulate_bus_sample(bus_id: int, forced_event: str | None = None) -> dict:
     return {
         "lat": round(LAT_BASE + bus_offset + random.uniform(-0.01, 0.01), 6),
         "lon": round(LON_BASE + bus_offset + random.uniform(-0.01, 0.01), 6),
-        "speed_gps": speed,
-        "speed_obd": speed,
+        "speed": speed,
         "rpm": rpm,
         "temp": temp,
         "accel_x": accel_x,
@@ -166,18 +165,17 @@ def build_gps_payload(bus_id: int, timestamp: str, sample: dict) -> dict:
         "timestamp": timestamp,
         "lat": sample["lat"],
         "lon": sample["lon"],
-        "speed_gps": sample["speed_gps"],
+        "speed": sample["speed"],
     }
 
 def build_event_payload(bus_id: int, timestamp: str, sample: dict, scheduled_event: str | None) -> dict | None:
-    if sample["speed_gps"] > SPEED_LIMIT:
+    if sample["speed"] > SPEED_LIMIT:
         return {
             "bus_id": bus_id,
             "type": "event",
             "event": "exceso_velocidad",
             "timestamp": timestamp,
-            "speed_obd": sample["speed_obd"],
-            "speed_gps": sample["speed_gps"],
+            "speed": sample["speed"],
             "lat": sample["lat"],
             "lon": sample["lon"],
         }
@@ -251,19 +249,19 @@ boot_time = time.time()
 for bus_index in range(FLEET_SIZE):
     schedule_next_event(bus_index, boot_time)
 
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 #  Mensaje de bienvenida
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 print("\n" + "="*45)
 print("   SIMULADOR SENTINELDRIVE   |   MQTT IoT")
 print(f"   Flota: {FLEET_SIZE} buses")
 print(f"   GPS cada {GPS_INTERVAL}s    |   Eventos cada 5-10 min por bus")
-print(f"   Límite velocidad: {SPEED_LIMIT:.0f} km/h")
+print(f"   LÃ­mite velocidad: {SPEED_LIMIT:.0f} km/h")
 print("="*45 + "\n")
 
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 #  Bucle principal
-# ────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 while True:
     try:
         current_time = time.time()
@@ -271,7 +269,7 @@ while True:
         for bus_id in range(1, FLEET_SIZE + 1):
             idx = bus_id - 1
 
-            # ─── Muestra unificada periódica ─────────────────
+            # â”€â”€â”€ Muestra unificada periÃ³dica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if current_time - last_gps_send[idx] >= GPS_INTERVAL:
                 scheduled_event = None
                 if current_time >= next_event_time[idx]:
@@ -283,11 +281,11 @@ while True:
                 topic = f"{BASE_TOPIC}/{bus_id}/gps"
                 client.publish(topic, json.dumps(payload), qos=0)
                 logger.info(
-                    "GPS enviado → bus %2d  %.6f, %.6f  %5.1f km/h",
+                    "GPS enviado â†’ bus %2d  %.6f, %.6f  %5.1f km/h",
                     bus_id,
                     sample["lat"],
                     sample["lon"],
-                    sample["speed_gps"],
+                    sample["speed"],
                 )
                 last_gps_send[idx] = current_time
 
@@ -296,13 +294,13 @@ while True:
                     topic = f"{BASE_TOPIC}/{bus_id}/event"
                     client.publish(topic, json.dumps(event), qos=1)
                     logger.warning(
-                        "EVENTO → bus %2d → %-18s  %s  %.6f, %.6f  %5.1f km/h",
+                        "EVENTO â†’ bus %2d â†’ %-18s  %s  %.6f, %.6f  %5.1f km/h",
                         bus_id,
                         event["event"],
                         timestamp,
                         sample["lat"],
                         sample["lon"],
-                        sample["speed_gps"],
+                        sample["speed"],
                     )
 
                 if scheduled_event:
@@ -316,3 +314,4 @@ while True:
     except Exception as e:
         logger.error("Error en bucle principal: %s", e)
         time.sleep(5)
+

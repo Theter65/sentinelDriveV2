@@ -1367,6 +1367,21 @@ html[data-theme="glass-dark"] .toast-header {
   color: rgba(255, 255, 255, 0.80);
 }
 
+html[data-theme="glass-light"] .top-notification-button {
+  border-color: rgba(20, 36, 56, 0.18);
+  background: rgba(255, 255, 255, 0.72);
+  color: rgba(20, 36, 56, 0.9);
+}
+
+html[data-theme="glass-light"] .top-notification-button i {
+  color: #129d58;
+}
+
+html[data-theme="glass-light"] .top-notification-button:hover {
+  border-color: rgba(18, 157, 88, 0.32);
+  background: rgba(255, 255, 255, 0.9);
+}
+
 .notification-badge {
   position: absolute;
   top: -0.22rem;
@@ -2223,4 +2238,253 @@ body.modal-open .mobile-nav-overlay,
 body.modal-open .notification-backdrop,
 body.modal-open .notification-center {
   display: none !important;
+}
+
+html[data-theme="glass-light"] .liquid-glass,
+html[data-theme="glass-light"] .liquid-glass-strong,
+html[data-theme="glass-light"] .glass-card,
+html[data-theme="glass-light"] .glass-card-sm,
+html[data-theme="glass-light"] .glass-panel,
+html[data-theme="glass-light"] .glass-panel-strong,
+html[data-theme="glass-light"] .glass-chart-card,
+html[data-theme="glass-light"] .notification-center,
+html[data-theme="glass-light"] .card {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.12), transparent 30%),
+    radial-gradient(circle at 0% 100%, rgba(18, 157, 88, 0.1), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.7)) !important;
+  color: var(--text-primary) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 12px 30px rgba(24, 52, 79, 0.14) !important;
+}
+
+html[data-theme="glass-light"] .notification-center .notification-item {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(20, 36, 56, 0.12);
+}
+
+html[data-theme="glass-light"] .notification-center .notification-item.is-unread {
+  border-color: rgba(18, 157, 88, 0.36);
+  background: rgba(18, 157, 88, 0.08);
+}
+
+html[data-theme="glass-light"] .glass-popover,
+html[data-theme="glass-light"] .tooltip .tooltip-inner {
+  --bs-popover-bg: rgba(255, 255, 255, 0.97);
+  --bs-popover-border-color: rgba(20, 36, 56, 0.18);
+  --bs-popover-header-bg: rgba(20, 36, 56, 0.08);
+  --bs-popover-header-color: #142438;
+  --bs-popover-body-color: rgba(20, 36, 56, 0.85);
+  background: rgba(255, 255, 255, 0.97) !important;
+  color: #142438 !important;
+  border-color: rgba(20, 36, 56, 0.18) !important;
+}
+
+/* Final polish: transparent light surfaces + unified glass tables (no gradients) */
+html[data-theme="glass-light"] .liquid-glass,
+html[data-theme="glass-light"] .liquid-glass-strong,
+html[data-theme="glass-light"] .glass-card,
+html[data-theme="glass-light"] .glass-card-sm,
+html[data-theme="glass-light"] .glass-panel,
+html[data-theme="glass-light"] .glass-panel-strong,
+html[data-theme="glass-light"] .glass-chart-card,
+html[data-theme="glass-light"] .notification-center,
+html[data-theme="glass-light"] .card {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.09), transparent 34%),
+    radial-gradient(circle at 0% 100%, rgba(18, 157, 88, 0.08), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.48)) !important;
+}
+
+html[data-theme="glass-dark"] .card .table-responsive,
+html[data-theme="glass-light"] .card .table-responsive {
+  background: transparent;
+  backdrop-filter: blur(10px) saturate(122%);
+  -webkit-backdrop-filter: blur(10px) saturate(122%);
+}
+
+html[data-theme="glass-dark"] .table,
+html[data-theme="glass-light"] .table {
+  --bs-table-bg: transparent !important;
+  background: transparent !important;
+}
+
+html[data-theme="glass-dark"] .table > :not(caption) > * > *,
+html[data-theme="glass-light"] .table > :not(caption) > * > * {
+  background-image: none !important;
+}
+
+html[data-theme="glass-dark"] .table > :not(caption) > * > * {
+  background-color: rgba(8, 14, 22, 0.52) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+html[data-theme="glass-light"] .table > :not(caption) > * > * {
+  background-color: rgba(255, 255, 255, 0.32) !important;
+  border-color: rgba(20, 36, 56, 0.14) !important;
+}
+
+html[data-theme="glass-dark"] .table thead th,
+html[data-theme="glass-light"] .table thead th {
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="glass-dark"] .table thead th {
+  background-color: rgba(11, 18, 28, 0.88) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+html[data-theme="glass-light"] .table thead th {
+  background-color: rgba(32, 50, 72, 0.76) !important;
+  color: rgba(248, 251, 255, 0.98) !important;
+}
+
+/* Final override requested by UX: stronger background visibility + plain glass tables */
+@keyframes ambientImageFadeLight {
+  0%, 28%, 100% {
+    opacity: 0.08;
+    transform: scale(1.03);
+  }
+  6%, 26% {
+    opacity: 0.34;
+    transform: scale(1.08) translate3d(-0.4%, -0.3%, 0);
+  }
+}
+
+html[data-theme="glass-light"] .ambient-bg {
+  opacity: 0.58 !important;
+}
+
+html[data-theme="glass-light"] .ambient-bg::before {
+  background:
+    linear-gradient(120deg, rgba(248, 252, 255, 0.36), rgba(240, 247, 254, 0.24) 46%, rgba(248, 252, 255, 0.4)),
+    radial-gradient(circle at 82% 10%, rgba(66, 215, 255, 0.08), transparent 22rem),
+    radial-gradient(circle at 16% 82%, rgba(34, 214, 122, 0.09), transparent 24rem) !important;
+}
+
+html[data-theme="glass-light"] .ambient-bg::after {
+  opacity: 0.16 !important;
+  mix-blend-mode: soft-light;
+}
+
+html[data-theme="glass-light"] .ambient-bg span {
+  filter: blur(0.8px) saturate(0.82) contrast(0.96) !important;
+  animation: ambientImageFadeLight 36s linear infinite !important;
+}
+
+html[data-theme="glass-dark"] .table,
+html[data-theme="glass-light"] .table {
+  background: transparent !important;
+  --bs-table-bg: transparent !important;
+}
+
+html[data-theme="glass-dark"] .table > :not(caption) > * > *,
+html[data-theme="glass-light"] .table > :not(caption) > * > * {
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="glass-dark"] .table {
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.02) !important;
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.05) !important;
+  --bs-table-border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+html[data-theme="glass-light"] .table {
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.16) !important;
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.24) !important;
+  --bs-table-border-color: rgba(20, 36, 56, 0.14) !important;
+}
+
+html[data-theme="glass-dark"] .table > :not(caption) > * > * {
+  background-color: rgba(10, 16, 25, 0.54) !important;
+}
+
+html[data-theme="glass-light"] .table > :not(caption) > * > * {
+  background-color: rgba(255, 255, 255, 0.26) !important;
+}
+
+html[data-theme="glass-dark"] .table thead th,
+html[data-theme="glass-light"] .table thead th {
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="glass-dark"] .table thead th {
+  background-color: rgba(12, 20, 30, 0.9) !important;
+  color: rgba(250, 252, 255, 0.96) !important;
+}
+
+html[data-theme="glass-light"] .table thead th {
+  background-color: rgba(40, 58, 80, 0.74) !important;
+  color: rgba(250, 252, 255, 0.98) !important;
+}
+
+html[data-theme="glass-dark"] .card .table-responsive,
+html[data-theme="glass-light"] .card .table-responsive {
+  background: transparent !important;
+  background-image: none !important;
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+}
+
+/* Intervention pills readability in light mode */
+html[data-theme="glass-light"] .intervention-level-badge,
+html[data-theme="glass-light"] .intervention-mini-pill {
+  color: rgba(20, 36, 56, 0.92) !important;
+  border-color: rgba(20, 36, 56, 0.22) !important;
+  background: rgba(255, 255, 255, 0.56) !important;
+  font-weight: 800;
+  text-shadow: none;
+}
+
+html[data-theme="glass-light"] .intervention-level-acceptable {
+  border-color: rgba(18, 157, 88, 0.52) !important;
+  background: rgba(34, 214, 122, 0.2) !important;
+  color: #0d6c45 !important;
+}
+
+html[data-theme="glass-light"] .intervention-level-monitoring {
+  border-color: rgba(14, 165, 233, 0.5) !important;
+  background: rgba(66, 215, 255, 0.22) !important;
+  color: #0a6a8a !important;
+}
+
+html[data-theme="glass-light"] .intervention-level-corrective {
+  border-color: rgba(217, 119, 6, 0.48) !important;
+  background: rgba(255, 176, 32, 0.22) !important;
+  color: #8a5200 !important;
+}
+
+html[data-theme="glass-light"] .intervention-level-priority {
+  border-color: rgba(220, 38, 38, 0.5) !important;
+  background: rgba(255, 95, 109, 0.2) !important;
+  color: #9a2338 !important;
+}
+
+/* Reports dark mode readability hard-fix */
+html[data-theme="glass-dark"] .reports-page .table > :not(caption) > * > * {
+  color: rgba(238, 246, 255, 0.96) !important;
+}
+
+html[data-theme="glass-dark"] .reports-page .table thead th {
+  color: rgba(247, 251, 255, 0.98) !important;
+  border-color: rgba(230, 241, 255, 0.2) !important;
+}
+
+html[data-theme="glass-dark"] .reports-page .table tbody td .text-muted,
+html[data-theme="glass-dark"] .reports-page .table tbody .text-muted,
+html[data-theme="glass-dark"] .reports-page .text-muted {
+  color: rgba(219, 232, 247, 0.86) !important;
+}
+
+html[data-theme="glass-dark"] .reports-page .chart-title,
+html[data-theme="glass-dark"] .reports-page .kpi-label,
+html[data-theme="glass-dark"] .reports-page .kpi-value,
+html[data-theme="glass-dark"] .reports-page h2,
+html[data-theme="glass-dark"] .reports-page h3,
+html[data-theme="glass-dark"] .reports-page h5 {
+  color: rgba(241, 248, 255, 0.96) !important;
 }

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Reportes Estadísticos{% endblock %}
 
 {% block content %}
@@ -447,23 +447,54 @@ document.addEventListener("DOMContentLoaded", () => {
     if (window.SDChartTheme) window.SDChartTheme.applyChartDefaults();
     const chartPrefix = {{ chart_prefix | tojson }};
     const chartData = {{ active_chart_data | tojson }};
-    const rootStyles = getComputedStyle(document.documentElement);
-    const themedPalette = window.SDChartTheme ? window.SDChartTheme.palette() : null;
-    const chartText = themedPalette?.text || rootStyles.getPropertyValue("--chart-text").trim() || rootStyles.getPropertyValue("--chart-text-color").trim() || "#ffffff";
-    const chartGrid = themedPalette?.grid || rootStyles.getPropertyValue("--chart-grid").trim() || rootStyles.getPropertyValue("--chart-grid-color").trim() || "rgba(255,255,255,0.14)";
-    const accent = themedPalette?.accent || rootStyles.getPropertyValue("--accent").trim() || rootStyles.getPropertyValue("--accent-color").trim() || "#22c55e";
-    const info = themedPalette?.info || rootStyles.getPropertyValue("--info").trim() || "#42d7ff";
-    const warning = themedPalette?.warning || rootStyles.getPropertyValue("--warning").trim() || rootStyles.getPropertyValue("--warning-color").trim() || "#f59e0b";
-    const success = themedPalette?.success || rootStyles.getPropertyValue("--success").trim() || rootStyles.getPropertyValue("--success-color").trim() || "#22c55e";
-    const chartTooltip = window.SDChartTheme ? window.SDChartTheme.tooltipOptions() : {};
+    const chartInstances = new Map();
 
-    Chart.defaults.color = chartText;
-    Chart.defaults.borderColor = chartGrid;
+    function getThemeTokens() {
+        const isDarkTheme = (document.documentElement.getAttribute("data-theme") || "glass-dark") === "glass-dark";
+        const rootStyles = getComputedStyle(document.documentElement);
+        const themedPalette = window.SDChartTheme ? window.SDChartTheme.palette() : null;
+        return {
+            chartText:
+                (isDarkTheme ? "rgba(241,248,255,0.94)" : null) ||
+                themedPalette?.text ||
+                rootStyles.getPropertyValue("--chart-text").trim() ||
+                rootStyles.getPropertyValue("--chart-text-color").trim() ||
+                "#ffffff",
+            chartGrid:
+                (isDarkTheme ? "rgba(210,225,244,0.22)" : null) ||
+                themedPalette?.grid ||
+                rootStyles.getPropertyValue("--chart-grid").trim() ||
+                rootStyles.getPropertyValue("--chart-grid-color").trim() ||
+                "rgba(255,255,255,0.14)",
+            accent:
+                themedPalette?.accent ||
+                rootStyles.getPropertyValue("--accent").trim() ||
+                rootStyles.getPropertyValue("--accent-color").trim() ||
+                "#22c55e",
+            info:
+                themedPalette?.info ||
+                rootStyles.getPropertyValue("--info").trim() ||
+                "#42d7ff",
+            warning:
+                themedPalette?.warning ||
+                rootStyles.getPropertyValue("--warning").trim() ||
+                rootStyles.getPropertyValue("--warning-color").trim() ||
+                "#f59e0b",
+            success:
+                themedPalette?.success ||
+                rootStyles.getPropertyValue("--success").trim() ||
+                rootStyles.getPropertyValue("--success-color").trim() ||
+                "#22c55e",
+            chartTooltip: window.SDChartTheme ? window.SDChartTheme.tooltipOptions() : {},
+        };
+    }
 
     function safeChart(id, config) {
         const el = document.getElementById(id);
         if (!el) return;
-        new Chart(el.getContext("2d"), config);
+        const currentChart = chartInstances.get(id);
+        if (currentChart) currentChart.destroy();
+        chartInstances.set(id, new Chart(el.getContext("2d"), config));
     }
 
     function barData(labels, data) {
@@ -471,56 +502,66 @@ document.addEventListener("DOMContentLoaded", () => {
         return { labels: ["Sin datos"], data: [0] };
     }
 
-    function barOptions(horizontal = false) {
+    function barOptions(tokens, horizontal = false) {
         return {
             responsive: true,
             maintainAspectRatio: false,
             indexAxis: horizontal ? "y" : "x",
-            plugins: { legend: { display: false }, tooltip: chartTooltip },
+            plugins: { legend: { display: false }, tooltip: tokens.chartTooltip },
             scales: {
-                x: { beginAtZero: true, grid: { color: chartGrid }, ticks: { color: chartText } },
-                y: { beginAtZero: true, grid: { color: chartGrid }, ticks: { color: chartText } },
+                x: { beginAtZero: true, grid: { color: tokens.chartGrid }, ticks: { color: tokens.chartText } },
+                y: { beginAtZero: true, grid: { color: tokens.chartGrid }, ticks: { color: tokens.chartText } },
             },
         };
     }
 
-    const eventsByType = barData(chartData.event_type_labels, chartData.event_type_data);
-    safeChart(`${chartPrefix}EventsByType`, {
-        type: "bar",
-        data: {
-            labels: eventsByType.labels,
-            datasets: [{ label: "Eventos", data: eventsByType.data, backgroundColor: accent }],
-        },
-        options: barOptions(true),
-    });
+    function renderCharts() {
+        if (window.SDChartTheme) window.SDChartTheme.applyChartDefaults();
+        const tokens = getThemeTokens();
+        Chart.defaults.color = tokens.chartText;
+        Chart.defaults.borderColor = tokens.chartGrid;
 
-    safeChart(`${chartPrefix}EventsByHour`, {
-        type: "bar",
-        data: {
-            labels: chartData.hour_labels,
-            datasets: [{ label: "Eventos", data: chartData.hour_data, backgroundColor: info }],
-        },
-        options: barOptions(),
-    });
+        const eventsByType = barData(chartData.event_type_labels, chartData.event_type_data);
+        safeChart(`${chartPrefix}EventsByType`, {
+            type: "bar",
+            data: {
+                labels: eventsByType.labels,
+                datasets: [{ label: "Eventos", data: eventsByType.data, backgroundColor: tokens.accent }],
+            },
+            options: barOptions(tokens, true),
+        });
 
-    safeChart(`${chartPrefix}SpeedHistogram`, {
-        type: "bar",
-        data: {
-            labels: chartData.speed_labels,
-            datasets: [{ label: "Frecuencia", data: chartData.speed_data, backgroundColor: success }],
-        },
-        options: barOptions(),
-    });
+        safeChart(`${chartPrefix}EventsByHour`, {
+            type: "bar",
+            data: {
+                labels: chartData.hour_labels,
+                datasets: [{ label: "Eventos", data: chartData.hour_data, backgroundColor: tokens.info }],
+            },
+            options: barOptions(tokens),
+        });
 
-    const magnitudes = barData(chartData.magnitude_labels, chartData.magnitude_data);
-    safeChart(`${chartPrefix}EventMagnitudes`, {
-        type: "bar",
-        data: {
-            labels: magnitudes.labels,
-            datasets: [{ label: "Magnitud máxima", data: magnitudes.data, backgroundColor: warning }],
-        },
-        options: barOptions(true),
-    });
+        safeChart(`${chartPrefix}SpeedHistogram`, {
+            type: "bar",
+            data: {
+                labels: chartData.speed_labels,
+                datasets: [{ label: "Frecuencia", data: chartData.speed_data, backgroundColor: tokens.success }],
+            },
+            options: barOptions(tokens),
+        });
+
+        const magnitudes = barData(chartData.magnitude_labels, chartData.magnitude_data);
+        safeChart(`${chartPrefix}EventMagnitudes`, {
+            type: "bar",
+            data: {
+                labels: magnitudes.labels,
+                datasets: [{ label: "Magnitud maxima", data: magnitudes.data, backgroundColor: tokens.warning }],
+            },
+            options: barOptions(tokens, true),
+        });
+    }
+
+    renderCharts();
+    document.addEventListener("sentinldrive:themechange", renderCharts);
 
     window.downloadImage = function(id) {
         const canvas = document.getElementById(id);
@@ -558,14 +599,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     credentials: "same-origin",
                 });
                 if (!response.ok) throw new Error("No se pudo registrar");
-                generateButton.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Ejecución registrada';
+                generateButton.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Ejecucion registrada';
             } catch {
                 generateButton.disabled = false;
                 generateButton.innerHTML = originalText;
-                alert("No se pudo registrar la ejecución analítica.");
+                alert("No se pudo registrar la ejecucion analitica.");
             }
         });
     }
 });
 </script>
 {% endblock %}
+

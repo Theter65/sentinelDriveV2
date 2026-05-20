@@ -1,4 +1,4 @@
-import json
+﻿import json
 import ssl
 import threading
 from datetime import datetime
@@ -158,7 +158,7 @@ def test_mqtt_connection(
         logger.warning("MQTT: fallo durante la comprobacion manual de conexion: %s", exc, exc_info=True)
         return (
             False,
-            "No se pudo comprobar la conexion MQTT con esos datos. Revísalos e intenta nuevamente.",
+            "No se pudo comprobar la conexion MQTT con esos datos. RevÃ­salos e intenta nuevamente.",
         )
     finally:
         try:
@@ -253,9 +253,21 @@ def _valid_coordinate(value) -> bool:
     return isinstance(value, (int, float))
 
 
+def _first_present(data: dict, *keys):
+    for key in keys:
+        if key in data and data.get(key) is not None:
+            return data.get(key)
+    return None
+
+
+def _extract_speed(data: dict):
+    """Usa `speed` como clave canonica y acepta aliases legacy durante la transicion."""
+    return _first_present(data, "speed", "speed_obd", "speed_gps")
+
+
 def _extract_event_value(event_name: str, data: dict):
     if event_name == "exceso_velocidad":
-        return data.get("speed_obd", data.get("speed_gps"))
+        return _extract_speed(data)
     if event_name == "frenado_brusco":
         return data.get("accel_x")
     if event_name == "curva_peligrosa":
@@ -263,7 +275,7 @@ def _extract_event_value(event_name: str, data: dict):
     if event_name == "conduccion_agresiva":
         return data.get("rpm")
     if event_name == "sobrecalentamiento":
-        return data.get("temperature")
+        return _first_present(data, "temperature", "temp")
     if event_name in ("otros", "otro"):
         raw = data.get("value")
         if raw is None:
@@ -302,7 +314,7 @@ def _build_location(bus_id: int, data: dict, timestamp: datetime) -> Location | 
         bus_id=bus_id,
         lat=lat,
         lon=lon,
-        speed=data.get("speed_gps", data.get("speed")),
+        speed=_extract_speed(data),
         timestamp=timestamp,
     )
 
@@ -346,7 +358,7 @@ def on_message(client, userdata, msg):
 
             message_kind = "gps" if "gps" in topic else "event"
             event_name = data.get("event") if message_kind == "event" else "gps"
-            event_value = _extract_event_value(event_name, data) if message_kind == "event" else data.get("speed_gps", data.get("speed"))
+            event_value = _extract_event_value(event_name, data) if message_kind == "event" else _extract_speed(data)
             coords_key = f"{data.get('lat')}|{data.get('lon')}"
             desc_key = ""
             if message_kind == "event" and event_name in ("otros", "otro"):
@@ -512,3 +524,4 @@ def start_mqtt_subscriber(app):
                     client.loop_stop()
                 except Exception:
                     pass
+

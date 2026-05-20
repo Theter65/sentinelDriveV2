@@ -27,6 +27,8 @@
   --info: #42d7ff;
   --chart-grid: rgba(255, 255, 255, 0.10);
   --chart-text: rgba(255, 255, 255, 0.78);
+  --chart-tooltip-bg: rgba(18, 22, 30, 0.92);
+  --chart-tooltip-border: rgba(255, 255, 255, 0.14);
   --shadow-soft: 0 22px 56px rgba(0, 0, 0, 0.34);
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -100,6 +102,99 @@ html[data-theme="glass-dark"] body::after {
     radial-gradient(circle at 72% 72%, rgba(34, 214, 122, 0.11), transparent 18rem);
   opacity: 0.36;
   z-index: -1;
+}
+
+:root[data-theme="glass-light"] {
+  --bg-base: #eef3f8;
+  --bg-main: var(--bg-base);
+  --bg-surface: rgba(255, 255, 255, 0.74);
+  --bg-surface-strong: rgba(255, 255, 255, 0.9);
+  --glass-bg: rgba(255, 255, 255, 0.76);
+  --glass-bg-strong: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(20, 36, 56, 0.12);
+  --glass-border-strong: rgba(20, 36, 56, 0.2);
+  --glass-highlight: rgba(255, 255, 255, 0.65);
+  --glass-shadow: rgba(24, 52, 79, 0.14);
+  --line-soft: rgba(20, 36, 56, 0.1);
+  --line-bright: rgba(20, 36, 56, 0.18);
+  --text-primary: #142438;
+  --text-secondary: rgba(20, 36, 56, 0.82);
+  --text-muted: rgba(20, 36, 56, 0.64);
+  --accent-green: #129d58;
+  --accent-green-soft: rgba(18, 157, 88, 0.2);
+  --accent-cyan: #0ea5e9;
+  --accent-cyan-soft: rgba(14, 165, 233, 0.16);
+  --accent: var(--accent-green);
+  --accent-soft: var(--accent-green-soft);
+  --success: #129d58;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #0ea5e9;
+  --chart-grid: rgba(20, 36, 56, 0.16);
+  --chart-text: rgba(20, 36, 56, 0.9);
+  --chart-tooltip-bg: rgba(255, 255, 255, 0.96);
+  --chart-tooltip-border: rgba(20, 36, 56, 0.16);
+  --shadow-soft: 0 18px 40px rgba(24, 52, 79, 0.16);
+  --background: var(--bg-main);
+  --card-background: var(--bg-surface);
+  --border-color: var(--glass-border);
+  --accent-color: var(--accent);
+  --success-color: var(--success);
+  --warning-color: var(--warning);
+  --danger-color: var(--danger);
+  --chart-grid-color: var(--chart-grid);
+  --chart-text-color: var(--chart-text);
+  --bg: var(--bg-main);
+  --surface: var(--bg-surface);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --border: var(--glass-border);
+  --border-2: rgba(20, 36, 56, 0.18);
+  --border-accent: rgba(18, 157, 88, 0.5);
+  --shadow: 0 24px 52px rgba(24, 52, 79, 0.2);
+}
+
+html[data-theme="glass-light"] {
+  color-scheme: light;
+}
+
+html[data-theme="glass-light"],
+html[data-theme="glass-light"] body {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 8% 4%, rgba(14, 165, 233, 0.11), transparent 25rem),
+    radial-gradient(circle at 86% 12%, rgba(18, 157, 88, 0.1), transparent 22rem),
+    linear-gradient(145deg, #f8fbff 0%, #eef3f9 44%, #e5edf6 100%);
+  color: var(--text-primary);
+}
+
+html[data-theme="glass-light"] body {
+  position: relative;
+  isolation: isolate;
+}
+
+html[data-theme="glass-light"] body::before,
+html[data-theme="glass-light"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -2;
+}
+
+html[data-theme="glass-light"] body::before {
+  background:
+    radial-gradient(circle, rgba(20, 36, 56, 0.11) 1px, transparent 1.6px) 0 0 / 52px 52px,
+    linear-gradient(120deg, rgba(14, 165, 233, 0.05), transparent 30%);
+  opacity: 0.44;
+}
+
+html[data-theme="glass-light"] body::after {
+  z-index: -1;
+  background:
+    linear-gradient(110deg, transparent 0 24%, rgba(20, 36, 56, 0.05) 24.2%, transparent 24.4% 64%, rgba(18, 157, 88, 0.05) 64.2%, transparent 64.4%),
+    radial-gradient(circle at 78% 72%, rgba(14, 165, 233, 0.08), transparent 18rem);
+  opacity: 0.46;
 }
 
 @media (max-width: 768px) {

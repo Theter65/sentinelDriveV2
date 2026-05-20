@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="SENTINLDRIVE - Sistema de monitoreo y gestion segura de flota vehicular en Ecuador">
     <meta name="theme-color" content="#161a1e">
+    <script>
+        (function () {
+            try {
+                var user = "{{ (session.get('user') or 'guest')|e }}";
+                var userTheme = localStorage.getItem("sentinldrive_theme::" + user);
+                var legacyTheme = localStorage.getItem("sentinldrive_theme");
+                var theme = userTheme || legacyTheme || "glass-dark";
+                document.documentElement.setAttribute("data-theme", theme);
+                var themeMeta = document.querySelector('meta[name="theme-color"]');
+                if (themeMeta) themeMeta.setAttribute("content", theme === "glass-light" ? "#f4f7fb" : "#161a1e");
+            } catch (_) {
+                document.documentElement.setAttribute("data-theme", "glass-dark");
+            }
+        })();
+    </script>
     <title>SENTINLDRIVE - {% block title %}{% endblock %}</title>
     <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,7 +31,11 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css', v=static_version) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/glass.css', v=static_version) }}">
 </head>
-<body class="no-transition app-shell glass-page" data-events-poll-url="{{ url_for('events.api_event_updates') }}">
+<body
+    class="no-transition app-shell glass-page"
+    data-events-poll-url="{{ url_for('events.api_event_updates') }}"
+    data-current-user="{{ session.get('user') or 'guest' }}"
+>
 <div class="ambient-bg" aria-hidden="true">
     <span style="--bg-image: url('{{ url_for('static', filename='img/bus1.jpg') }}')"></span>
     <span style="--bg-image: url('{{ url_for('static', filename='img/bus2.jpg') }}')"></span>
@@ -41,6 +60,17 @@
                     >
                         <i class="bi bi-bell"></i>
                         <span id="notificationBellBadge" class="notification-badge d-none">0</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="top-theme-toggle"
+                        id="themeModeToggle"
+                        aria-label="Cambiar tema"
+                        aria-pressed="false"
+                        title="Cambiar modo claro/oscuro"
+                    >
+                        <i class="bi bi-moon-stars-fill" data-theme-toggle-icon></i>
+                        <span data-theme-toggle-label>Modo oscuro</span>
                     </button>
                     <button
                         type="button"

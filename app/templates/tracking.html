@@ -66,13 +66,106 @@
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+    #map.map-theme-light .leaflet-tile {
+        filter: grayscale(1) contrast(1.02) brightness(1.02);
+    }
+
+    #map.map-theme-dark .leaflet-tile {
+        filter: none;
+    }
+
+    #map.map-theme-original .leaflet-tile {
+        filter: none;
+    }
+</style>
 
 <script>
     const map = L.map('map').setView([-4.000, -79.200], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const MAP_MODE_STORAGE_KEY = `sd_tracking_map_mode::${document.body?.dataset?.currentUser || 'guest'}`;
+    const darkMapLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        maxZoom: 19,
+    });
+    const lightMapLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        maxZoom: 19,
+    });
+    const originalMapLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 18,
-    }).addTo(map);
+        maxZoom: 19,
+    });
+    const mapModes = {
+        dark: darkMapLayer,
+        light: lightMapLayer,
+        original: originalMapLayer,
+    };
+    const mapThemes = {
+        'Modo oscuro': mapModes.dark,
+        'Modo claro': mapModes.light,
+        'Modo original': mapModes.original,
+    };
+    L.control.layers(mapThemes, null, { position: 'topright', collapsed: true }).addTo(map);
+
+    let activeBaseLayer = null;
+    function readStoredMapMode() {
+        try {
+            const stored = localStorage.getItem(MAP_MODE_STORAGE_KEY);
+            return stored && mapModes[stored] ? stored : null;
+        } catch {
+            return null;
+        }
+    }
+
+    function saveStoredMapMode(mode) {
+        try {
+            if (mode) localStorage.setItem(MAP_MODE_STORAGE_KEY, mode);
+            else localStorage.removeItem(MAP_MODE_STORAGE_KEY);
+        } catch {
+            // ignore storage errors
+        }
+    }
+
+    function modeFromTheme(themeName) {
+        return String(themeName || '').toLowerCase() === 'glass-light' ? 'light' : 'dark';
+    }
+
+    function setBaseLayer(layer) {
+        if (!layer || activeBaseLayer === layer) return;
+        if (activeBaseLayer && map.hasLayer(activeBaseLayer)) {
+            map.removeLayer(activeBaseLayer);
+        }
+        layer.addTo(map);
+        activeBaseLayer = layer;
+    }
+
+    function applyMapMode(mode) {
+        const resolvedMode = mapModes[mode] ? mode : 'dark';
+        setBaseLayer(mapModes[resolvedMode]);
+        const mapEl = document.getElementById('map');
+        if (!mapEl) return;
+        mapEl.classList.toggle('map-theme-light', resolvedMode === 'light');
+        mapEl.classList.toggle('map-theme-dark', resolvedMode === 'dark');
+        mapEl.classList.toggle('map-theme-original', resolvedMode === 'original');
+    }
+
+    map.on('baselayerchange', (event) => {
+        activeBaseLayer = event.layer;
+        const selectedMode = Object.entries(mapModes).find(([, layer]) => layer === event.layer)?.[0] || 'dark';
+        saveStoredMapMode(selectedMode);
+        applyMapMode(selectedMode);
+    });
+
+    const initialTheme = document.documentElement.getAttribute('data-theme') || 'glass-dark';
+    applyMapMode(readStoredMapMode() || modeFromTheme(initialTheme));
+    document.addEventListener('sentinldrive:themechange', (event) => {
+        const storedMode = readStoredMapMode();
+        if (storedMode === 'original') {
+            applyMapMode('original');
+            return;
+        }
+        applyMapMode(storedMode || modeFromTheme(event?.detail?.theme || document.documentElement.getAttribute('data-theme') || 'glass-dark'));
+    });
 
     const selectedEvent = {{ selected_event|tojson }};
     let currentMarker = null;

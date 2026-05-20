@@ -13,8 +13,8 @@
       warning: cssVar("--warning", cssVar("--warning-color", "#ffb020")),
       danger: cssVar("--danger", cssVar("--danger-color", "#ff5f6d")),
       info: cssVar("--accent-cyan", cssVar("--info", "#42d7ff")),
-      tooltipBg: "rgba(18, 22, 30, 0.92)",
-      tooltipBorder: "rgba(255, 255, 255, 0.14)",
+      tooltipBg: cssVar("--chart-tooltip-bg", "rgba(18, 22, 30, 0.92)"),
+      tooltipBorder: cssVar("--chart-tooltip-border", "rgba(255, 255, 255, 0.14)"),
     };
   }
 

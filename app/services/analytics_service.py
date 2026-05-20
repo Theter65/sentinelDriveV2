@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime, time, timedelta
@@ -30,15 +30,15 @@ MAGNITUDE_EVENT_TYPES = (
     "Exceso de velocidad",
     "Frenado brusco",
     "Curva pronunciada",
-    "ConducciÃ³n agresiva",
+    "Conducción agresiva",
     "Sobrecalentamiento",
     "Otros",
 )
 INTERVENTION_LEVELS = (
     "Aceptable",
     "Monitoreo",
-    "IntervenciÃ³n correctiva",
-    "IntervenciÃ³n prioritaria",
+    "Intervención correctiva",
+    "Intervención prioritaria",
 )
 
 

@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SENTINLDRIVE - Monitoreo y deteccion de eventos de riesgo en fluxo IoT">
     <meta name="theme-color" content="#161a1e">
+    <script>
+        (function () {
+            try {
+                var theme = localStorage.getItem("sentinldrive_theme::guest") || localStorage.getItem("sentinldrive_theme") || "glass-dark";
+                document.documentElement.setAttribute("data-theme", theme);
+                var themeMeta = document.querySelector('meta[name="theme-color"]');
+                if (themeMeta) themeMeta.setAttribute("content", theme === "glass-light" ? "#f4f7fb" : "#161a1e");
+            } catch (_) {
+                document.documentElement.setAttribute("data-theme", "glass-dark");
+            }
+        })();
+    </script>
     <title>Iniciar sesion - SENTINLDRIVE</title>
     <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,7 +28,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css', v=static_version) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/glass.css', v=static_version) }}">
 </head>
-<body class="login-page glass-page" style="margin: 0; min-height: 100vh; overflow-x: hidden;">
+<body class="login-page glass-page" data-current-user="guest" style="margin: 0; min-height: 100vh; overflow-x: hidden;">
 <!-- Hero slider full screen -->
 <div class="hero" style="position: fixed; inset: 0; z-index: 0;">
     <div class="hero-slides" style="position: absolute; inset: 0;">
@@ -30,7 +42,7 @@
             <img src="{{ url_for('static', filename='img/bus3.jpg') }}" alt="Bus 3" onerror="this.parentElement.style.display='none'">
         </div>
     </div>
-    <div class="hero-overlay" style="position: absolute; inset: 0; background: rgba(22, 26, 30, 0.7); z-index: 1;"></div>
+    <div class="hero-overlay" style="position: absolute; inset: 0; z-index: 1;"></div>
     <div class="hero-dots" style="position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%); display: flex; gap: 0.5rem; z-index: 3;">
         <span class="hero-dot active" data-slide="0"></span>
         <span class="hero-dot" data-slide="1"></span>
@@ -46,14 +58,14 @@
         <div class="features-card liquid-glass-strong">
             <div class="text-center mb-3">
                 <img src="{{ url_for('static', filename='img/logoname.png') }}" alt="SENTINLDRIVE" class="img-fluid" style="max-height: 50px;">
-                <div class="text-white mt-2" style="opacity: 0.8; font-size: 0.85rem;">Monitoreo IoT en tiempo real</div>
+                <div class="login-tone-subtle mt-2" style="font-size: 0.85rem;">Monitoreo IoT en tiempo real</div>
             </div>
             <div class="row g-3">
                 <div class="col-6">
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge badge-soft" style="font-size: 0.7rem;">GPS</span>
                         <div>
-                            <div class="fw-semibold" style="font-size: 0.85rem; color: #fff;">Seguimiento</div>
+                            <div class="fw-semibold login-tone-strong" style="font-size: 0.85rem;">Seguimiento</div>
                             <div class="text-muted" style="opacity: 0.7; font-size: 0.75rem;">Posicion en mapa</div>
                         </div>
                     </div>
@@ -62,7 +74,7 @@
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge badge-soft" style="font-size: 0.7rem;">ALERTA</span>
                         <div>
-                            <div class="fw-semibold" style="font-size: 0.85rem; color: #fff;">Eventos</div>
+                            <div class="fw-semibold login-tone-strong" style="font-size: 0.85rem;">Eventos</div>
                             <div class="text-muted" style="opacity: 0.7; font-size: 0.75rem;">Notificaciones</div>
                         </div>
                     </div>
@@ -71,7 +83,7 @@
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge badge-soft" style="font-size: 0.7rem;">KPIs</span>
                         <div>
-                            <div class="fw-semibold" style="font-size: 0.85rem; color: #fff;">Panel</div>
+                            <div class="fw-semibold login-tone-strong" style="font-size: 0.85rem;">Panel</div>
                             <div class="text-muted" style="opacity: 0.7; font-size: 0.75rem;">Estadisticas</div>
                         </div>
                     </div>
@@ -80,7 +92,7 @@
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge badge-soft" style="font-size: 0.7rem;">CSV</span>
                         <div>
-                            <div class="fw-semibold" style="font-size: 0.85rem; color: #fff;">Reportes</div>
+                            <div class="fw-semibold login-tone-strong" style="font-size: 0.85rem;">Reportes</div>
                             <div class="text-muted" style="opacity: 0.7; font-size: 0.75rem;">Exportacion</div>
                         </div>
                     </div>
@@ -104,8 +116,8 @@
             </div>
 
             <div class="text-center mb-3">
-                <div class="h4 text-white mb-1">Iniciar sesion</div>
-                <div class="text-white mb-0" style="opacity: 0.75; font-size: 0.9rem;">Accede con tu usuario y contrasena</div>
+                <div class="h4 login-tone-strong mb-1">Iniciar sesion</div>
+                <div class="login-tone-subtle mb-0" style="font-size: 0.9rem;">Accede con tu usuario y contrasena</div>
             </div>
 
             {% if error %}
@@ -115,15 +127,15 @@
             <form method="POST" class="d-grid gap-3">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div>
-                    <label class="form-label text-white" style="font-size: 0.9rem;">Usuario</label>
-                    <input type="text" name="username" class="form-control" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;" autocomplete="username" required>
+                    <label class="form-label login-tone-strong" style="font-size: 0.9rem;">Usuario</label>
+                    <input type="text" name="username" class="form-control login-input" autocomplete="username" required>
                 </div>
                 <div>
-                    <label class="form-label text-white" style="font-size: 0.9rem;">Contrasena</label>
-                    <input type="password" name="password" class="form-control" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;" autocomplete="current-password" required>
+                    <label class="form-label login-tone-strong" style="font-size: 0.9rem;">Contrasena</label>
+                    <input type="password" name="password" class="form-control login-input" autocomplete="current-password" required>
                 </div>
                 <button type="submit" class="btn btn-primary btn-lg w-100" style="margin-top: 0.5rem;">Entrar</button>
-                <div class="text-white mt-2" style="opacity: 0.6; font-size: 0.8rem; text-align: center;">
+                <div class="login-tone-muted mt-2" style="font-size: 0.8rem; text-align: center;">
                     Si es la primera vez, la aplicacion te llevara automaticamente al asistente.
                 </div>
             </form>
@@ -177,6 +189,32 @@
 @media (max-width: 991px) {
   .features-panel { display: none !important; }
   .login-card { padding: 1.5rem; }
+}
+
+.login-tone-strong { color: var(--text-primary) !important; }
+.login-tone-subtle { color: var(--text-secondary) !important; opacity: 0.86; }
+.login-tone-muted { color: var(--text-muted) !important; opacity: 0.9; }
+
+.login-input {
+  background: rgba(2, 6, 10, 0.48) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="glass-light"] .hero-overlay {
+  background: linear-gradient(130deg, rgba(243, 248, 255, 0.54), rgba(231, 240, 249, 0.44)) !important;
+}
+
+html[data-theme="glass-light"] .features-card,
+html[data-theme="glass-light"] .login-card {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(20, 36, 56, 0.14) !important;
+  box-shadow: 0 12px 36px rgba(24, 52, 79, 0.14);
+}
+
+html[data-theme="glass-light"] .login-input {
+  background: rgba(255, 255, 255, 0.76) !important;
+  border-color: rgba(20, 36, 56, 0.18) !important;
 }
 </style>
 <script>
