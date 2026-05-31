@@ -1,4 +1,8 @@
-"""Modelo de buses y relaciones con eventos, ubicaciones y mantenimientos."""
+# app/models/bus.py - Modelo de buses de la flota
+#
+# Representa cada vehículo registrado en el sistema. Relaciona
+# eventos, ubicaciones GPS y mantenimientos con cascade delete.
+# =============================================================================
 
 from app.extensions import db
 

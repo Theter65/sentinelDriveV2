@@ -1,4 +1,8 @@
-"""Modelo de posiciones GPS historicas por bus."""
+# app/models/location.py - Modelo de posiciones GPS
+#
+# Almacena el historial de ubicaciones GPS por bus: latitud,
+# longitud, velocidad y timestamp. Índice compuesto por bus+fecha.
+# =============================================================================
 
 from app.extensions import db
 from app.utils.time import ecuador_now

@@ -161,6 +161,7 @@ const NOTIFICATION_ITEMS_KEY_PREFIX = "sd_notification_items";
 const NOTIFICATION_READ_KEY_PREFIX = "sd_notification_read_ids";
 const EVENTS_LAST_POLLED_KEY_PREFIX = "sd_last_event_id";
 const EVENTS_LAST_SEEN_KEY_PREFIX = "sd_events_seen_last_id";
+const DASHBOARD_FLOATING_TOASTS_KEY_PREFIX = "sd_dashboard_floating_toasts";
 const MAX_STORED_NOTIFICATIONS = 60;
 let notificationItems = [];
 let notificationReadIds = new Set();
@@ -172,6 +173,35 @@ function currentUsername() {
 
 function scopedStorageKey(prefix) {
   return `${prefix}::${currentUsername()}`;
+}
+
+function isDashboardPage() {
+  return (window.location.pathname || "") === "/dashboard";
+}
+
+function floatingToastsEnabled() {
+  const key = scopedStorageKey(DASHBOARD_FLOATING_TOASTS_KEY_PREFIX);
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return true;
+    return raw === "1";
+  } catch {
+    return true;
+  }
+}
+
+function setFloatingToastsEnabled(enabled) {
+  const key = scopedStorageKey(DASHBOARD_FLOATING_TOASTS_KEY_PREFIX);
+  try {
+    localStorage.setItem(key, enabled ? "1" : "0");
+  } catch {
+    // ignore
+  }
+}
+
+function shouldShowFloatingToast() {
+  if (!isDashboardPage()) return true;
+  return floatingToastsEnabled();
 }
 
 function readStoredInt(key, fallback = 0) {
@@ -248,20 +278,26 @@ function normalizeEventNotification(eventData) {
   const type = eventData.type || "Evento";
   const bus = eventData.plate || `Bus ${eventData.bus_id ?? "?"}`;
   const description = eventData.description ? String(eventData.description).trim() : "";
-  const valueText =
+  const fallbackValue =
     eventData.value === null || eventData.value === undefined || eventData.value === "" ? "" : String(eventData.value);
+  const rawValueLabel = eventData.value_label;
+  const valueLabel = rawValueLabel === null || rawValueLabel === undefined ? "" : String(rawValueLabel).trim();
   return {
     id: eventData.id,
     type,
     bus,
     description,
-    value: valueText,
+    value: fallbackValue,
+    value1: eventData.value1,
+    value2: eventData.value2,
+    valueLabel: valueLabel || fallbackValue,
     timestamp: eventData.timestamp || new Date().toISOString(),
   };
 }
 
 function notificationBodyText(notification) {
-  const valueSuffix = notification.value ? ` · ${notification.value}` : "";
+  const valueText = notification.valueLabel || notification.value || "";
+  const valueSuffix = valueText ? ` · ${valueText}` : "";
   const description = notification.description ? `${notification.description}${valueSuffix}` : "Evento registrado";
   return `${notification.bus}: ${description}`;
 }
@@ -357,7 +393,8 @@ function renderNotificationCenter() {
     .map((notification) => {
       const key = notificationKey(notification);
       const isUnread = !notificationReadIds.has(key);
-      const valueSuffix = notification.value ? ` · ${escapeHtml(notification.value)}` : "";
+      const valueText = notification.valueLabel || notification.value || "";
+      const valueSuffix = valueText ? ` · ${escapeHtml(valueText)}` : "";
       const description = notification.description ? `${escapeHtml(notification.description)}${valueSuffix}` : "Evento registrado";
       return `
         <article class="notification-item ${isUnread ? "is-unread" : ""}" data-notification-id="${escapeHtml(key)}">
@@ -480,6 +517,15 @@ function showToast(title, body, variant) {
   el.addEventListener("hidden.bs.toast", () => el.remove());
 }
 
+function initDashboardToastPreference() {
+  const toggle = $("dashboardToastToggle");
+  if (!toggle) return;
+  toggle.checked = floatingToastsEnabled();
+  toggle.addEventListener("change", () => {
+    setFloatingToastsEnabled(Boolean(toggle.checked));
+  });
+}
+
 async function pollEventNotifications() {
   const endpoint = document.body.getAttribute("data-events-poll-url");
   if (!endpoint) return;
@@ -517,7 +563,8 @@ async function pollEventNotifications() {
 
       const description = notification.description ? String(notification.description).trim() : "";
       if (description) {
-        const valueText = notification.value ? ` · ${escapeHtml(String(notification.value))}` : "";
+        const displayValue = notification.valueLabel || notification.value || "";
+        const valueText = displayValue ? ` · ${escapeHtml(String(displayValue))}` : "";
         bodyParts.push(`<div class="mt-1">${escapeHtml(description)}${valueText}</div>`);
       }
       const body = bodyParts.join("");
@@ -527,7 +574,9 @@ async function pollEventNotifications() {
         type === "Exceso de velocidad" ? "warning" :
         type === "Otros" ? "warning" :
         "success";
-      showToast(type, body, variant);
+      if (shouldShowFloatingToast()) {
+        showToast(type, body, variant);
+      }
       showBrowserNotification(notification);
       if (typeof eventData.id === "number") lastId = Math.max(lastId, eventData.id);
     }
@@ -615,6 +664,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initBootstrapPopovers,
     initModalLayering,
     initNotificationCenter,
+    initDashboardToastPreference,
     initEventNotifications,
   ].forEach((initializer) => {
     try {

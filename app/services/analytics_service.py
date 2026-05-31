@@ -1,4 +1,16 @@
-"""Calculos descriptivos de analitica, histogramas e intervencion operativa."""
+# app/services/analytics_service.py - Motor de analítica descriptiva
+#
+# Implementa los cálculos estadísticos del módulo de analítica:
+# - Resumen de velocidad (min, max, avg, percentiles, desviación)
+# - Distribución de eventos por tipo y hora
+# - Histograma de velocidad en rangos de 10 km/h
+# - Magnitudes por tipo de evento
+# - Matriz de intervención operativa (5 indicadores)
+# - Índice ICO (Indicador de Criticidad Operativa)
+#
+# Todos los cálculos son descriptivos (no predictivos) y siguen
+# criterios basados en normativa de seguridad vial.
+# =============================================================================
 
 from __future__ import annotations
 
@@ -44,6 +56,8 @@ INTERVENTION_LEVELS = (
 )
 
 
+# ── Filtros y entrada ────────────────────────────────────────────────────────
+
 def resolve_filter_values(
     source: Any,
     default_start: datetime | None = None,
@@ -66,6 +80,8 @@ def resolve_filter_values(
 
     return date_from, date_to, speed_limit
 
+
+# ── Construcción del payload analítico ──────────────────────────────────────
 
 def build_analytics_payload(
     bus_id: int | None,
@@ -155,6 +171,8 @@ def build_analytics_payload(
         },
     }
 
+
+# ── Persistencia de ejecuciones analíticas ──────────────────────────────────
 
 def generate_analytics_run(
     bus_id: int,
@@ -255,6 +273,8 @@ def generate_analytics_run(
         raise
 
 
+# ── Adaptador para gráficos Chart.js ────────────────────────────────────────
+
 def build_chart_data(payload: dict) -> dict:
     """Adaptador para Chart.js en la pantalla de reportes."""
 
@@ -269,6 +289,8 @@ def build_chart_data(payload: dict) -> dict:
         "magnitude_data": [row["max_value"] for row in payload["event_magnitudes"]],
     }
 
+
+# ── Cálculos estadísticos internos ──────────────────────────────────────────
 
 def _build_speed_summary(speeds: list[float], speed_limit: float) -> dict:
     if not speeds:
@@ -353,7 +375,7 @@ def _build_magnitude_rows(events: list[Event]) -> list[dict]:
     for event in events:
         if event.type not in MAGNITUDE_EVENT_TYPES:
             continue
-        value = _safe_float(event.value, None)
+        value = _safe_float(_event_primary_value(event), None)
         if value is None:
             continue
         values_by_type[event.type].append(_magnitude_value(event.type, value))
@@ -374,6 +396,8 @@ def _build_magnitude_rows(events: list[Event]) -> list[dict]:
         )
     return rows
 
+
+# ── Matriz de intervención operativa ────────────────────────────────────────
 
 def _build_intervention_summary(
     speed_summary: dict,
@@ -471,7 +495,7 @@ def _speeding_intervention(speed_summary: dict, speed_limit: float) -> dict:
 def _braking_intervention(events: list[Event]) -> dict:
     values = [
         value
-        for value in (_safe_float(event.value, None) for event in events if event.type == "Frenado brusco")
+        for value in (_safe_float(_event_primary_value(event), None) for event in events if event.type == "Frenado brusco")
         if value is not None
     ]
     total_harsh_brakes = len(values)
@@ -680,6 +704,8 @@ def _unique_non_empty(items: list[str]) -> list[str]:
     return unique
 
 
+# ── Índice ICO (Indicador de Criticidad Operativa) ──────────────────────────
+
 def _calculate_ico_score(
     total_events: int,
     speeding_percentage: float,
@@ -734,6 +760,8 @@ def _peak_event_hour(hourly_rows: list[dict]) -> int | None:
         return None
     return max(hourly_rows, key=lambda row: row["total_events"])["hour"]
 
+
+# ── Funciones auxiliares matemáticas ────────────────────────────────────────
 
 def _percentile(sorted_values: list[float], percentile: float) -> float:
     if not sorted_values:
@@ -800,6 +828,10 @@ def _magnitude_value(event_type: str, value: float) -> float:
     if event_type in ("Frenado brusco", "Curva pronunciada"):
         return abs(value)
     return value
+
+
+def _event_primary_value(event: Event):
+    return getattr(event, "resolved_value1", None) if event is not None else None
 
 
 def _event_unit(event_type: str) -> str:

@@ -1,4 +1,9 @@
-"""Rutas de administracion y consulta de buses de la flota."""
+# app/routes/buses.py - CRUD de buses de la flota
+#
+# Permite listar, crear, editar y eliminar buses registrados.
+# Solo usuarios admin pueden modificar/eliminar; usuarios con rol
+# básico pueden consultar la lista. Incluye exportación CSV.
+# =============================================================================
 
 from flask import Blueprint, render_template, request, redirect, url_for
 

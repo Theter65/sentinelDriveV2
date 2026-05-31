@@ -1,4 +1,9 @@
-"""Helpers de zona horaria para operar con hora de Ecuador."""
+# app/utils/time.py - Zona horaria y timestamps
+#
+# Define la zona horaria oficial del proyecto (Ecuador, UTC-5).
+# Proporciona ecuador_now() para generar timestamps con timezone
+# sin depender del servidor. Usa ZoneInfo (Python 3.9+).
+# =============================================================================
 
 from datetime import datetime
 from zoneinfo import ZoneInfo

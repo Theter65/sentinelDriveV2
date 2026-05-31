@@ -1,4 +1,10 @@
-"""Utilidades para generar CSV compatibles con Excel y UTF-8."""
+# app/utils/csv_export.py - Exportación a CSV compatible con Excel
+#
+# Genera archivos CSV con: BOM UTF-8, separador punto y coma (;),
+# encoding de nombres de archivo, valores None como vacío,
+# fechas en formato ISO 8601. Usa Response de Flask con headers
+# de Content-Disposition y X-Content-Type-Options.
+# =============================================================================
 
 import csv
 import io

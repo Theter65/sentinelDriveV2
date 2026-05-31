@@ -1,4 +1,11 @@
-"""Suscriptor MQTT: valida conexion, procesa telemetria y persiste datos."""
+# app/mqtt/subscriber.py - Suscriptor MQTT principal
+#
+# Bucle de conexión al broker MQTT con soporte TLS.
+# Procesa mensajes de dos tópicos: /gps (ubicaciones) y /event (eventos).
+# Valida JSON, bus_id, timestamp, coordenadas. Deduplica antes de persistir.
+# Soporta recarga en caliente de configuración desde el panel admin.
+# Mantiene estado runtime (conectado, último heartbeat, errores).
+# =============================================================================
 
 import json
 import ssl
@@ -269,29 +276,70 @@ def _extract_speed(data: dict):
     return _first_present(data, "speed", "speed_obd", "speed_gps")
 
 
-def _extract_event_value(event_name: str, data: dict):
-    if event_name == "exceso_velocidad":
-        return _extract_speed(data)
-    if event_name == "frenado_brusco":
-        return data.get("accel_x")
-    if event_name == "curva_peligrosa":
-        return data.get("accel_y")
-    if event_name == "conduccion_agresiva":
-        return data.get("rpm")
-    if event_name == "sobrecalentamiento":
-        return _first_present(data, "temperature", "temp")
-    if event_name in ("otros", "otro"):
-        raw = data.get("value")
-        if raw is None:
+def _to_optional_float(raw):
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    if isinstance(raw, str):
+        candidate = raw.strip().replace(",", ".")
+        if not candidate:
             return None
-        if isinstance(raw, (int, float)):
-            return raw
-        if isinstance(raw, str):
-            try:
-                return float(raw)
-            except ValueError:
-                return None
+        try:
+            return float(candidate)
+        except ValueError:
+            return None
     return None
+
+
+def _legacy_event_primary(event_name: str, data: dict):
+    if event_name == "exceso_velocidad":
+        return _to_optional_float(_extract_speed(data))
+    if event_name == "frenado_brusco":
+        return _to_optional_float(data.get("accel_x"))
+    if event_name == "curva_peligrosa":
+        return _to_optional_float(data.get("accel_y"))
+    if event_name == "conduccion_agresiva":
+        return _to_optional_float(data.get("rpm"))
+    if event_name == "sobrecalentamiento":
+        return _to_optional_float(_first_present(data, "temperature", "temp"))
+    if event_name in ("otros", "otro"):
+        return _to_optional_float(data.get("value"))
+    return None
+
+
+def _legacy_event_secondary(event_name: str, data: dict):
+    if event_name == "curva_peligrosa":
+        return _to_optional_float(_first_present(data, "gyro_z", "gyroscope_z", "gyroscope", "gyro", "giro"))
+    if event_name == "conduccion_agresiva":
+        return _to_optional_float(data.get("accel_x"))
+    return None
+
+
+def _extract_event_values(event_name: str, data: dict):
+    value = _to_optional_float(data.get("value"))
+    value1 = _to_optional_float(data.get("value1"))
+    value2 = _to_optional_float(data.get("value2"))
+
+    legacy_primary = _legacy_event_primary(event_name, data)
+    legacy_secondary = _legacy_event_secondary(event_name, data)
+
+    primary = value if value is not None else value1
+    if primary is None:
+        primary = legacy_primary
+
+    secondary = value2
+    if secondary is None:
+        secondary = legacy_secondary
+
+    canonical_value1 = value1 if value1 is not None else primary
+    return {
+        "value": primary,
+        "value1": canonical_value1,
+        "value2": secondary,
+    }
 
 
 def _sanitize_description(raw_value) -> str | None:
@@ -323,15 +371,18 @@ def _build_location(bus_id: int, data: dict, timestamp: datetime) -> Location | 
     )
 
 
-def _build_event(bus_id: int, data: dict, timestamp: datetime) -> Event | None:
+def _build_event(bus_id: int, data: dict, timestamp: datetime, event_values: dict | None = None) -> Event | None:
     event_name = data.get("event")
     if event_name not in EVENT_MAPPING:
         logger.warning("MQTT: evento desconocido: %s", event_name)
         return None
+    extracted = event_values or _extract_event_values(event_name, data)
     return Event(
         bus_id=bus_id,
         type=EVENT_MAPPING[event_name],
-        value=_extract_event_value(event_name, data),
+        value=extracted.get("value"),
+        value1=extracted.get("value1"),
+        value2=extracted.get("value2"),
         description=_sanitize_description(data.get("description")),
         latitude=data.get("lat"),
         longitude=data.get("lon"),
@@ -363,17 +414,21 @@ def on_message(client, userdata, msg):
 
             message_kind = "gps" if "gps" in topic else "event"
             event_name = data.get("event") if message_kind == "event" else "gps"
-            event_value = _extract_event_value(event_name, data) if message_kind == "event" else _extract_speed(data)
+            event_values = _extract_event_values(event_name, data) if message_kind == "event" else None
+            event_value = event_values.get("value") if message_kind == "event" else _extract_speed(data)
             coords_key = f"{data.get('lat')}|{data.get('lon')}"
             desc_key = ""
             if message_kind == "event" and event_name in ("otros", "otro"):
                 desc_key = f"|{_sanitize_description(data.get('description')) or ''}"
+            values_key = ""
+            if message_kind == "event" and event_values:
+                values_key = f"|{event_values.get('value1')}|{event_values.get('value2')}"
             if not should_process_message(
                 bus_id,
                 timestamp,
                 event_type=event_name,
                 value=event_value,
-                extra_key=f"{message_kind}|{coords_key}{desc_key}",
+                extra_key=f"{message_kind}|{coords_key}{desc_key}{values_key}",
             ):
                 return
 
@@ -383,7 +438,7 @@ def on_message(client, userdata, msg):
                     return
                 db.session.add(location)
             else:
-                event = _build_event(bus_id, data, timestamp)
+                event = _build_event(bus_id, data, timestamp, event_values=event_values)
                 if event is None:
                     return
                 db.session.add(event)

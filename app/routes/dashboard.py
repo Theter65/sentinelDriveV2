@@ -1,4 +1,9 @@
-"""Ruta del panel principal y resumen operativo de la flota."""
+# app/routes/dashboard.py - Panel principal y resumen operativo
+#
+# Renderiza el dashboard con KPIs: estado del sistema, conteo de buses,
+# eventos recientes, mantenimientos pendientes y salud de conexión
+# de cada vehículo (último GPS recibido en los últimos 60 segundos).
+# =============================================================================
 
 from datetime import timedelta
 

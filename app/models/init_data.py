@@ -1,4 +1,9 @@
-"""Rutinas livianas para preparar indices y validar datos iniciales."""
+# app/models/init_data.py - Inicialización de base de datos
+#
+# Rutinas para crear índices compuestos y migraciones ligeras
+# de esquema para SQLite (sin usar Alembic ni migraciones formales).
+# También verifica la existencia del administrador inicial.
+# =============================================================================
 
 from sqlalchemy import text
 
@@ -35,6 +40,12 @@ def ensure_database_indexes():
             if "description" not in col_names:
                 db.session.execute(text("ALTER TABLE event ADD COLUMN description TEXT"))
                 logger.info("DB: columna agregada event.description")
+            if "value1" not in col_names:
+                db.session.execute(text("ALTER TABLE event ADD COLUMN value1 REAL"))
+                logger.info("DB: columna agregada event.value1")
+            if "value2" not in col_names:
+                db.session.execute(text("ALTER TABLE event ADD COLUMN value2 REAL"))
+                logger.info("DB: columna agregada event.value2")
     except Exception as exc:
         logger.warning("DB: no se pudo validar/crear columnas opcionales: %s", exc)
 

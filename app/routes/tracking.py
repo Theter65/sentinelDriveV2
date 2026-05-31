@@ -1,4 +1,10 @@
-"""Rutas de seguimiento GPS y API de ultima posicion."""
+# app/routes/tracking.py - Seguimiento GPS y API de posición
+#
+# Mapa interactivo con selector de bus y última posición conocida.
+# Incluye endpoint API para obtener la última ubicación de un bus
+# específico en formato JSON. Soporta marcado de eventos desde
+# el módulo de eventos (parámetro event_id en la URL).
+# =============================================================================
 
 from flask import Blueprint, jsonify, render_template, request
 
@@ -40,7 +46,10 @@ def _selected_event_from_request():
         "bus_id": event.bus_id if event else request.args.get("bus_id", type=int),
         "bus_label": bus.plate if bus else (f"Bus {event.bus_id}" if event and event.bus_id else "Sin bus"),
         "type": event.type if event else "Evento seleccionado",
-        "value": event.value if event and event.value is not None else None,
+        "value": event.resolved_value if event else None,
+        "value1": event.resolved_value1 if event else None,
+        "value2": event.value2 if event else None,
+        "value_label": event.value_label if event else None,
         "description": getattr(event, "description", None) if event else None,
         "timestamp": event.timestamp.isoformat() if event and event.timestamp else None,
         "lat": lat,

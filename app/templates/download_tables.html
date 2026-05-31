@@ -7,7 +7,57 @@
     <h2 class="mb-4">Descargar Tablas Seleccionadas</h2>
     <form method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="period" value="{{ selected_period }}">
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-3">
+                <label for="period" class="form-label">Periodo</label>
+                <select class="form-select" name="period" id="period">
+                    <option value="day" {% if selected_period == 'day' %}selected{% endif %}>Ultimo dia</option>
+                    <option value="week" {% if selected_period == 'week' %}selected{% endif %}>Ultimos 7 dias</option>
+                    <option value="month" {% if selected_period == 'month' %}selected{% endif %}>Ultimos 30 dias</option>
+                    <option value="6months" {% if selected_period == '6months' %}selected{% endif %}>Ultimos 6 meses</option>
+                    <option value="year" {% if selected_period == 'year' %}selected{% endif %}>Ultimos 12 meses</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <label for="date_from" class="form-label">Desde</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from_value }}">
+            </div>
+            <div class="col-12 col-md-3">
+                <label for="date_to" class="form-label">Hasta</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to_value }}">
+            </div>
+            <div class="col-12 col-md-3">
+                <label for="bus_id" class="form-label">Bus</label>
+                <select class="form-select" id="bus_id" name="bus_id">
+                    <option value="">Todos</option>
+                    {% for bus in buses %}
+                    <option value="{{ bus.id }}" {% if selected_bus_id == bus.id %}selected{% endif %}>
+                        {{ bus.plate }} - {{ bus.driver or 'Sin conductor' }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label for="event_type" class="form-label">Tipo de evento</label>
+                <select class="form-select" id="event_type" name="event_type">
+                    <option value="">Todos</option>
+                    {% for event_type in event_types %}
+                    <option value="{{ event_type }}" {% if selected_event_type == event_type %}selected{% endif %}>{{ event_type }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-8">
+                <label for="search" class="form-label">Busqueda (placa, conductor, descripcion, etc.)</label>
+                <input
+                    type="text"
+                    class="form-control"
+                    id="search"
+                    name="search"
+                    value="{{ search_term }}"
+                    placeholder="Ej: ABC-1234, Juan Perez, sobrecalentamiento"
+                >
+            </div>
+        </div>
         <div class="form-group">
             <label>Selecciona las tablas a descargar:</label>
             <div class="form-check">

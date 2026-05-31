@@ -8,6 +8,9 @@ venv/
 env/
 ENV/
 
+#Documentación
+docs/
+
 # Carpeta instance (contiene secret key y base de datos)
 instance/
 

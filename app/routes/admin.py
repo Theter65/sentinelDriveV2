@@ -1,4 +1,11 @@
-"""Rutas administrativas para configuracion MQTT y operaciones sensibles."""
+# app/routes/admin.py - Panel de administración y configuración MQTT
+#
+# Panel administrativo con operaciones sensibles:
+# - Configuración del broker MQTT (con prueba de conexión)
+# - Purga de historial de ubicaciones y eventos (con re-autenticación)
+# - Visualización del estado MQTT en tiempo real
+# Solo accesible para usuarios con rol admin.
+# =============================================================================
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 
@@ -61,12 +68,16 @@ def _render_admin_panel(mqtt_settings_override: dict | None = None, status_code:
     )
 
 
+# ── Panel administrativo ────────────────────────────────────────────────────
+
 @admin_bp.route("/admin")
 @require_admin
 def admin_panel():
     """Renderiza el panel administrativo."""
     return _render_admin_panel()
 
+
+# ── Purga de historial (operación sensible) ─────────────────────────────────
 
 @admin_bp.route("/admin/purge_history", methods=["POST"])
 @require_admin
@@ -102,6 +113,8 @@ def purge_history():
 
     return redirect(url_for("dashboard.dashboard"))
 
+
+# ── Configuración MQTT ──────────────────────────────────────────────────────
 
 @admin_bp.route("/admin/mqtt", methods=["POST"])
 @require_admin
@@ -183,6 +196,8 @@ def update_mqtt_settings():
 
     return redirect(url_for("admin.admin_panel"))
 
+
+# ── Utilidades ──────────────────────────────────────────────────────────────
 
 def _client_ip() -> str:
     forwarded = request.headers.get("X-Forwarded-For")

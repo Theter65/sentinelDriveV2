@@ -1,7 +1,10 @@
-"""Paquete de modelos SQLAlchemy de la plataforma."""
+# app/models/__init__.py - Paquete de modelos SQLAlchemy
+#
+# Centraliza la importación de todas las clases modelo para facilitar
+# el acceso desde otros módulos (ej: from app.models import Bus).
+# No incluye funciones de inicialización de datos (init_data.py).
+# =============================================================================
 
-# app/models/__init__.py
-# Solo exporta las clases de modelos (no funciones de inicialización)
 from .user import User
 from .bus import Bus
 from .event import Event
@@ -16,4 +19,3 @@ from .analytics import (
     SpeedHistogramBin,
     VehicleStatisticsSummary,
 )
-"""Paquete de modelos SQLAlchemy de la plataforma."""

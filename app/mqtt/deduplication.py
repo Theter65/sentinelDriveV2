@@ -1,4 +1,10 @@
-"""Filtro en memoria para evitar procesar mensajes MQTT repetidos."""
+# app/mqtt/deduplication.py - Filtro de deduplicación de mensajes MQTT
+#
+# Evita procesar mensajes duplicados en memoria usando un fingerprint
+# compuesto por bus_id + timestamp + tipo de evento + valor + clave extra.
+# Los fingerprints expiran automáticamente tras un TTL (10s por defecto).
+# Máximo 10000 entradas en caché para evitar memory leak.
+# =============================================================================
 
 import threading
 import time

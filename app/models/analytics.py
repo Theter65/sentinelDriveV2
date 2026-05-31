@@ -1,11 +1,16 @@
-"""Modelos persistentes para corridas y resultados de analitica operativa."""
+# app/models/analytics.py - Modelos de analítica operativa
+#
+# Almacena ejecuciones de análisis estadístico y sus resultados
+# agregados: resumen de velocidad, distribución de eventos por
+# tipo/hora, histograma de velocidad y magnitudes por evento.
+# =============================================================================
 
 from app.extensions import db
 from app.utils.time import ecuador_now
 
 
 class AnalyticsRun(db.Model):
-    """Registro de cada ejecucion del modulo de analisis estadistico."""
+    """Registro de cada ejecución del módulo de análisis estadístico."""
 
     __tablename__ = "analytics_runs"
     __table_args__ = (
@@ -64,8 +69,10 @@ class AnalyticsRun(db.Model):
     )
 
 
+# ── Resultados agregados por ejecución ──────────────────────────────────────
+
 class VehicleStatisticsSummary(db.Model):
-    """Resumen descriptivo principal por ejecucion analitica."""
+    """Resumen descriptivo principal por ejecución analítica."""
 
     __tablename__ = "vehicle_statistics_summary"
 
@@ -108,7 +115,7 @@ class VehicleStatisticsSummary(db.Model):
 
 
 class EventTypeStatistic(db.Model):
-    """Eventos agrupados por tipo para una ejecucion analitica."""
+    """Eventos agrupados por tipo para una ejecución analítica."""
 
     __tablename__ = "event_type_statistics"
     __table_args__ = (
@@ -128,7 +135,7 @@ class EventTypeStatistic(db.Model):
 
 
 class HourlyEventStatistic(db.Model):
-    """Eventos agrupados por hora del dia."""
+    """Eventos agrupados por hora del día."""
 
     __tablename__ = "hourly_event_statistics"
     __table_args__ = (

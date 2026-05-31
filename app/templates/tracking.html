@@ -46,6 +46,8 @@
                     <span class="badge badge-soft" id="adminStatusBadge">Estado: -</span>
                     <span class="badge badge-soft" id="speedBadge">Velocidad: -</span>
                 </div>
+                <div class="text-muted small">Coordenadas</div>
+                <div class="fw-semibold" id="busCoordinates">-</div>
                 <div class="text-muted small">Ultima actualizacion</div>
                 <div class="fw-semibold" id="lastSeen">-</div>
                 <div class="text-muted small" id="sinceLastSeen">-</div>
@@ -207,7 +209,9 @@
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
         const timestamp = selectedEvent.timestamp ? new Date(selectedEvent.timestamp).toLocaleString('es-EC') : 'Sin fecha';
-        const valueLine = selectedEvent.value === null || selectedEvent.value === undefined ? '' : `<br><b>Valor:</b> ${escapeHtml(selectedEvent.value)}`;
+        const rawValueLabel = selectedEvent.value_label || "";
+        const valueLabel = String(rawValueLabel).trim();
+        const valueLine = valueLabel ? `<br><b>Valor:</b> ${escapeHtml(valueLabel)}` : "";
         const descriptionLine = selectedEvent.description ? `<br><b>Detalle:</b> ${escapeHtml(selectedEvent.description)}` : '';
         selectedEventMarker = L.marker([lat, lon], {
             title: 'Evento seleccionado',
@@ -239,6 +243,7 @@
             setText('busDescription', '-');
             setText('speedBadge', 'Velocidad: -');
             setText('adminStatusBadge', 'Estado: -');
+            setText('busCoordinates', '-');
             setTelemetryBadge(false);
             if (currentMarker) map.removeLayer(currentMarker);
             return;
@@ -249,6 +254,7 @@
             .then(data => {
                 if (data.error) {
                     setTelemetryBadge(false);
+                    setText('busCoordinates', '-');
                     setText('sinceLastSeen', data.error);
                     return;
                 }
@@ -265,10 +271,12 @@
                 setText('busDescription', data.bus.description || 'Sin descripcion');
                 setText('adminStatusBadge', `Estado: ${data.bus.status || '-'}`);
                 setText('speedBadge', `Velocidad: ${Number(data.speed || 0).toFixed(1)} km/h`);
+                setText('busCoordinates', `${Number(data.lat).toFixed(6)} / ${Number(data.lon).toFixed(6)}`);
 
                 const popupContent = `<b>Bus:</b> ${data.bus.plate}<br>
                      <b>Conductor:</b> ${data.bus.driver || 'Sin conductor'}<br>
                      <b>Velocidad:</b> ${Number(data.speed || 0).toFixed(1)} km/h<br>
+                     <b>Coordenadas:</b> ${Number(data.lat).toFixed(6)} / ${Number(data.lon).toFixed(6)}<br>
                      <b>Hora:</b> ${ts.toLocaleString('es-EC')}`;
                 if (currentMarker) {
                     currentMarker.setLatLng([data.lat, data.lon]);
@@ -284,6 +292,7 @@
             })
             .catch(() => {
                 setTelemetryBadge(false);
+                setText('busCoordinates', '-');
                 setText('sinceLastSeen', 'Error al cargar la posicion.');
             });
     }

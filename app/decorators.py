@@ -1,4 +1,10 @@
-"""Decoradores de seguridad para rutas autenticadas y administrativas."""
+# app/decorators.py - Decoradores de seguridad para rutas
+#
+# Proporciona decoradores para control de acceso:
+# - login_required: requiere sesión activa
+# - require_admin: requiere sesión activa + rol admin
+# Ambos redirigen al login si la validación falla.
+# =============================================================================
 
 from functools import wraps
 
@@ -12,7 +18,7 @@ logger = get_logger(__name__)
 
 
 def login_required(f):
-    """Requiere que el usuario este autenticado."""
+    """Requiere que el usuario esté autenticado."""
 
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -36,7 +42,7 @@ def require_admin(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
-        """Valida sesion y rol administrativo antes de ejecutar la vista."""
+        """Valida sesión y rol administrativo antes de ejecutar la vista."""
         username = session.get("user")
         if not username:
             return redirect(url_for("auth.login"))

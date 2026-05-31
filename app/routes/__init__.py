@@ -1,8 +1,9 @@
-"""Paquete de blueprints HTTP de la plataforma."""
-
-# app/routes/__init__.py
-# Importación de todos los blueprints para registro centralizado en app/__init__.py
-# Esto facilita la escalabilidad y mantenimiento del sistema
+# app/routes/__init__.py - Paquete de blueprints HTTP
+#
+# Importación centralizada de todos los blueprints para registro
+# en app/__init__.py mediante register_blueprint().
+# Cada blueprint agrupa rutas por dominio funcional.
+# =============================================================================
 
 from .auth import auth_bp
 from .dashboard import dashboard_bp
@@ -14,6 +15,7 @@ from .maintenance import maintenance_bp
 from .users import users_bp
 from .analytics import analytics_bp
 
+# Lista explícita de blueprints para importación selectiva
 __all__ = [
     "auth_bp",
     "dashboard_bp",

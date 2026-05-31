@@ -52,7 +52,15 @@
                                 <div class="text-muted small">{{ e.description }}</div>
                             {% endif %}
                         </td>
-                        <td class="text-end">{{ e.value if e.value is not none else 'N/A' }}</td>
+                        <td class="text-end">
+                            {% if e.value_lines %}
+                                {% for line in e.value_lines %}
+                                    <div>{{ line }}</div>
+                                {% endfor %}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
                         <td class="text-muted event-position-cell">
                             {% if e.latitude is not none and e.longitude is not none %}
                                 <a

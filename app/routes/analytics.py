@@ -1,4 +1,10 @@
-"""Endpoints JSON y CSV del modulo de analitica por vehiculo."""
+# app/routes/analytics.py - Endpoints de analítica por vehículo
+#
+# Expone endpoints JSON y CSV para consultar análisis descriptivos
+# por vehículo: resumen, eventos por tipo/hora, histograma de
+# velocidad, magnitudes de eventos y matriz de intervención.
+# Todos requieren autenticación.
+# =============================================================================
 
 from flask import Blueprint, jsonify, request
 
@@ -13,6 +19,8 @@ from app.utils.csv_export import csv_response
 
 analytics_bp = Blueprint("analytics", __name__)
 
+
+# ── Generación y consulta de analítica ──────────────────────────────────────
 
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/generate", methods=["POST"])
 @login_required
@@ -91,6 +99,8 @@ def vehicle_event_magnitudes(bus_id):
         return payload, status
     return jsonify({"filters": payload["filters"], "data": payload["event_magnitudes"]})
 
+
+# ── Exportación CSV de analítica ────────────────────────────────────────────
 
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/summary.csv")
 @login_required
@@ -220,6 +230,8 @@ def download_recommendations_csv(bus_id):
     )
     return _csv_response(rows, f"analytics_recommendations_bus_{bus_id}.csv")
 
+
+# ── Funciones internas de ayuda ─────────────────────────────────────────────
 
 def _vehicle_payload(bus_id: int):
     date_from, date_to, speed_limit = _request_filter_values()

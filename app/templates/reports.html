@@ -434,7 +434,7 @@
             <a href="{{ url_for('reports.download_csv', **common_query) }}" class="btn btn-primary">
                 <i class="bi bi-filetype-csv me-1"></i> Descargar CSV (Eventos)
             </a>
-            <a href="{{ url_for('reports.download_tables', period=selected_period) }}" class="btn btn-info">
+            <a href="{{ url_for('reports.download_tables', period=selected_period, date_from=date_from_value, date_to=date_to_value, bus_id=selected_bus_id) }}" class="btn btn-info">
                 <i class="bi bi-table me-1"></i> Descargar Tablas Selectivas
             </a>
             {% endif %}
@@ -611,4 +611,3 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 {% endblock %}
-

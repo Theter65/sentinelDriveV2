@@ -1,4 +1,9 @@
-"""Rutas de gestion de usuarios, roles y contrasenas."""
+# app/routes/users.py - Gestión de usuarios y roles
+#
+# Permite crear, modificar roles, cambiar contraseñas y eliminar
+# usuarios del sistema. Incluye protecciones para evitar eliminar
+# al último administrador. Solo accesible para rol admin.
+# =============================================================================
 
 from flask import Blueprint, flash, render_template, request, redirect, session, url_for
 from werkzeug.security import generate_password_hash

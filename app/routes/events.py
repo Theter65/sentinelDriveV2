@@ -1,4 +1,10 @@
-"""Rutas para listar eventos y alimentar notificaciones en tiempo casi real."""
+# app/routes/events.py - Listado de eventos y API de notificaciones
+#
+# Lista paginada de eventos críticos con filtros implícitos.
+# Expone APIs JSON para polling de notificaciones en tiempo real:
+# - /api/events/updates: devuelve eventos nuevos desde un ID
+# - /api/events/count: conteo de eventos no vistos
+# =============================================================================
 
 from flask import Blueprint, jsonify, render_template, request
 from sqlalchemy import func
@@ -68,7 +74,10 @@ def api_event_updates():
                 "bus_id": e.bus_id,
                 "plate": e.bus.plate if e.bus else None,
                 "type": e.type,
-                "value": e.value,
+                "value": e.resolved_value,
+                "value1": e.resolved_value1,
+                "value2": e.value2,
+                "value_label": e.value_label,
                 "description": getattr(e, "description", None),
                 "timestamp": e.timestamp.isoformat() if e.timestamp else None,
             }

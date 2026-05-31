@@ -1,4 +1,9 @@
-"""Rutas para registrar, completar y eliminar mantenimientos."""
+# app/routes/maintenance.py - Gestión de mantenimientos
+#
+# CRUD de mantenimientos preventivos y correctivos por bus.
+# Incluye toggle de estado (Pendiente <-> Completado) y
+# eliminación de registros. Solo accesible para admin.
+# =============================================================================
 
 from flask import Blueprint, render_template, request, redirect, url_for
 

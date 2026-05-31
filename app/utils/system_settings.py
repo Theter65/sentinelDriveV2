@@ -1,4 +1,11 @@
-"""Lectura y escritura de configuracion persistente del sistema."""
+# app/utils/system_settings.py - Configuración MQTT y estado runtime
+#
+# Centraliza la lógica de lectura/escritura de configuración MQTT
+# (broker, puerto, credenciales, tópicos) desde SystemSetting (BD)
+# con fallback a variables de entorno. También persiste y consulta
+# el estado operativo MQTT (conectado, heartbeat, errores) para
+# compartirlo entre procesos web y worker.
+# =============================================================================
 
 from datetime import datetime
 

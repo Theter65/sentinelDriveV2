@@ -1,4 +1,9 @@
-"""Rutas de inicio de sesion, configuracion inicial y cierre de sesion."""
+# app/routes/auth.py - Autenticación y configuración inicial
+#
+# Gestiona el login de usuarios, el wizard de primera configuración
+# (creación del admin inicial + setup MQTT) y el cierre de sesión.
+# La ruta /setup solo está disponible cuando no hay administradores.
+# =============================================================================
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 
