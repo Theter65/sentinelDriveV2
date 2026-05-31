@@ -257,6 +257,23 @@ function saveNotificationState() {
   }
 }
 
+function clearNotificationState() {
+  const itemsKey = scopedStorageKey(NOTIFICATION_ITEMS_KEY_PREFIX);
+  const readKey = scopedStorageKey(NOTIFICATION_READ_KEY_PREFIX);
+  const polledKey = scopedStorageKey(EVENTS_LAST_POLLED_KEY_PREFIX);
+  const seenKey = scopedStorageKey(EVENTS_LAST_SEEN_KEY_PREFIX);
+  try {
+    localStorage.removeItem(itemsKey);
+    localStorage.removeItem(readKey);
+    localStorage.removeItem(polledKey);
+    localStorage.removeItem(seenKey);
+  } catch {
+    // ignore
+  }
+  notificationItems = [];
+  notificationReadIds = new Set();
+}
+
 function unreadNotificationCount() {
   return notificationItems.filter((notification) => !notificationReadIds.has(notificationKey(notification))).length;
 }
@@ -605,6 +622,14 @@ async function loadEventsBadge() {
       if (readStoredInt(polledKey, 0) === 0) setStoredInt(polledKey, data.latest_id);
       badge.textContent = "0";
       badge.classList.add("d-none");
+      return;
+    }
+
+    if (data.latest_id === 0) {
+      clearNotificationState();
+      badge.textContent = "0";
+      badge.classList.add("d-none");
+      renderNotificationCenter();
       return;
     }
 
