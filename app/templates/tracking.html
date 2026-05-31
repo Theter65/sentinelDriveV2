@@ -27,7 +27,7 @@
                     <option value="{{ bus.id }}">{{ bus.plate }} - {{ bus.driver or 'Sin conductor' }}</option>
                     {% endfor %}
                 </select>
-                <div class="text-muted small mt-2">Actualizacion automatica cada 15 segundos.</div>
+                <div class="text-muted small mt-2">Actualizacion automatica mientras haya un bus seleccionado.</div>
             </div>
         </div>
 
@@ -302,10 +302,12 @@
         loadBusPosition(this.value, { focus: true });
     });
 
+    const TRACKING_REFRESH_INTERVAL_MS = 5000;
+
     setInterval(() => {
         const busId = document.getElementById('bus-select').value;
         if (busId) loadBusPosition(busId, { focus: false });
-    }, 15000);
+    }, TRACKING_REFRESH_INTERVAL_MS);
 
     showSelectedEventMarker();
 </script>
