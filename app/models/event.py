@@ -1,7 +1,7 @@
 # app/models/event.py - Modelo de eventos operativos
 #
 # Almacena eventos críticos recibidos por MQTT (exceso velocidad,
-# frenado brusco, curva, conducción agresiva, sobrecalentamiento,
+# frenado brusco, curva peligrosa,
 # otros). Cada evento tiene value/value1/value2, descripción opcional
 # y coordenadas. Resuelve unidades según tipo de evento.
 # =============================================================================
@@ -71,9 +71,7 @@ class Event(db.Model):
         mapping = {
             "Exceso de velocidad": ("km/h", None),
             "Frenado brusco": ("m/s²", None),
-            "Curva pronunciada": ("m/s²", "°"),
-            "Conducción agresiva": ("rpm", None),
-            "Sobrecalentamiento": ("°C", None),
+            "Curva peligrosa": ("m/s²", None),
             "Otros": (None, None),
         }
         return mapping.get(self.type, (None, None))

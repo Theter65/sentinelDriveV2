@@ -43,9 +43,7 @@ ICO_DESCRIPTION = (
 MAGNITUDE_EVENT_TYPES = (
     "Exceso de velocidad",
     "Frenado brusco",
-    "Curva pronunciada",
-    "Conducción agresiva",
-    "Sobrecalentamiento",
+    "Curva peligrosa",
     "Otros",
 )
 INTERVENTION_LEVELS = (
@@ -409,12 +407,14 @@ def _build_intervention_summary(
 ) -> dict:
     speed_indicator = _speeding_intervention(speed_summary, speed_limit)
     braking_indicator = _braking_intervention(events)
+    curve_indicator = _curve_intervention(events)
     event_type_indicator = _event_type_intervention(event_rows)
     hourly_indicator = _hourly_intervention(hourly_rows)
     magnitude_indicator = _magnitude_intervention(magnitude_rows)
     indicators = [
         speed_indicator,
         braking_indicator,
+        curve_indicator,
         event_type_indicator,
         hourly_indicator,
         magnitude_indicator,
@@ -428,6 +428,7 @@ def _build_intervention_summary(
     matrix = [
         _matrix_row("Velocidad", speed_indicator),
         _matrix_row("Frenado brusco", braking_indicator),
+        _matrix_row("Curva peligrosa", curve_indicator),
         _matrix_row("Eventos por tipo", event_type_indicator),
         _matrix_row("Eventos por hora", hourly_indicator),
         _matrix_row("Magnitud de eventos", magnitude_indicator),
@@ -535,6 +536,50 @@ def _braking_intervention(events: list[Event]) -> dict:
         "observed_value": f"{total_harsh_brakes} frenados; más fuerte {max_deceleration:g} m/s²; críticos {critical_count}",
         "recommendation": recommendation,
         "methodological_source": "Hard braking 0.4g en estudios naturalísticos.",
+    }
+
+
+def _curve_intervention(events: list[Event]) -> dict:
+    values = [
+        value
+        for value in (_safe_float(_event_primary_value(event), None) for event in events if event.type == "Curva peligrosa")
+        if value is not None
+    ]
+    total_curves = len(values)
+    severe_count = sum(1 for value in values if abs(value) >= 5.0)
+    moderate_count = sum(1 for value in values if abs(value) >= 4.0)
+    max_lateral = _round(max(values, key=abs)) if values else 0
+
+    if severe_count:
+        level = "Intervención prioritaria"
+        threshold_used = "abs(value) >= 5.0 m/s²"
+        recommendation = "Se detectaron curvas con aceleración lateral muy elevada; se recomienda intervención prioritaria."
+    elif moderate_count >= 3:
+        level = "Intervención correctiva"
+        threshold_used = "abs(value) >= 4.0 m/s² recurrente (3+ veces)"
+        recommendation = "Se detectaron múltiples curvas con aceleración lateral elevada; revisar trazado y velocidad en curvas."
+    elif moderate_count:
+        level = "Monitoreo"
+        threshold_used = "abs(value) >= 4.0 m/s²"
+        recommendation = "Se detectaron curvas con aceleración lateral significativa; mantener monitoreo."
+    elif total_curves:
+        level = "Monitoreo"
+        threshold_used = "Evento de curva peligrosa registrado"
+        recommendation = "Se registraron curvas peligrosas dentro de umbral aceptable."
+    else:
+        level = "Aceptable"
+        threshold_used = "Sin curvas peligrosas registradas"
+        recommendation = "No se registraron curvas peligrosas en el periodo seleccionado."
+
+    return {
+        "level": level,
+        "level_key": _level_key(level),
+        "total_curve_events": total_curves,
+        "max_lateral_acceleration": max_lateral,
+        "threshold_used": threshold_used,
+        "observed_value": f"{total_curves} curvas; máxima lateral {max_lateral:g} m/s²; severas {severe_count}",
+        "recommendation": recommendation,
+        "methodological_source": "ISO 14793, NHTSA Rollover Stability para vehículos pesados.",
     }
 
 
@@ -661,9 +706,7 @@ def _dominant_event_recommendation(event_type: str | None) -> str:
     recommendations = {
         "Exceso de velocidad": "Los eventos predominantes están relacionados con velocidad; se recomienda reforzar el control del límite operativo.",
         "Frenado brusco": "Los eventos predominantes están relacionados con frenado; se recomienda revisar anticipación, distancia de seguridad y comportamiento del conductor.",
-        "Curva pronunciada": "Los eventos predominantes están relacionados con curvas; se recomienda revisar conducción en tramos sinuosos.",
-        "Conducción agresiva": "Los eventos predominantes están relacionados con conducción agresiva; se recomienda revisar comportamiento operativo o RPM elevadas.",
-        "Sobrecalentamiento": "Los eventos predominantes están relacionados con temperatura; se recomienda revisión mecánica del sistema de enfriamiento.",
+        "Curva peligrosa": "Los eventos predominantes están relacionados con curvas; se recomienda revisar conducción en tramos sinuosos.",
         "Otros": "Los eventos predominantes requieren revisión del sensor o componente reportado.",
     }
     return recommendations.get(event_type, "Se recomienda revisar el tipo de evento predominante en el periodo seleccionado.")
@@ -674,8 +717,6 @@ def _magnitude_recommendation(event_type: str) -> str:
         return "Se recomienda revisar el evento de mayor velocidad registrado en el periodo."
     if event_type == "Frenado brusco":
         return "Se recomienda revisar el evento de frenado de mayor intensidad registrado en el periodo."
-    if event_type == "Sobrecalentamiento":
-        return "Se recomienda revisar el evento de mayor temperatura y el sistema de enfriamiento."
     return "Se recomienda revisar la magnitud máxima dentro de su propio tipo de evento."
 
 
@@ -683,10 +724,8 @@ def _main_magnitude_row(magnitude_rows: list[dict]) -> dict | None:
     priority = {
         "Exceso de velocidad": 0,
         "Frenado brusco": 1,
-        "Sobrecalentamiento": 2,
-        "Curva pronunciada": 3,
-        "Conducción agresiva": 4,
-        "Otros": 5,
+        "Curva peligrosa": 2,
+        "Otros": 3,
     }
     if not magnitude_rows:
         return None
@@ -737,10 +776,8 @@ def _normalize_event_magnitudes(magnitude_rows: list[dict], speed_limit: float) 
         if event_type == "Exceso de velocidad":
             baseline = max(speed_limit, 1)
             normalized.append(_clamp(((value - baseline) / baseline) * 100))
-        elif event_type in ("Frenado brusco", "Curva pronunciada"):
+        elif event_type in ("Frenado brusco", "Curva peligrosa"):
             normalized.append(_clamp((abs(value) / 5) * 100))
-        elif event_type == "Sobrecalentamiento":
-            normalized.append(_clamp(((value - 80) / 40) * 100))
 
     return _round(mean(normalized)) if normalized else 0
 
@@ -825,7 +862,7 @@ def _safe_float(value: Any, default: float | None) -> float | None:
 
 
 def _magnitude_value(event_type: str, value: float) -> float:
-    if event_type in ("Frenado brusco", "Curva pronunciada"):
+    if event_type in ("Frenado brusco", "Curva peligrosa"):
         return abs(value)
     return value
 
@@ -838,9 +875,7 @@ def _event_unit(event_type: str) -> str:
     units = {
         "Exceso de velocidad": "km/h",
         "Frenado brusco": "m/s²",
-        "Curva pronunciada": "m/s²",
-        "Sobrecalentamiento": "°C",
-        "Conducción agresiva": "rpm",
+        "Curva peligrosa": "m/s²",
         "Otros": "según sensor",
     }
     return units.get(event_type, "según sensor")

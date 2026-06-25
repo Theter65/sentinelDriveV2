@@ -199,12 +199,11 @@ def download_intervention_matrix_csv(bus_id):
     payload, status = _vehicle_payload(bus_id)
     if status != 200:
         return payload, status
-    rows = [["Indicador", "Valor observado", "Umbral usado", "Nivel", "Recomendacion"]]
+    rows = [["Indicador", "Valor observado", "Nivel", "Recomendacion"]]
     rows.extend(
         [
             row["indicator"],
             row["observed_value"],
-            row["threshold_used"],
             row["level"],
             row["recommendation"],
         ]

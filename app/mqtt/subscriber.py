@@ -45,9 +45,7 @@ MQTT_RELOAD_EVENT = threading.Event()
 EVENT_MAPPING = {
     "exceso_velocidad": "Exceso de velocidad",
     "frenado_brusco": "Frenado brusco",
-    "curva_peligrosa": "Curva pronunciada",
-    "conduccion_agresiva": "Conducción agresiva",
-    "sobrecalentamiento": "Sobrecalentamiento",
+    "curva_peligrosa": "Curva peligrosa",
     # Evento extendido para sensores no estandarizados (presion de llantas, etc.).
     "otros": "Otros",
     "otro": "Otros",
@@ -301,20 +299,12 @@ def _legacy_event_primary(event_name: str, data: dict):
         return _to_optional_float(data.get("accel_x"))
     if event_name == "curva_peligrosa":
         return _to_optional_float(data.get("accel_y"))
-    if event_name == "conduccion_agresiva":
-        return _to_optional_float(data.get("rpm"))
-    if event_name == "sobrecalentamiento":
-        return _to_optional_float(_first_present(data, "temperature", "temp"))
     if event_name in ("otros", "otro"):
         return _to_optional_float(data.get("value"))
     return None
 
 
 def _legacy_event_secondary(event_name: str, data: dict):
-    if event_name == "curva_peligrosa":
-        return _to_optional_float(_first_present(data, "gyro_z", "gyroscope_z", "gyroscope", "gyro", "giro"))
-    if event_name == "conduccion_agresiva":
-        return _to_optional_float(data.get("accel_x"))
     return None
 
 

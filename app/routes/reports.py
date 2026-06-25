@@ -159,9 +159,7 @@ def get_bus_events_table(start_time, end_time):
             func.count(Event.id).label("total_events"),
             func.sum(case((Event.type == "Frenado brusco", 1), else_=0)).label("frenado_brusco"),
             func.sum(case((Event.type == "Exceso de velocidad", 1), else_=0)).label("exceso_velocidad"),
-            func.sum(case((Event.type == "Curva pronunciada", 1), else_=0)).label("curva_pronunciada"),
-            func.sum(case((Event.type == "Conducción agresiva", 1), else_=0)).label("conduccion_agresiva"),
-            func.sum(case((Event.type == "Sobrecalentamiento", 1), else_=0)).label("sobrecalentamiento"),
+            func.sum(case((Event.type == "Curva peligrosa", 1), else_=0)).label("curva_peligrosa"),
             func.sum(case((Event.type == "Otros", 1), else_=0)).label("otros"),
         )
         .outerjoin(

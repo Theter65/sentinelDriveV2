@@ -587,8 +587,9 @@ async function pollEventNotifications() {
       const body = bodyParts.join("");
 
       const variant =
-        type === "Sobrecalentamiento" ? "danger" :
+        type === "Frenado brusco" ? "danger" :
         type === "Exceso de velocidad" ? "warning" :
+        type === "Curva peligrosa" ? "warning" :
         type === "Otros" ? "warning" :
         "success";
       if (shouldShowFloatingToast()) {

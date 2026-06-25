@@ -159,7 +159,6 @@
                             <tr>
                                 <th>Indicador</th>
                                 <th>Valor observado</th>
-                                <th>Umbral usado</th>
                                 <th>Nivel</th>
                                 <th>Recomendación</th>
                             </tr>
@@ -169,7 +168,6 @@
                             <tr>
                                 <td class="fw-semibold">{{ row.indicator }}</td>
                                 <td>{{ row.observed_value }}</td>
-                                <td>{{ row.threshold_used }}</td>
                                 <td><span class="intervention-level-badge intervention-level-{{ row.level_key }}">{{ row.level }}</span></td>
                                 <td>{{ row.recommendation }}</td>
                             </tr>
@@ -356,9 +354,7 @@
                             <th>Total Eventos</th>
                             <th>Frenado Brusco</th>
                             <th>Exceso Velocidad</th>
-                            <th>Curva Pronunciada</th>
-                            <th>Conducción Agresiva</th>
-                            <th>Sobrecalentamiento</th>
+                            <th>Curva Peligrosa</th>
                             <th>Otros</th>
                         </tr>
                     </thead>
@@ -369,14 +365,12 @@
                             <td class="text-center">{{ row.total_events }}</td>
                             <td class="text-center">{{ row.frenado_brusco or 0 }}</td>
                             <td class="text-center">{{ row.exceso_velocidad or 0 }}</td>
-                            <td class="text-center">{{ row.curva_pronunciada or 0 }}</td>
-                            <td class="text-center">{{ row.conduccion_agresiva or 0 }}</td>
-                            <td class="text-center">{{ row.sobrecalentamiento or 0 }}</td>
+                            <td class="text-center">{{ row.curva_peligrosa or 0 }}</td>
                             <td class="text-center">{{ row.otros or 0 }}</td>
                         </tr>
                         {% endfor %}
                         {% if not group_stats.bus_events_table %}
-                        <tr><td colspan="8" class="text-center text-muted py-3">No hay datos de eventos en este período</td></tr>
+                        <tr><td colspan="7" class="text-center text-muted py-3">No hay datos de eventos en este período</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
