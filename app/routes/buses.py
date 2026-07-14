@@ -5,11 +5,15 @@
 # básico pueden consultar la lista. Incluye exportación CSV.
 # =============================================================================
 
-from flask import Blueprint, render_template, request, redirect, url_for
+from datetime import datetime
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 
 from app.decorators import login_required, require_admin
 from app.extensions import db
 from app.models.bus import Bus
+from app.models.event import Event
+from app.models.location import Location
 from app.utils.csv_export import csv_response
 from app.utils.logging import get_logger
 
@@ -111,3 +115,87 @@ def export_buses_csv():
         rows.append([b.id, b.plate, b.driver, b.description or "", b.status])
     logger.info("Export CSV buses solicitado por admin")
     return csv_response(rows, "buses.csv")
+
+
+@buses_bp.route("/bus/<int:bus_id>/delete-events", methods=["POST"])
+@require_admin
+def delete_bus_events(bus_id):
+    """Eliminar eventos de un bus por tipo y/o rango de fechas."""
+    bus = Bus.query.get_or_404(bus_id)
+
+    event_type = (request.form.get("event_type") or "").strip()
+    date_from = (request.form.get("date_from") or "").strip()
+    date_to = (request.form.get("date_to") or "").strip()
+
+    query = Event.query.filter_by(bus_id=bus_id)
+
+    if event_type:
+        query = query.filter_by(type=event_type)
+
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.filter(Event.timestamp >= dt_from)
+        except ValueError:
+            flash("Fecha desde invalida.", "danger")
+            return redirect(url_for("buses.buses"))
+
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            query = query.filter(Event.timestamp <= dt_to)
+        except ValueError:
+            flash("Fecha hasta invalida.", "danger")
+            return redirect(url_for("buses.buses"))
+
+    count = query.count()
+    if count == 0:
+        flash("No se encontraron eventos con esos filtros.", "warning")
+        return redirect(url_for("buses.buses"))
+
+    query.delete(synchronize_session=False)
+    db.session.commit()
+    logger.info("Eventos eliminados bus %s: %d registros (tipo=%s, desde=%s, hasta=%s)",
+                bus.plate, count, event_type or "todos", date_from or "sin limite", date_to or "sin limite")
+    flash(f"Se eliminaron {count} eventos del bus {bus.plate}.", "success")
+    return redirect(url_for("buses.buses"))
+
+
+@buses_bp.route("/bus/<int:bus_id>/delete-locations", methods=["POST"])
+@require_admin
+def delete_bus_locations(bus_id):
+    """Eliminar ubicaciones GPS de un bus por rango de fechas."""
+    bus = Bus.query.get_or_404(bus_id)
+
+    date_from = (request.form.get("date_from") or "").strip()
+    date_to = (request.form.get("date_to") or "").strip()
+
+    query = Location.query.filter_by(bus_id=bus_id)
+
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.filter(Location.timestamp >= dt_from)
+        except ValueError:
+            flash("Fecha desde invalida.", "danger")
+            return redirect(url_for("buses.buses"))
+
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            query = query.filter(Location.timestamp <= dt_to)
+        except ValueError:
+            flash("Fecha hasta invalida.", "danger")
+            return redirect(url_for("buses.buses"))
+
+    count = query.count()
+    if count == 0:
+        flash("No se encontraron ubicaciones con esos filtros.", "warning")
+        return redirect(url_for("buses.buses"))
+
+    query.delete(synchronize_session=False)
+    db.session.commit()
+    logger.info("Ubicaciones eliminadas bus %s: %d registros (desde=%s, hasta=%s)",
+                bus.plate, count, date_from or "sin limite", date_to or "sin limite")
+    flash(f"Se eliminaron {count} ubicaciones del bus {bus.plate}.", "success")
+    return redirect(url_for("buses.buses"))

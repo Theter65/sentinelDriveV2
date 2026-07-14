@@ -90,6 +90,7 @@ class Config:
     TESTING = False
     WTF_CSRF_ENABLED = os.getenv("WTF_CSRF_ENABLED", "True").lower() == "true"
     SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_PARTITIONED = False
     SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
     SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", IS_RENDER)
     PREFERRED_URL_SCHEME = os.getenv("PREFERRED_URL_SCHEME", "https" if IS_RENDER else "http")
