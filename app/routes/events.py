@@ -79,7 +79,7 @@ def api_event_updates():
                 "value2": e.value2,
                 "value_label": e.value_label,
                 "description": getattr(e, "description", None),
-                "timestamp": e.timestamp.isoformat() if e.timestamp else None,
+                "timestamp": e.timestamp.strftime("%Y-%m-%dT%H:%M:%S") if e.timestamp else None,
             }
         )
 

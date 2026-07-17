@@ -51,7 +51,7 @@ def _selected_event_from_request():
         "value2": event.value2 if event else None,
         "value_label": event.value_label if event else None,
         "description": getattr(event, "description", None) if event else None,
-        "timestamp": event.timestamp.isoformat() if event and event.timestamp else None,
+        "timestamp": event.timestamp.strftime("%Y-%m-%dT%H:%M:%S") if event and event.timestamp else None,
         "lat": lat,
         "lon": lon,
     }
@@ -86,7 +86,7 @@ def api_last_position(bus_id):
         "lat": location.lat,
         "lon": location.lon,
         "speed": location.speed or 0,
-        "timestamp": location.timestamp.isoformat(),
+        "timestamp": location.timestamp.strftime("%Y-%m-%dT%H:%M:%S"),
     }
 
     logger.debug("Ultima posicion devuelta para bus %s: %s, %s", bus_id, response["lat"], response["lon"])
