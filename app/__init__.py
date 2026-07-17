@@ -109,6 +109,22 @@ def create_app(config_class=Config):
             return ""
         return dt.strftime(fmt)
 
+    @app.template_filter("time_ago")
+    def _time_ago_filter(seconds):
+        if seconds is None:
+            return "Nunca"
+        if seconds < 60:
+            return f"Hace {seconds}s"
+        if seconds < 3600:
+            return f"Hace {seconds // 60} min"
+        if seconds < 86400:
+            h = seconds // 3600
+            m = (seconds % 3600) // 60
+            return f"Hace {h}h {m}min" if m else f"Hace {h}h"
+        d = seconds // 86400
+        h = (seconds % 86400) // 3600
+        return f"Hace {d}d {h}h" if h else f"Hace {d}d"
+
     # Habilitar WAL mode para SQLite (permite lecturas concurrentes con 1 escritor)
     with app.app_context():
         if "sqlite" in app.config["SQLALCHEMY_DATABASE_URI"]:

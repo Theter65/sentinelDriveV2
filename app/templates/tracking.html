@@ -40,6 +40,7 @@
                 <div class="mb-3">
                     <div class="text-muted small">Vehiculo</div>
                     <div class="fw-semibold" id="busPlate">Seleccione un bus</div>
+                    <div class="text-muted" id="busId"></div>
                     <div class="text-muted" id="busDriver">-</div>
                 </div>
                 <div class="d-flex flex-wrap gap-2 mb-3">
@@ -237,6 +238,7 @@
         const shouldFocus = options.focus === true || followSelectedBus;
         if (!busId) {
             setText('busPlate', 'Seleccione un bus');
+            setText('busId', '');
             setText('busDriver', '-');
             setText('lastSeen', '-');
             setText('sinceLastSeen', '-');
@@ -264,16 +266,25 @@
                 const isConnected = secondsSince <= 60;
                 setTelemetryBadge(isConnected);
 
+                function formatTimeAgo(s) {
+                    if (s < 60) return `Hace ${s}s`;
+                    if (s < 3600) return `Hace ${Math.floor(s / 60)} min`;
+                    const h = Math.floor(s / 3600);
+                    const m = Math.floor((s % 3600) / 60);
+                    return m ? `Hace ${h}h ${m}min` : `Hace ${h}h`;
+                }
+
                 setText('busPlate', data.bus.plate);
+                setText('busId', `ID: ${data.bus.id}`);
                 setText('busDriver', data.bus.driver || 'Sin conductor');
                 setText('lastSeen', ts.toLocaleString('es-EC'));
-                setText('sinceLastSeen', `Hace ${secondsSince}s`);
+                setText('sinceLastSeen', formatTimeAgo(secondsSince));
                 setText('busDescription', data.bus.description || 'Sin descripcion');
                 setText('adminStatusBadge', `Estado: ${data.bus.status || '-'}`);
                 setText('speedBadge', `Velocidad: ${Number(data.speed || 0).toFixed(1)} km/h`);
                 setText('busCoordinates', `${Number(data.lat).toFixed(6)} / ${Number(data.lon).toFixed(6)}`);
 
-                const popupContent = `<b>Bus:</b> ${escapeHtml(data.bus.plate)}<br>
+                const popupContent = `<b>Bus:</b> ${escapeHtml(data.bus.plate)} (ID: ${data.bus.id})<br>
                      <b>Conductor:</b> ${escapeHtml(data.bus.driver || 'Sin conductor')}<br>
                      <b>Velocidad:</b> ${Number(data.speed || 0).toFixed(1)} km/h<br>
                      <b>Coordenadas:</b> ${Number(data.lat).toFixed(6)} / ${Number(data.lon).toFixed(6)}<br>

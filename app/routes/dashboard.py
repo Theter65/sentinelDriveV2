@@ -58,7 +58,9 @@ def dashboard():
     bus_health = []
     connected_count = 0
     for bus, last_seen in bus_rows:
-        if last_seen and getattr(last_seen, "tzinfo", None) is None:
+        if last_seen:
+            if getattr(last_seen, "tzinfo", None) is not None:
+                last_seen = last_seen.replace(tzinfo=None)
             last_seen = last_seen.replace(tzinfo=ECUADOR_TZ)
         is_connected = bool(last_seen and last_seen >= one_minute_ago)
         if is_connected:

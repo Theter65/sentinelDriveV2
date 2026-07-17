@@ -214,7 +214,7 @@
                                     {% if b.last_seen %}
                                         {{ b.last_seen|ecuador_time }}
                                         {% if b.seconds_since is not none %}
-                                            <span class="text-muted">({{ b.seconds_since }}s)</span>
+                                            <span class="text-muted">({{ b.seconds_since|time_ago }})</span>
                                         {% endif %}
                                     {% else %}
                                         Nunca
