@@ -116,9 +116,10 @@ def get_persisted_mqtt_state(config: dict) -> dict:
     connected = _setting_bool(SystemSetting.get_value(f"{MQTT_STATE_PREFIX}connected"), False)
 
     if not runtime["ready"]:
-        status = "no_config"
-        connected = False
-    elif not status:
+        if status != "no_config":
+            status = "no_config"
+            connected = False
+    elif not status or status == "no_config":
         status = "offline"
 
     heartbeat = _parse_datetime_setting(SystemSetting.get_value(f"{MQTT_STATE_PREFIX}last_heartbeat"))

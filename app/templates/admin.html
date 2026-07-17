@@ -133,9 +133,52 @@
         <div class="card settings-panel">
             <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div class="fw-semibold"><i class="bi bi-sliders me-2"></i>Conexion con el servicio de seguimiento</div>
+                {% if mqtt_state.connected %}
+                <span class="badge badge-soft">En linea</span>
+                {% elif mqtt_settings.mqtt_using_env_fallback %}
+                <span class="badge badge-soft">Configurado via .env</span>
+                {% else %}
                 <span class="badge badge-danger-soft">Pide tu clave otra vez</span>
+                {% endif %}
             </div>
             <div class="card-body">
+                {% if mqtt_settings.mqtt_using_env_fallback %}
+                <div class="settings-intro">
+                    La conexion MQTT esta configurada automaticamente desde las variables de entorno del servidor. No es necesario modificar estos datos desde aqui.
+                </div>
+                <div class="status-list small mt-3">
+                    <div class="status-row">
+                        <div>
+                            <span class="status-row-label">Servidor</span>
+                            <span class="status-row-value">{{ mqtt_runtime.broker }}</span>
+                        </div>
+                    </div>
+                    <div class="status-row">
+                        <div>
+                            <span class="status-row-label">Puerto</span>
+                            <span class="status-row-value">{{ mqtt_runtime.port }}</span>
+                        </div>
+                    </div>
+                    <div class="status-row">
+                        <div>
+                            <span class="status-row-label">Usuario</span>
+                            <span class="status-row-value">{{ mqtt_runtime.username }}</span>
+                        </div>
+                    </div>
+                    <div class="status-row">
+                        <div>
+                            <span class="status-row-label">Canal de ubicaciones</span>
+                            <span class="status-row-value">{{ mqtt_runtime.topic_gps }}</span>
+                        </div>
+                    </div>
+                    <div class="status-row">
+                        <div>
+                            <span class="status-row-label">Canal de alertas</span>
+                            <span class="status-row-value">{{ mqtt_runtime.topic_event }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
                 <div class="settings-intro">
                     Aqui puedes actualizar los datos del servicio que envia la ubicacion y las alertas de los buses. Antes de guardar, la aplicacion comprobara si realmente puede conectarse con esa informacion.
                 </div>
@@ -194,6 +237,7 @@
                         </div>
                     </div>
                 </form>
+                {% endif %}
             </div>
         </div>
     </div>
