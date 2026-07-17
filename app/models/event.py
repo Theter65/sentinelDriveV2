@@ -34,7 +34,7 @@ class Event(db.Model):
     latitude = db.Column(db.Float(precision=8), nullable=True)
     longitude = db.Column(db.Float(precision=8), nullable=True)
     timestamp = db.Column(
-        db.DateTime(timezone=True),
+        db.DateTime(timezone=False),
         nullable=False,
         default=ecuador_now,
         index=True,

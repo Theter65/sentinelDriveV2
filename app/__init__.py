@@ -107,9 +107,7 @@ def create_app(config_class=Config):
     def _ecuador_time_filter(dt, fmt="%Y-%m-%d %H:%M:%S"):
         if dt is None:
             return ""
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=ECUADOR_TZ)
-        return dt.astimezone(ECUADOR_TZ).strftime(fmt)
+        return dt.strftime(fmt)
 
     # Habilitar WAL mode para SQLite (permite lecturas concurrentes con 1 escritor)
     with app.app_context():

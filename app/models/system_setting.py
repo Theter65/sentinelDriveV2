@@ -23,7 +23,7 @@ class SystemSetting(db.Model):
 
     # Marca temporal de última modificación
     updated_at = db.Column(
-        db.DateTime(timezone=True),
+        db.DateTime(timezone=False),
         default=ecuador_now,
         onupdate=ecuador_now,
         nullable=False,

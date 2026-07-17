@@ -24,11 +24,11 @@ class AnalyticsRun(db.Model):
         nullable=True,
         index=True,
     )
-    date_from = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
-    date_to = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
+    date_from = db.Column(db.DateTime(timezone=False), nullable=False, index=True)
+    date_to = db.Column(db.DateTime(timezone=False), nullable=False, index=True)
     speed_limit = db.Column(db.Float, nullable=False)
     generated_at = db.Column(
-        db.DateTime(timezone=True),
+        db.DateTime(timezone=False),
         nullable=False,
         default=ecuador_now,
         index=True,
@@ -90,8 +90,8 @@ class VehicleStatisticsSummary(db.Model):
         nullable=True,
         index=True,
     )
-    date_from = db.Column(db.DateTime(timezone=True), nullable=False)
-    date_to = db.Column(db.DateTime(timezone=True), nullable=False)
+    date_from = db.Column(db.DateTime(timezone=False), nullable=False)
+    date_to = db.Column(db.DateTime(timezone=False), nullable=False)
     total_locations = db.Column(db.Integer, nullable=False, default=0)
     total_events = db.Column(db.Integer, nullable=False, default=0)
     speed_min = db.Column(db.Float, nullable=False, default=0)
@@ -107,7 +107,7 @@ class VehicleStatisticsSummary(db.Model):
     ico_score = db.Column(db.Float, nullable=False, default=0)
     ico_level = db.Column(db.String(20), nullable=False, default="Bajo")
     created_at = db.Column(
-        db.DateTime(timezone=True),
+        db.DateTime(timezone=False),
         nullable=False,
         default=ecuador_now,
         index=True,

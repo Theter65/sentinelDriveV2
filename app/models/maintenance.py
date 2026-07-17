@@ -30,7 +30,7 @@ class Maintenance(db.Model):
 
     # Fecha del mantenimiento (por defecto: momento de creación)
     date = db.Column(
-        db.DateTime(timezone=True),
+        db.DateTime(timezone=False),
         default=ecuador_now,
         nullable=False,
         index=True,

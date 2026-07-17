@@ -22,7 +22,7 @@ class Location(db.Model):
     lon = db.Column(db.Float, nullable=False)
     speed = db.Column(db.Float)
     timestamp = db.Column(
-        db.DateTime(timezone=True),
+        db.DateTime(timezone=False),
         default=ecuador_now,
         nullable=False,
         index=True,
