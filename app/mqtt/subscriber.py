@@ -255,7 +255,10 @@ def on_disconnect(client, userdata, disconnect_flags, reason_code, properties=No
 def _parse_timestamp(timestamp_value: str) -> datetime | None:
     if not timestamp_value:
         return None
-    return datetime.fromisoformat(timestamp_value.replace("Z", "+00:00")).astimezone(ECUADOR_TZ)
+    dt = datetime.fromisoformat(timestamp_value.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=ECUADOR_TZ)
+    return dt.astimezone(ECUADOR_TZ)
 
 
 def _valid_coordinate(value) -> bool:
