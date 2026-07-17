@@ -21,17 +21,6 @@ logger.setLevel(log_level)
 
 app = create_app()
 
-# Diagnostic: log MQTT env vars at startup (masked for security)
-_mqtt_broker = os.getenv("MQTT_BROKER", "")
-_mqtt_user = os.getenv("MQTT_USERNAME", "")
-_mqtt_pass = os.getenv("MQTT_PASSWORD", "")
-logger.warning(
-    "MQTT env check — broker=%s user=%s pass=%s",
-    _mqtt_broker or "<VACIO>",
-    _mqtt_user or "<VACIO>",
-    "****" if _mqtt_pass else "<VACIO>",
-)
-
 
 def run_mqtt_worker():
     """Proceso dedicado para Render/Raspberry: solo escucha MQTT."""
