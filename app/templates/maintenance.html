@@ -94,7 +94,7 @@
                                     <span class="badge badge-soft">Completado</span>
                                 {% endif %}
                             </td>
-                            <td class="text-muted">{{ m.date.strftime("%Y-%m-%d %H:%M") }}</td>
+                            <td class="text-muted">{{ m.date|ecuador_time("%Y-%m-%d %H:%M") }}</td>
                             <td class="d-flex flex-wrap gap-2">
                                 {% if session.get('role')|lower == 'admin' %}
                                 <form action="{{ url_for('maintenance.toggle_maintenance', m_id=m.id, page=page) }}" method="POST" class="d-inline">
