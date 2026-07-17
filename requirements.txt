@@ -1,5 +1,4 @@
-# Dependencias Python de SENTINLDRIVE.
-# Generado desde el entorno virtual local con: python -m pip freeze --local
+# python -m pip freeze --local
 bcrypt==5.0.0
 blinker==1.9.0
 certifi==2025.11.12
