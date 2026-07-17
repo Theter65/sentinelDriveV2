@@ -77,7 +77,7 @@
                                 <span class="event-position-disabled">Sin posición</span>
                             {% endif %}
                         </td>
-                        <td class="text-muted">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td class="text-muted">{{ e.timestamp|ecuador_time }}</td>
                     </tr>
                     {% endfor %}
                     {% if events|length == 0 %}

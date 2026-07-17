@@ -167,7 +167,7 @@
                                         N/A
                                     {% endif %}
                                 </td>
-                                <td class="text-muted">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td class="text-muted">{{ e.timestamp|ecuador_time }}</td>
                             </tr>
                             {% endfor %}
                             {% if last_events|length == 0 %}
@@ -212,7 +212,7 @@
                                 </td>
                                 <td class="text-muted">
                                     {% if b.last_seen %}
-                                        {{ b.last_seen.strftime('%Y-%m-%d %H:%M:%S') }}
+                                        {{ b.last_seen|ecuador_time }}
                                         {% if b.seconds_since is not none %}
                                             <span class="text-muted">({{ b.seconds_since }}s)</span>
                                         {% endif %}

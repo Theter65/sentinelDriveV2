@@ -16,7 +16,7 @@ from .models.init_data import ensure_database_indexes
 from .models.system_setting import SystemSetting  # noqa: F401
 from .models.analytics import AnalyticsRun  # noqa: F401
 from .utils.logging import get_logger
-from .utils.time import ecuador_now
+from .utils.time import ECUADOR_TZ, ecuador_now
 from .utils.system_settings import get_persisted_mqtt_state
 import time
 import threading
@@ -102,6 +102,14 @@ def create_app(config_class=Config):
     # Inicializar extensiones globales
     db.init_app(app)
     csrf.init_app(app)
+
+    @app.template_filter("ecuador_time")
+    def _ecuador_time_filter(dt, fmt="%Y-%m-%d %H:%M:%S"):
+        if dt is None:
+            return ""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=ECUADOR_TZ)
+        return dt.astimezone(ECUADOR_TZ).strftime(fmt)
 
     # Habilitar WAL mode para SQLite (permite lecturas concurrentes con 1 escritor)
     with app.app_context():
