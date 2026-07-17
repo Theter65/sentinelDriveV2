@@ -14,7 +14,6 @@ from .config import Config
 from .extensions import db, csrf
 from .models.init_data import ensure_database_indexes
 from .models.system_setting import SystemSetting  # noqa: F401
-from .models.analytics import AnalyticsRun  # noqa: F401
 from .utils.logging import get_logger
 from .utils.time import ECUADOR_TZ, ecuador_now
 from .utils.system_settings import get_persisted_mqtt_state

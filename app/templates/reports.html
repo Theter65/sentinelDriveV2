@@ -88,14 +88,6 @@
         </div>
         {% if individual_stats %}
         <div class="d-flex flex-wrap gap-2">
-            <button
-                type="button"
-                class="btn btn-outline-secondary"
-                id="generateAnalyticsRun"
-                data-url="{{ url_for('analytics.generate_vehicle_analytics', bus_id=selected_bus_id, **common_query) }}"
-            >
-                <i class="bi bi-database-check me-1"></i> Registrar ejecución
-            </button>
             <a class="btn btn-outline-secondary" href="{{ url_for('analytics.download_summary_csv', bus_id=selected_bus_id, **common_query) }}">
                 <i class="bi bi-filetype-csv me-1"></i> CSV resumen
             </a>
@@ -579,28 +571,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const busSelect = document.getElementById("bus_id");
     if (busSelect) {
         busSelect.addEventListener("change", () => document.getElementById("reportsFilterForm").submit());
-    }
-
-    const generateButton = document.getElementById("generateAnalyticsRun");
-    if (generateButton) {
-        generateButton.addEventListener("click", async () => {
-            generateButton.disabled = true;
-            const originalText = generateButton.innerHTML;
-            generateButton.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Registrando...';
-            try {
-                const response = await fetch(generateButton.dataset.url, {
-                    method: "POST",
-                    headers: { "X-CSRFToken": {{ csrf_token()|tojson }} },
-                    credentials: "same-origin",
-                });
-                if (!response.ok) throw new Error("No se pudo registrar");
-                generateButton.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Ejecucion registrada';
-            } catch {
-                generateButton.disabled = false;
-                generateButton.innerHTML = originalText;
-                alert("No se pudo registrar la ejecucion analitica.");
-            }
-        });
     }
 });
 </script>

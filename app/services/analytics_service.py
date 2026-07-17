@@ -21,21 +21,13 @@ from statistics import mean, median, pstdev
 from typing import Any
 
 from app.extensions import db
-from app.models.analytics import (
-    AnalyticsRun,
-    EventMagnitudeStatistic,
-    EventTypeStatistic,
-    HourlyEventStatistic,
-    SpeedHistogramBin,
-    VehicleStatisticsSummary,
-)
 from app.models.bus import Bus
 from app.models.event import Event
 from app.models.location import Location
 from app.utils.time import ECUADOR_TZ, ecuador_now
 
 
-DEFAULT_SPEED_LIMIT = 80.0
+DEFAULT_SPEED_LIMIT = 90.0
 ICO_DESCRIPTION = (
     "Indicador estadistico descriptivo de criticidad operativa; no representa "
     "una prediccion de accidentes."
@@ -168,107 +160,6 @@ def build_analytics_payload(
             "peak_event_hour": peak_event_hour,
         },
     }
-
-
-# ── Persistencia de ejecuciones analíticas ──────────────────────────────────
-
-def generate_analytics_run(
-    bus_id: int,
-    date_from: datetime,
-    date_to: datetime,
-    speed_limit: float,
-    notes: str | None = None,
-) -> dict:
-    """Calcula y persiste una ejecucion analitica nueva para un vehiculo."""
-
-    payload = build_analytics_payload(bus_id, date_from, date_to, speed_limit)
-
-    try:
-        analytics_run = AnalyticsRun(
-            bus_id=bus_id,
-            date_from=date_from,
-            date_to=date_to,
-            speed_limit=speed_limit,
-            status="completed",
-            notes=notes,
-        )
-        db.session.add(analytics_run)
-        db.session.flush()
-
-        summary = payload["summary"]
-        db.session.add(
-            VehicleStatisticsSummary(
-                analytics_run_id=analytics_run.id,
-                bus_id=bus_id,
-                date_from=date_from,
-                date_to=date_to,
-                total_locations=summary["total_locations"],
-                total_events=summary["total_events"],
-                speed_min=summary["speed_min"],
-                speed_max=summary["speed_max"],
-                speed_avg=summary["speed_avg"],
-                speed_median=summary["speed_median"],
-                speed_p85=summary["speed_p85"],
-                speed_p95=summary["speed_p95"],
-                speed_stddev=summary["speed_stddev"],
-                speed_cv=summary["speed_cv"],
-                speeding_count=summary["speeding_count"],
-                speeding_percentage=summary["speeding_percentage"],
-                ico_score=summary["ico_score"],
-                ico_level=summary["ico_level"],
-            )
-        )
-
-        for row in payload["events_by_type"]:
-            db.session.add(
-                EventTypeStatistic(
-                    analytics_run_id=analytics_run.id,
-                    event_type=row["event_type"],
-                    event_count=row["event_count"],
-                    event_percentage=row["event_percentage"],
-                )
-            )
-
-        for row in payload["events_by_hour"]:
-            db.session.add(
-                HourlyEventStatistic(
-                    analytics_run_id=analytics_run.id,
-                    hour=row["hour"],
-                    total_events=row["total_events"],
-                )
-            )
-
-        for row in payload["speed_histogram"]:
-            db.session.add(
-                SpeedHistogramBin(
-                    analytics_run_id=analytics_run.id,
-                    bin_start=row["bin_start"],
-                    bin_end=row["bin_end"],
-                    frequency=row["frequency"],
-                    percentage=row["percentage"],
-                )
-            )
-
-        for row in payload["event_magnitudes"]:
-            db.session.add(
-                EventMagnitudeStatistic(
-                    analytics_run_id=analytics_run.id,
-                    event_type=row["event_type"],
-                    max_value=row["max_value"],
-                    avg_value=row["avg_value"],
-                    count=row["count"],
-                )
-            )
-
-        db.session.commit()
-        payload["analytics_run_id"] = analytics_run.id
-        payload["status"] = analytics_run.status
-        payload["source"] = "persisted"
-        payload["generated_at"] = _iso(analytics_run.generated_at)
-        return payload
-    except Exception:
-        db.session.rollback()
-        raise
 
 
 # ── Adaptador para gráficos Chart.js ────────────────────────────────────────

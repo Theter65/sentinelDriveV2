@@ -11,11 +11,3 @@ from .event import Event
 from .location import Location
 from .maintenance import Maintenance
 from .system_setting import SystemSetting
-from .analytics import (
-    AnalyticsRun,
-    EventMagnitudeStatistic,
-    EventTypeStatistic,
-    HourlyEventStatistic,
-    SpeedHistogramBin,
-    VehicleStatisticsSummary,
-)

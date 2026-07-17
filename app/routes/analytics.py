@@ -11,7 +11,6 @@ from flask import Blueprint, jsonify, request
 from app.decorators import login_required
 from app.services.analytics_service import (
     build_analytics_payload,
-    generate_analytics_run,
     resolve_filter_values,
 )
 from app.utils.csv_export import csv_response
@@ -20,27 +19,7 @@ from app.utils.csv_export import csv_response
 analytics_bp = Blueprint("analytics", __name__)
 
 
-# ── Generación y consulta de analítica ──────────────────────────────────────
-
-@analytics_bp.route("/analytics/vehicle/<int:bus_id>/generate", methods=["POST"])
-@login_required
-def generate_vehicle_analytics(bus_id):
-    """Genera y persiste una corrida descriptiva para un vehiculo."""
-
-    date_from, date_to, speed_limit = _request_filter_values()
-    notes = _request_value("notes")
-    try:
-        payload = generate_analytics_run(
-            bus_id=bus_id,
-            date_from=date_from,
-            date_to=date_to,
-            speed_limit=speed_limit,
-            notes=notes,
-        )
-    except LookupError:
-        return jsonify({"error": "Bus no encontrado"}), 404
-    return jsonify(payload), 201
-
+# ── Consulta de analítica ───────────────────────────────────────────────────
 
 @analytics_bp.route("/analytics/vehicle/<int:bus_id>/summary")
 @login_required
@@ -252,10 +231,6 @@ def _request_data() -> dict:
     data.update(request.args.to_dict())
     data.update(request.form.to_dict())
     return data
-
-
-def _request_value(key: str):
-    return _request_data().get(key)
 
 
 def _csv_response(rows, filename: str):
