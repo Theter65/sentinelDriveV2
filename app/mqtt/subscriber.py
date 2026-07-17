@@ -504,7 +504,13 @@ def start_mqtt_subscriber(app):
     """Mantiene vivo el bucle de conexion MQTT y reintentos."""
     waiting_for_config_logged = False
 
-    logger.info("MQTT: iniciando suscriptor...")
+    import os as _os
+    logger.info(
+        "MQTT: iniciando suscriptor... ENV broker=%s user=%s pass=%s",
+        _os.getenv("MQTT_BROKER", "<no-set>") or "<vacio>",
+        _os.getenv("MQTT_USERNAME", "<no-set>") or "<vacio>",
+        "****" if _os.getenv("MQTT_PASSWORD") else "<vacio>",
+    )
     while True:
         client = None
         try:
@@ -533,7 +539,13 @@ def start_mqtt_subscriber(app):
                     continue
 
                 waiting_for_config_logged = False
-                logger.info("MQTT: configuracion encontrada, iniciando conexion")
+                logger.info(
+                    "MQTT: configuracion encontrada — broker=%s port=%s user=%s topics=%s",
+                    mqtt_config["broker"],
+                    mqtt_config["port"],
+                    mqtt_config["username"],
+                    mqtt_config["topics"],
+                )
                 _set_mqtt_state(
                     connected=False,
                     status="connecting",

@@ -42,25 +42,50 @@ def _safe_int(value, default: int) -> int:
 
 def get_runtime_mqtt_settings(config: dict) -> dict:
     """Une configuracion MQTT de base de datos y entorno."""
+    import logging as _log
+    _logger = _log.getLogger("app.utils.system_settings")
+
     stored_password = SystemSetting.get_value("mqtt_password")
     fallback_password = config.get("MQTT_PASSWORD") or ""
 
-    broker = (SystemSetting.get_value("mqtt_broker") or config.get("MQTT_BROKER") or "").strip()
-    port = _safe_int(SystemSetting.get_value("mqtt_port"), config.get("MQTT_PORT", DEFAULT_MQTT_PORT))
-    username = (SystemSetting.get_value("mqtt_username") or config.get("MQTT_USERNAME") or "").strip()
+    db_broker = SystemSetting.get_value("mqtt_broker")
+    cfg_broker = config.get("MQTT_BROKER") or ""
+    broker = (db_broker or cfg_broker or "").strip()
+
+    db_port = SystemSetting.get_value("mqtt_port")
+    port = _safe_int(db_port, config.get("MQTT_PORT", DEFAULT_MQTT_PORT))
+
+    db_username = SystemSetting.get_value("mqtt_username")
+    cfg_username = config.get("MQTT_USERNAME") or ""
+    username = (db_username or cfg_username or "").strip()
+
     password = stored_password or fallback_password
-    topic_gps = (
-        SystemSetting.get_value("mqtt_topic_gps")
-        or config.get("MQTT_TOPIC_GPS")
-        or DEFAULT_MQTT_TOPIC_GPS
-    ).strip()
-    topic_event = (
-        SystemSetting.get_value("mqtt_topic_event")
-        or config.get("MQTT_TOPIC_EVENT")
-        or DEFAULT_MQTT_TOPIC_EVENT
-    ).strip()
+
+    db_topic_gps = SystemSetting.get_value("mqtt_topic_gps")
+    cfg_topic_gps = config.get("MQTT_TOPIC_GPS") or ""
+    topic_gps = (db_topic_gps or cfg_topic_gps or DEFAULT_MQTT_TOPIC_GPS).strip()
+
+    db_topic_event = SystemSetting.get_value("mqtt_topic_event")
+    cfg_topic_event = config.get("MQTT_TOPIC_EVENT") or ""
+    topic_event = (db_topic_event or cfg_topic_event or DEFAULT_MQTT_TOPIC_EVENT).strip()
 
     ready = all([broker, port > 0, username, password, topic_gps, topic_event])
+
+    if not ready:
+        missing = []
+        if not broker:
+            missing.append(f"broker(db={db_broker!r}, cfg={cfg_broker!r})")
+        if port <= 0:
+            missing.append(f"port={port}")
+        if not username:
+            missing.append(f"username(db={db_username!r}, cfg={cfg_username!r})")
+        if not password:
+            missing.append(f"password(db={bool(stored_password)}, cfg={bool(fallback_password)})")
+        if not topic_gps:
+            missing.append(f"topic_gps")
+        if not topic_event:
+            missing.append(f"topic_event")
+        _logger.warning("MQTT config incompleta, campos faltantes: %s", ", ".join(missing))
 
     return {
         "broker": broker,
