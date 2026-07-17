@@ -5,7 +5,10 @@
 # La ruta /setup solo está disponible cuando no hay administradores.
 # =============================================================================
 
+import time
+import threading
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from werkzeug.security import generate_password_hash
 
 from app.decorators import login_required
 from app.extensions import db
@@ -19,6 +22,12 @@ from app.utils.system_settings import get_mqtt_form_defaults, get_runtime_mqtt_s
 logger = get_logger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
+
+# Rate limiter para login: {ip: [timestamp1, timestamp2, ...]}
+_login_attempts: dict[str, list[float]] = {}
+_login_lock = threading.Lock()
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 300  # 5 minutos
 
 
 def _setup_form_state() -> dict:
@@ -52,11 +61,29 @@ def login():
         return redirect(url_for("auth.initial_setup"))
 
     if request.method == "POST":
+        client_ip = request.remote_addr or "unknown"
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
+
+        # Rate limit: bloquear IP después de MAX_LOGIN_ATTEMPTS en LOGIN_WINDOW_SECONDS
+        now = time.time()
+        with _login_lock:
+            attempts = _login_attempts.get(client_ip, [])
+            # Limpiar intentos fuera de la ventana
+            attempts = [t for t in attempts if now - t < LOGIN_WINDOW_SECONDS]
+            if len(attempts) >= MAX_LOGIN_ATTEMPTS:
+                _login_attempts[client_ip] = attempts
+                logger.warning("Login bloqueado por rate limit: IP=%s intentos=%d", client_ip, len(attempts))
+                return render_template("login.html", error="Demasiados intentos. Espera 5 minutos.")
+            _login_attempts[client_ip] = attempts
+
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
+            # Limpiar intentos exitosos
+            with _login_lock:
+                _login_attempts.pop(client_ip, None)
             session.clear()
+            session.regenerate()
             session["user"] = user.username
             session["role"] = user.role.lower()
             session.permanent = True
@@ -65,7 +92,12 @@ def login():
                 flash("Configura MQTT para empezar a recibir ubicaciones y alertas.", "warning")
                 return redirect(url_for("admin.admin_panel"))
             return redirect(url_for("dashboard.dashboard"))
-        logger.warning("Intento de login fallido para usuario: %s", username or "<vacio>")
+
+        # Registrar intento fallido
+        with _login_lock:
+            _login_attempts.setdefault(client_ip, []).append(now)
+
+        logger.warning("Intento de login fallido para usuario: %s IP: %s", username or "<vacio>", client_ip)
         return render_template("login.html", error="Credenciales incorrectas")
     return render_template("login.html")
 
@@ -200,11 +232,11 @@ def initial_setup():
     return render_template("setup.html", form_data=form_state)
 
 
-@auth_bp.route("/logout", methods=["GET", "POST"])
+@auth_bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
     """Cerrar sesion y limpiar datos de sesion."""
     username = session.get("user")
-    logger.info("Logout exitoso: %s (method=%s)", username, request.method)
+    logger.info("Logout exitoso: %s", username)
     session.clear()
     return redirect(url_for("auth.login"), code=303)

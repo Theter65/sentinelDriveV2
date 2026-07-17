@@ -18,6 +18,8 @@ from .models.analytics import AnalyticsRun  # noqa: F401
 from .utils.logging import get_logger
 from .utils.time import ecuador_now
 from .utils.system_settings import get_persisted_mqtt_state
+import time
+import threading
 
 # Importación de blueprints (rutas modulares)
 from .routes.auth import auth_bp
@@ -33,6 +35,11 @@ from .routes.analytics import analytics_bp
 
 
 logger = get_logger(__name__)
+
+# Cache para MQTT state en context processor (evita DB query en cada request)
+_mqtt_state_cache = {"data": None, "ts": 0.0}
+_mqtt_state_lock = threading.Lock()
+_MQTT_STATE_CACHE_TTL = 5.0  # segundos
 
 def create_app(config_class=Config):
     """
@@ -74,7 +81,14 @@ def create_app(config_class=Config):
                 v = max(v, int(p.stat().st_mtime))
             except OSError:
                 pass
-        mqtt_state = get_persisted_mqtt_state(app.config)
+
+        # Usar cache thread-safe para evitar DB query en cada request
+        now = time.time()
+        with _mqtt_state_lock:
+            if _mqtt_state_cache["data"] is None or (now - _mqtt_state_cache["ts"]) > _MQTT_STATE_CACHE_TTL:
+                _mqtt_state_cache["data"] = get_persisted_mqtt_state(app.config)
+                _mqtt_state_cache["ts"] = now
+            mqtt_state = _mqtt_state_cache["data"]
 
         return {
             "static_version": v,
@@ -88,6 +102,14 @@ def create_app(config_class=Config):
     # Inicializar extensiones globales
     db.init_app(app)
     csrf.init_app(app)
+
+    # Habilitar WAL mode para SQLite (permite lecturas concurrentes con 1 escritor)
+    with app.app_context():
+        if "sqlite" in app.config["SQLALCHEMY_DATABASE_URI"]:
+            db.session.execute(db.text("PRAGMA journal_mode=WAL"))
+            db.session.execute(db.text("PRAGMA busy_timeout=15000"))
+            db.session.commit()
+            logger.info("SQLite: WAL mode y busy_timeout=15s habilitados")
 
     # Registrar blueprints
     app.register_blueprint(auth_bp)

@@ -433,8 +433,8 @@ def on_message(client, userdata, msg):
                     return
                 db.session.add(event)
 
-            _set_mqtt_state(
-                commit=False,
+            # Solo actualizar estado en memoria (no escribir a DB en cada mensaje)
+            _update_memory_state(
                 connected=True,
                 status="online",
                 last_message=datetime.now(ECUADOR_TZ),
@@ -446,15 +446,15 @@ def on_message(client, userdata, msg):
         except json.JSONDecodeError:
             logger.error("MQTT: payload JSON invalido")
             db.session.rollback()
-            _set_mqtt_state(last_error="json_decode")
+            _update_memory_state(last_error="json_decode")
         except ValueError as exc:
             logger.error("MQTT: error de validacion: %s", exc)
             db.session.rollback()
-            _set_mqtt_state(last_error="validation")
+            _update_memory_state(last_error="validation")
         except Exception as exc:
             logger.error("MQTT: error al procesar mensaje: %s", exc, exc_info=True)
             db.session.rollback()
-            _set_mqtt_state(last_error="processing")
+            _update_memory_state(last_error="processing")
         finally:
             db.session.remove()
 
@@ -544,12 +544,17 @@ def start_mqtt_subscriber(app):
             client.loop_start()
 
             last_heartbeat = 0.0
+            last_heartbeat_written = 0.0
             while not MQTT_RELOAD_EVENT.wait(timeout=1):
                 now_ts = datetime.now(ECUADOR_TZ).timestamp()
                 if now_ts - last_heartbeat >= 30:
-                    with app.app_context():
-                        _set_mqtt_state(last_heartbeat=datetime.now(ECUADOR_TZ))
-                        db.session.remove()
+                    # Solo actualizar memoria; persistir a DB cada 60s o en cambio de estado
+                    _update_memory_state(last_heartbeat=datetime.now(ECUADOR_TZ))
+                    if now_ts - last_heartbeat_written >= 60:
+                        with app.app_context():
+                            _set_mqtt_state(last_heartbeat=datetime.now(ECUADOR_TZ))
+                            db.session.remove()
+                        last_heartbeat_written = now_ts
                     last_heartbeat = now_ts
                 continue
 

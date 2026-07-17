@@ -1,11 +1,11 @@
 # app/models/init_data.py - Inicialización de base de datos
 #
 # Rutinas para crear índices compuestos y migraciones ligeras
-# de esquema para SQLite (sin usar Alembic ni migraciones formales).
+# de esquema para SQLite y PostgreSQL (sin usar Alembic ni migraciones formales).
 # También verifica la existencia del administrador inicial.
 # =============================================================================
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from app.extensions import db
 from app.models.user import User
@@ -25,10 +25,13 @@ def ensure_database_indexes():
     for statement in statements:
         db.session.execute(text(statement))
 
-    # Lightweight schema evolution for SQLite (no migrations):
-    # add optional bus.description without breaking existing DBs.
+    # Lightweight schema evolution (no Alembic):
+    # Add optional columns without breaking existing DBs.
     try:
-        if db.engine.dialect.name == "sqlite":
+        dialect = db.engine.dialect.name
+        inspector = inspect(db.engine)
+
+        if dialect == "sqlite":
             cols = db.session.execute(text("PRAGMA table_info('bus')")).fetchall()
             col_names = {row[1] for row in cols}
             if "description" not in col_names:
@@ -46,6 +49,19 @@ def ensure_database_indexes():
             if "value2" not in col_names:
                 db.session.execute(text("ALTER TABLE event ADD COLUMN value2 REAL"))
                 logger.info("DB: columna agregada event.value2")
+
+        elif dialect == "postgresql":
+            for table, column, col_type in [
+                ("bus", "description", "TEXT"),
+                ("event", "description", "TEXT"),
+                ("event", "value1", "DOUBLE PRECISION"),
+                ("event", "value2", "DOUBLE PRECISION"),
+            ]:
+                existing = {c["name"] for c in inspector.get_columns(table)}
+                if column not in existing:
+                    db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                    logger.info("DB: columna agregada %s.%s", table, column)
+
     except Exception as exc:
         logger.warning("DB: no se pudo validar/crear columnas opcionales: %s", exc)
 

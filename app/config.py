@@ -27,7 +27,7 @@ def _database_url() -> str:
         if database_url.startswith("postgres://"):
             return database_url.replace("postgres://", "postgresql://", 1)
         return database_url
-    return "sqlite:///sentinldrive.db"
+    return "sqlite:///sentinldrive.db?timeout=15"
 
 
 def _env_int(name: str, default: int) -> int:
@@ -78,6 +78,10 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "False").lower() == "true"
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+    }
 
     MQTT_BROKER = os.getenv("MQTT_BROKER", "")
     MQTT_PORT = _env_int("MQTT_PORT", DEFAULT_MQTT_PORT)

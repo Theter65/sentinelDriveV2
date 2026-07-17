@@ -5,6 +5,7 @@
 # eliminación de registros. Solo accesible para admin.
 # =============================================================================
 
+import math
 from flask import Blueprint, render_template, request, redirect, url_for
 
 from app.decorators import require_admin
@@ -18,12 +19,27 @@ logger = get_logger(__name__)
 
 maintenance_bp = Blueprint("maintenance", __name__)
 
+MAINTENANCE_PAGE_SIZE = 20
 
-def _maintenance_page_context(error=None):
+
+def _maintenance_page_context(error=None, page=1):
+    total = Maintenance.query.count()
+    total_pages = max(1, math.ceil(total / MAINTENANCE_PAGE_SIZE))
+    page = max(1, min(page, total_pages))
+    maintenances = (
+        Maintenance.query
+        .order_by(Maintenance.date.desc())
+        .offset((page - 1) * MAINTENANCE_PAGE_SIZE)
+        .limit(MAINTENANCE_PAGE_SIZE)
+        .all()
+    )
     return {
-        "maintenances": Maintenance.query.order_by(Maintenance.date.desc()).all(),
+        "maintenances": maintenances,
         "buses": Bus.query.order_by(Bus.id.asc()).all(),
         "error": error,
+        "page": page,
+        "total_pages": total_pages,
+        "total_records": total,
     }
 
 
@@ -53,7 +69,8 @@ def maintenance():
         logger.info("Nuevo mantenimiento registrado: bus %s", bus_id)
         return redirect(url_for("maintenance.maintenance"))
 
-    return render_template("maintenance.html", **_maintenance_page_context())
+    page = request.args.get("page", 1, type=int)
+    return render_template("maintenance.html", **_maintenance_page_context(page=page))
 
 
 @maintenance_bp.route("/maintenance/toggle/<int:m_id>", methods=["POST"])
@@ -65,8 +82,9 @@ def toggle_maintenance(m_id):
         "Completado" if maintenance_record.status == "Pendiente" else "Pendiente"
     )
     db.session.commit()
+    page = request.args.get("page", 1, type=int)
     logger.info("Estado cambiado para mantenimiento %s: %s", m_id, maintenance_record.status)
-    return redirect(url_for("maintenance.maintenance"))
+    return redirect(url_for("maintenance.maintenance", page=page))
 
 
 @maintenance_bp.route("/maintenance/delete/<int:m_id>", methods=["POST"])
@@ -77,5 +95,6 @@ def delete_maintenance(m_id):
     bus_plate = maintenance_record.bus.plate
     db.session.delete(maintenance_record)
     db.session.commit()
+    page = request.args.get("page", 1, type=int)
     logger.info("Mantenimiento %s eliminado (bus: %s)", m_id, bus_plate)
-    return redirect(url_for("maintenance.maintenance"))
+    return redirect(url_for("maintenance.maintenance", page=page))

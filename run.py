@@ -47,11 +47,12 @@ def run_development_server():
         mqtt_thread.start()
         logger.info("Suscriptor MQTT iniciado en background")
 
-        logger.warning("Servidor Flask iniciado (debug=%s). Accede en http://0.0.0.0:5000", app.debug)
+        port = int(os.getenv("PORT", 5000))
+        logger.warning("Servidor Flask iniciado (debug=%s). Accede en http://0.0.0.0:%s", app.debug, port)
         app.run(
             debug=app.config["DEBUG"],
             host="0.0.0.0",
-            port=5000,
+            port=port,
             threaded=True,
         )
     except KeyboardInterrupt:

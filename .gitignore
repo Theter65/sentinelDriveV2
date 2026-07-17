@@ -27,6 +27,8 @@ instance/
 *.db
 *.sqlite
 *.sqlite3
+*.agents
+skills-lock.json
 
 # Logs
 *.log
