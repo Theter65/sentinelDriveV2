@@ -73,7 +73,7 @@ def _load_or_create_secret_key() -> str:
 class Config:
     """Valores de configuracion usados por Flask y los servicios internos."""
     SECRET_KEY = _load_or_create_secret_key()
-    IS_RENDER = bool(os.getenv("RENDER")) or bool(os.getenv("RENDER_EXTERNAL_URL"))
+    IS_RENDER = os.getenv("RENDER", "").strip().lower() in {"1", "true", "yes", "on"} or bool(os.getenv("RENDER_EXTERNAL_URL"))
 
     SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
