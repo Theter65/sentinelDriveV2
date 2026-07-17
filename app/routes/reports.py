@@ -387,7 +387,7 @@ def download_tables():
         search_term = filters["search_term"]
 
         rows = [
-            ["SENTINLDRIVE - Tablas seleccionadas"],
+            ["SENTNLDRIVE - Tablas seleccionadas"],
             ["Periodo:", selected_period],
             ["Rango:", start_time, end_time],
             ["Bus ID:", selected_bus_id if selected_bus_id else "Todos"],

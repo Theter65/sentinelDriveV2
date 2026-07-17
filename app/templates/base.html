@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="SENTINLDRIVE - Sistema de monitoreo y gestion segura de flota vehicular en Ecuador">
+    <meta name="description" content="SENTNLDRIVE - Sistema de monitoreo y gestion segura de flota vehicular en Ecuador">
     <meta name="theme-color" content="#161a1e">
     <script>
         (function () {
@@ -21,7 +21,7 @@
             }
         })();
     </script>
-    <title>SENTINLDRIVE - {% block title %}{% endblock %}</title>
+    <title>SENTNLDRIVE - {% block title %}{% endblock %}</title>
     <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -80,7 +80,7 @@
                         data-bs-trigger="hover focus"
                         data-bs-placement="bottom"
                         data-bs-title="Información del sistema"
-                        data-bs-content="Centro: SENTINLDRIVE&#10;Usuario: {{ session.get('user') or 'Invitado' }}&#10;Rol: {% if session.get('role') == 'admin' %}Administrador{% elif session.get('role') %}Operador{% else %}Sin iniciar{% endif %}&#10;Estado: {{ layout_mqtt_label }}&#10;Año: {{ current_year }}"
+                        data-bs-content="Centro: SENTNLDRIVE&#10;Usuario: {{ session.get('user') or 'Invitado' }}&#10;Rol: {% if session.get('role') == 'admin' %}Administrador{% elif session.get('role') %}Operador{% else %}Sin iniciar{% endif %}&#10;Estado: {{ layout_mqtt_label }}&#10;Año: {{ current_year }}"
                         aria-label="Información del sistema"
                     >
                         <i class="bi bi-info-circle"></i>
@@ -105,8 +105,8 @@
     <nav class="navbar navbar-expand-lg app-navbar">
         <div class="container-fluid px-4 px-lg-5">
             <a class="navbar-brand app-brand" href="{{ url_for('dashboard.dashboard') }}">
-                <img class="brand-mark navbar-logo" src="{{ url_for('static', filename='img/logo.png') }}" alt="SENTINLDRIVE">
-                <span class="brand-text">SENTINLDRIVE</span>
+                <img class="brand-mark navbar-logo" src="{{ url_for('static', filename='img/logo.png') }}" alt="SENTNLDRIVE">
+                <span class="brand-text">SENTNLDRIVE</span>
             </a>
 
             <button class="navbar-toggler app-navbar-toggler border-0" type="button" aria-controls="navbarMenu" aria-expanded="false" aria-label="Abrir navegacion">
@@ -204,7 +204,7 @@
     <div class="container-fluid px-4 px-lg-5">
         <div class="footer-grid">
             <div class="footer-column">
-                <h4>SENTINLDRIVE</h4>
+                <h4>SENTNLDRIVE</h4>
                 <p>Plataforma para vigilar la flota, revisar ubicaciones, recibir alertas y mantener el control operativo en una sola vista.</p>
             </div>
             <div class="footer-column">
@@ -237,7 +237,7 @@
         </div>
 
         <div class="footer-bottom">
-            <p>SENTINLDRIVE | © {{ current_year }} Todos los derechos reservados.</p>
+            <p>SENTNLDRIVE | © {{ current_year }} Todos los derechos reservados.</p>
             <p class="small">Elaborado por <strong>Theter</strong></p>
         </div>
     </div>

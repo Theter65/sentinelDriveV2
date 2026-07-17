@@ -1,1 +1,1 @@
-"""Servicios de dominio de SENTINLDRIVE."""
+"""Servicios de dominio de SENTNLDRIVE."""
