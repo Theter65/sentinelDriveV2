@@ -2,28 +2,42 @@
 {% extends "base.html" %}
 {% block title %}Anadir Bus{% endblock %}
 {% block content %}
-<h2>Registrar nuevo Bus</h2>
-<form method="POST" class="mt-3">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="mb-3">
-        <label>ID del Bus</label>
-        <input type="number" name="id" class="form-control" required>
-    </div>
-    <div class="mb-3">
-        <label>Placa</label>
-        <input type="text" name="plate" class="form-control" required>
-    </div>
-    <div class="mb-3">
-        <label>Conductor</label>
-        <input type="text" name="driver" class="form-control" required>
-    </div>
-    <div class="mb-3">
-        <label>Descripcion (opcional)</label>
-        <textarea name="description" class="form-control" rows="3" placeholder="Modelo, observaciones, detalles operativos..."></textarea>
-    </div>
-    {% if error %}
-        <p class="text-danger">{{ error }}</p>
-    {% endif %}
-    <button type="submit" class="btn btn-primary">Guardar</button>
-</form>
+<div class="container mt-4" style="max-width: 640px;">
+    <nav aria-label="breadcrumb" class="breadcrumb-nav">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.dashboard') }}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('buses.buses') }}">Buses</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Anadir bus</li>
+        </ol>
+    </nav>
+    <h2 class="mb-4">Registrar nuevo Bus</h2>
+    <form method="POST" class="mt-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="busId">ID del Bus</label>
+            <input type="number" name="id" id="busId" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="busPlate">Placa</label>
+            <input type="text" name="plate" id="busPlate" class="form-control" required maxlength="10">
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="busDriver">Conductor</label>
+            <input type="text" name="driver" id="busDriver" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="busDesc">Descripcion (opcional)</label>
+            <textarea name="description" id="busDesc" class="form-control" rows="3" placeholder="Modelo, observaciones, detalles operativos..."></textarea>
+        </div>
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('buses.buses') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check2-circle me-1"></i> Guardar
+            </button>
+        </div>
+    </form>
+</div>
 {% endblock %}

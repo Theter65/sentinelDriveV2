@@ -95,7 +95,7 @@
 
                                 {% if not protected_admin %}
                                 <form action="{{ url_for('users.delete_user', u_id=u.id) }}" method="POST" class="d-inline"
-                                      onsubmit="return confirm('Eliminar usuario {{ u.username }}? Esta accion no se puede deshacer.');">
+                                      onsubmit='return confirm("Eliminar usuario {{ u.username|e }}? Esta accion no se puede deshacer.");'>
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-danger btn-sm">
                                         <i class="bi bi-trash"></i> Eliminar
@@ -106,37 +106,6 @@
                                 {% endif %}
                             </td>
                         </tr>
-
-                        <div class="modal fade" id="pwdModal{{ u.id }}" tabindex="-1" aria-labelledby="pwdModalLabel{{ u.id }}" aria-hidden="true">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="pwdModalLabel{{ u.id }}">Cambiar contrasena: {{ u.username }}</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <form action="{{ url_for('users.change_user_password', u_id=u.id) }}" method="POST">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <div class="modal-body">
-                                            <div class="mb-3">
-                                                <label class="form-label">Nueva contrasena</label>
-                                                <input type="password" name="new_password" class="form-control" minlength="8" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Confirmar contrasena</label>
-                                                <input type="password" name="confirm_password" class="form-control" minlength="8" required>
-                                            </div>
-                                            <div class="text-muted small">Minimo 8 caracteres. Se aplica inmediatamente.</div>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                            <button type="submit" class="btn btn-primary">
-                                                <i class="bi bi-check2-circle me-1"></i> Actualizar
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
                         {% endfor %}
 
                         {% if users|length == 0 %}
@@ -147,5 +116,38 @@
             </div>
         </div>
     </div>
+
+    {% for u in users %}
+    <div class="modal fade" id="pwdModal{{ u.id }}" tabindex="-1" aria-labelledby="pwdModalLabel{{ u.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pwdModalLabel{{ u.id }}">Cambiar contrasena: {{ u.username }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('users.change_user_password', u_id=u.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nueva contrasena</label>
+                            <input type="password" name="new_password" class="form-control" minlength="8" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Confirmar contrasena</label>
+                            <input type="password" name="confirm_password" class="form-control" minlength="8" required>
+                        </div>
+                        <div class="text-muted small">Minimo 8 caracteres. Se aplica inmediatamente.</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check2-circle me-1"></i> Actualizar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
 </div>
 {% endblock %}

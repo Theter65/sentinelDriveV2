@@ -6,7 +6,6 @@
 # =============================================================================
 
 from flask import Blueprint, flash, render_template, request, redirect, session, url_for
-from werkzeug.security import generate_password_hash
 
 from app.decorators import require_admin
 from app.extensions import db
@@ -55,11 +54,16 @@ def users():
 
         new_user = User(
             username=username,
-            password_hash=generate_password_hash(password),
             role=role,
         )
+        new_user.set_password(password)
         db.session.add(new_user)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            logger.exception("Error al crear usuario %s", username)
+            return _users_page("Error al crear el usuario")
         logger.info("Usuario creado exitosamente: %s (rol: %s)", username, role)
         return redirect(url_for("users.users"))
 
@@ -78,7 +82,13 @@ def change_user_role(u_id):
             return redirect(url_for("users.users"))
         old_role = user.role
         user.role = new_role
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            logger.exception("Error al cambiar rol para usuario %s", user.username)
+            flash("Error al cambiar el rol.", "danger")
+            return redirect(url_for("users.users"))
         logger.info("Rol cambiado para usuario %s: %s -> %s", user.username, old_role, new_role)
     else:
         logger.warning("Intento de rol invalido para usuario %s: %s", u_id, new_role)
@@ -96,7 +106,13 @@ def delete_user(u_id):
         return redirect(url_for("users.users"))
     username = user.username
     db.session.delete(user)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Error al eliminar usuario %s", username)
+        flash("Error al eliminar el usuario.", "danger")
+        return redirect(url_for("users.users"))
     logger.info("Usuario eliminado: %s", username)
     return redirect(url_for("users.users"))
 
@@ -117,7 +133,13 @@ def change_user_password(u_id):
         return redirect(url_for("users.users"))
 
     user.set_password(new_password)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Error al cambiar contrasena para usuario %s", user.username)
+        flash("Error al actualizar la contrasena.", "danger")
+        return redirect(url_for("users.users"))
     logger.info("Contrasena actualizada para usuario: %s", user.username)
     flash(f"Contrasena actualizada para {user.username}.", "success")
     return redirect(url_for("users.users"))

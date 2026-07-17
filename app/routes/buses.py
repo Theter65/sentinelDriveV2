@@ -62,7 +62,12 @@ def add_bus():
 
         new_bus = Bus(id=bus_id, **form_data)
         db.session.add(new_bus)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            logger.exception("Error al registrar bus ID %s", bus_id)
+            return render_template("add_bus.html", error="Error al guardar el bus")
         logger.info("Bus registrado: ID %s, placa %s", bus_id, form_data["plate"])
         return redirect(url_for("buses.buses"))
     return render_template("add_bus.html")
@@ -88,7 +93,12 @@ def edit_bus(bus_id):
         bus.driver = form_data["driver"]
         bus.status = form_data["status"]
         bus.description = form_data["description"]
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            logger.exception("Error al editar bus ID %s", bus_id)
+            return render_template("edit_bus.html", bus=bus, error="Error al guardar los cambios")
         logger.info("Bus editado: ID %s, placa %s, conductor %s", bus_id, bus.plate, bus.driver)
         return redirect(url_for("buses.buses"))
     return render_template("edit_bus.html", bus=bus)
@@ -101,7 +111,13 @@ def delete_bus(bus_id):
     bus = Bus.query.get_or_404(bus_id)
     plate = bus.plate
     db.session.delete(bus)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Error al eliminar bus ID %s", bus_id)
+        flash("Error al eliminar el bus.", "danger")
+        return redirect(url_for("buses.buses"))
     logger.info("Bus eliminado completamente: ID %s, placa %s", bus_id, plate)
     return redirect(url_for("buses.buses"))
 
@@ -154,7 +170,13 @@ def delete_bus_events(bus_id):
         return redirect(url_for("buses.buses"))
 
     query.delete(synchronize_session=False)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Error al eliminar eventos del bus %s", bus.plate)
+        flash("Error al eliminar los eventos.", "danger")
+        return redirect(url_for("buses.buses"))
     logger.info("Eventos eliminados bus %s: %d registros (tipo=%s, desde=%s, hasta=%s)",
                 bus.plate, count, event_type or "todos", date_from or "sin limite", date_to or "sin limite")
     flash(f"Se eliminaron {count} eventos del bus {bus.plate}.", "success")
@@ -194,7 +216,13 @@ def delete_bus_locations(bus_id):
         return redirect(url_for("buses.buses"))
 
     query.delete(synchronize_session=False)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Error al eliminar ubicaciones del bus %s", bus.plate)
+        flash("Error al eliminar las ubicaciones.", "danger")
+        return redirect(url_for("buses.buses"))
     logger.info("Ubicaciones eliminadas bus %s: %d registros (desde=%s, hasta=%s)",
                 bus.plate, count, date_from or "sin limite", date_to or "sin limite")
     flash(f"Se eliminaron {count} ubicaciones del bus {bus.plate}.", "success")

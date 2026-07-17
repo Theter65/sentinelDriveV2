@@ -94,7 +94,7 @@
                                 </button>
 
                                 <form action="{{ url_for('buses.delete_bus', bus_id=b.id) }}" method="POST" class="d-inline"
-                                      onsubmit="return confirm('Eliminar el bus {{ b.plate }} (ID {{ b.id }})? Esta accion borra tambien sus eventos/ubicaciones.');">
+                                      onsubmit='return confirm("Eliminar el bus {{ b.plate|e }} (ID {{ b.id }})? Esta accion borra tambien sus eventos/ubicaciones.");'>
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-danger btn-sm">
                                         <i class="bi bi-trash"></i> Eliminar
@@ -241,6 +241,140 @@
             </div>
         </div>
     </div>
+
+    {% if session.get('role')|lower == 'admin' %}
+    {% for b in buses %}
+    <div class="modal fade" id="editModal{{ b.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ b.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalLabel{{ b.id }}">Editar bus {{ b.id }} - {{ b.plate }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('buses.edit_bus', bus_id=b.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="plate{{ b.id }}" class="form-label">Placa</label>
+                            <input type="text" class="form-control" id="plate{{ b.id }}" name="plate" value="{{ b.plate }}" required maxlength="10">
+                        </div>
+                        <div class="mb-3">
+                            <label for="driver{{ b.id }}" class="form-label">Conductor</label>
+                            <input type="text" class="form-control" id="driver{{ b.id }}" name="driver" value="{{ b.driver or '' }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="status{{ b.id }}" class="form-label">Estado</label>
+                            <select class="form-select" id="status{{ b.id }}" name="status" required>
+                                <option value="Activo" {% if b.status == 'Activo' %}selected{% endif %}>Activo</option>
+                                <option value="Inactivo" {% if b.status == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                                <option value="Mantenimiento" {% if b.status == 'Mantenimiento' %}selected{% endif %}>Mantenimiento</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description{{ b.id }}" class="form-label">Descripcion (opcional)</label>
+                            <textarea class="form-control" id="description{{ b.id }}" name="description" rows="3" placeholder="Modelo, observaciones, detalles...">{{ b.description or '' }}</textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="cleanModal{{ b.id }}" tabindex="-1" aria-labelledby="cleanModalLabel{{ b.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cleanModalLabel{{ b.id }}">
+                        <i class="bi bi-trash3 me-2"></i>Limpiar datos — {{ b.plate }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#eventsTab{{ b.id }}" type="button" role="tab">
+                                <i class="bi bi-lightning me-1"></i> Eventos
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#locationsTab{{ b.id }}" type="button" role="tab">
+                                <i class="bi bi-geo-alt me-1"></i> Ubicaciones
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="eventsTab{{ b.id }}" role="tabpanel">
+                            <form action="{{ url_for('buses.delete_bus_events', bus_id=b.id) }}" method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Tipo de evento</label>
+                                    <select class="form-select" name="event_type">
+                                        <option value="">Todos los tipos</option>
+                                        <option value="Exceso de velocidad">Exceso de velocidad</option>
+                                        <option value="Frenado brusco">Frenado brusco</option>
+                                        <option value="Curva peligrosa">Curva peligrosa</option>
+                                        <option value="Otros">Otros</option>
+                                    </select>
+                                </div>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold">Fecha desde</label>
+                                        <input type="date" class="form-control" name="date_from">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold">Fecha hasta</label>
+                                        <input type="date" class="form-control" name="date_to">
+                                    </div>
+                                </div>
+                                <div class="text-muted small mb-3">
+                                    <i class="bi bi-info-circle"></i>
+                                    Si no seleccionas fechas, se eliminan todos los eventos del tipo elegido.
+                                </div>
+                                <button type="submit" class="btn btn-danger"
+                                        onclick="return confirm('Eliminar los eventos seleccionados del bus {{ b.plate }}? Esta accion no se puede deshacer.');">
+                                    <i class="bi bi-trash me-1"></i> Eliminar eventos
+                                </button>
+                            </form>
+                        </div>
+
+                        <div class="tab-pane fade" id="locationsTab{{ b.id }}" role="tabpanel">
+                            <form action="{{ url_for('buses.delete_bus_locations', bus_id=b.id) }}" method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="row g-3 mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold">Fecha desde</label>
+                                        <input type="date" class="form-control" name="date_from">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label fw-semibold">Fecha hasta</label>
+                                        <input type="date" class="form-control" name="date_to">
+                                    </div>
+                                </div>
+                                <div class="text-muted small mb-3">
+                                    <i class="bi bi-info-circle"></i>
+                                    Si no seleccionas fechas, se eliminan todas las ubicaciones GPS del bus.
+                                </div>
+                                <button type="submit" class="btn btn-danger"
+                                        onclick="return confirm('Eliminar las ubicaciones seleccionadas del bus {{ b.plate }}? Esta accion no se puede deshacer.');">
+                                    <i class="bi bi-trash me-1"></i> Eliminar ubicaciones
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
     {% endif %}
 </div>
 

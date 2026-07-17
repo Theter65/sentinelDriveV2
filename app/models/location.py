@@ -18,9 +18,9 @@ class Location(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     bus_id = db.Column(db.Integer, db.ForeignKey("bus.id"), nullable=False, index=True)
-    lat = db.Column(db.Float, nullable=False)
-    lon = db.Column(db.Float, nullable=False)
-    speed = db.Column(db.Float)
+    lat = db.Column(db.Float(precision=8), nullable=False)
+    lon = db.Column(db.Float(precision=8), nullable=False)
+    speed = db.Column(db.Float(precision=4))
     timestamp = db.Column(
         db.DateTime(timezone=False),
         default=ecuador_now,

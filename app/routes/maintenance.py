@@ -64,7 +64,12 @@ def maintenance():
 
         new_maintenance = Maintenance(bus_id=bus_id, description=description)
         db.session.add(new_maintenance)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            logger.exception("Error al crear mantenimiento para bus %s", bus_id)
+            return render_template("maintenance.html", **_maintenance_page_context("Error al guardar el mantenimiento"))
 
         logger.info("Nuevo mantenimiento registrado: bus %s", bus_id)
         return redirect(url_for("maintenance.maintenance"))
@@ -81,7 +86,12 @@ def toggle_maintenance(m_id):
     maintenance_record.status = (
         "Completado" if maintenance_record.status == "Pendiente" else "Pendiente"
     )
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Error al cambiar estado del mantenimiento %s", m_id)
+        flash("Error al cambiar el estado.", "danger")
     page = request.args.get("page", 1, type=int)
     logger.info("Estado cambiado para mantenimiento %s: %s", m_id, maintenance_record.status)
     return redirect(url_for("maintenance.maintenance", page=page))
@@ -94,7 +104,12 @@ def delete_maintenance(m_id):
     maintenance_record = Maintenance.query.get_or_404(m_id)
     bus_plate = maintenance_record.bus.plate
     db.session.delete(maintenance_record)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Error al eliminar mantenimiento %s", m_id)
+        flash("Error al eliminar el mantenimiento.", "danger")
     page = request.args.get("page", 1, type=int)
     logger.info("Mantenimiento %s eliminado (bus: %s)", m_id, bus_plate)
     return redirect(url_for("maintenance.maintenance", page=page))

@@ -273,8 +273,8 @@
                 setText('speedBadge', `Velocidad: ${Number(data.speed || 0).toFixed(1)} km/h`);
                 setText('busCoordinates', `${Number(data.lat).toFixed(6)} / ${Number(data.lon).toFixed(6)}`);
 
-                const popupContent = `<b>Bus:</b> ${data.bus.plate}<br>
-                     <b>Conductor:</b> ${data.bus.driver || 'Sin conductor'}<br>
+                const popupContent = `<b>Bus:</b> ${escapeHtml(data.bus.plate)}<br>
+                     <b>Conductor:</b> ${escapeHtml(data.bus.driver || 'Sin conductor')}<br>
                      <b>Velocidad:</b> ${Number(data.speed || 0).toFixed(1)} km/h<br>
                      <b>Coordenadas:</b> ${Number(data.lat).toFixed(6)} / ${Number(data.lon).toFixed(6)}<br>
                      <b>Hora:</b> ${ts.toLocaleString('es-EC')}`;
