@@ -83,7 +83,6 @@ def login():
             with _login_lock:
                 _login_attempts.pop(client_ip, None)
             session.clear()
-            session.regenerate()
             session["user"] = user.username
             session["role"] = user.role.lower()
             session.permanent = True
