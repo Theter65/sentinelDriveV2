@@ -400,7 +400,7 @@
                             <td class="text-center">{{ row.total_maintenances }}</td>
                             <td class="text-center">
                                 {% if row.ultimo_mantenimiento %}
-                                    {{ row.ultimo_mantenimiento.strftime('%d/%m/%Y %H:%M') }}
+                                    {{ row.ultimo_mantenimiento|ecuador_time('%d/%m/%Y %H:%M') }}
                                 {% else %}
                                     -
                                 {% endif %}
