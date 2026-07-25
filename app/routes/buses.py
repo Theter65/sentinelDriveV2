@@ -14,6 +14,7 @@ from app.extensions import db
 from app.models.bus import Bus
 from app.models.event import Event
 from app.models.location import Location
+from app.models.maintenance import Maintenance
 from app.utils.csv_export import csv_response
 from app.utils.logging import get_logger
 
@@ -110,8 +111,11 @@ def delete_bus(bus_id):
     """Eliminar un bus y toda su informacion asociada."""
     bus = Bus.query.get_or_404(bus_id)
     plate = bus.plate
-    db.session.delete(bus)
     try:
+        # Eliminar registros dependientes antes de borrar el bus
+        Location.query.filter_by(bus_id=bus_id).delete(synchronize_session=False)
+        Maintenance.query.filter_by(bus_id=bus_id).delete(synchronize_session=False)
+        db.session.delete(bus)
         db.session.commit()
     except Exception:
         db.session.rollback()
