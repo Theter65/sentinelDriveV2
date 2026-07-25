@@ -83,7 +83,13 @@ def api_event_updates():
             }
         )
 
-    return jsonify({"latest_id": latest_id, "events": payload})
+    # IDs validos de los ultimos 200 eventos (para que el frontend elimine los borrados)
+    valid_ids = [
+        row[0]
+        for row in db.session.query(Event.id).order_by(Event.id.desc()).limit(200).all()
+    ]
+
+    return jsonify({"latest_id": latest_id, "events": payload, "valid_ids": valid_ids})
 
 
 @events_bp.route("/api/events/count")

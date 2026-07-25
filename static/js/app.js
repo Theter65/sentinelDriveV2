@@ -560,6 +560,19 @@ async function pollEventNotifications() {
       setStoredInt(lastPolledKey, latestId);
       return;
     }
+
+    // Eliminar del frontend eventos que ya no existen en BD
+    const validIds = Array.isArray(payload.valid_ids) ? new Set(payload.valid_ids.map(String)) : null;
+    if (validIds !== null && validIds.size > 0) {
+      const before = notificationItems.length;
+      notificationItems = notificationItems.filter((n) => validIds.has(String(n.id)));
+      if (notificationItems.length !== before) {
+        saveNotificationState();
+        renderNotificationCenter();
+        updateNotificationBadge();
+      }
+    }
+
     const events = Array.isArray(payload.events) ? payload.events : [];
     if (!events.length) return;
 
