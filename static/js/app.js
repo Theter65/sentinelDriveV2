@@ -161,7 +161,7 @@ const NOTIFICATION_ITEMS_KEY_PREFIX = "sd_notification_items";
 const NOTIFICATION_READ_KEY_PREFIX = "sd_notification_read_ids";
 const EVENTS_LAST_POLLED_KEY_PREFIX = "sd_last_event_id";
 const EVENTS_LAST_SEEN_KEY_PREFIX = "sd_events_seen_last_id";
-const DASHBOARD_FLOATING_TOASTS_KEY_PREFIX = "sd_dashboard_floating_toasts";
+const FLOATING_TOASTS_KEY_PREFIX = "sd_floating_toasts";
 const MAX_STORED_NOTIFICATIONS = 60;
 let notificationItems = [];
 let notificationReadIds = new Set();
@@ -175,12 +175,10 @@ function scopedStorageKey(prefix) {
   return `${prefix}::${currentUsername()}`;
 }
 
-function isDashboardPage() {
-  return (window.location.pathname || "") === "/dashboard";
-}
+
 
 function floatingToastsEnabled() {
-  const key = scopedStorageKey(DASHBOARD_FLOATING_TOASTS_KEY_PREFIX);
+  const key = scopedStorageKey(FLOATING_TOASTS_KEY_PREFIX);
   try {
     const raw = localStorage.getItem(key);
     if (raw === null) return true;
@@ -191,7 +189,7 @@ function floatingToastsEnabled() {
 }
 
 function setFloatingToastsEnabled(enabled) {
-  const key = scopedStorageKey(DASHBOARD_FLOATING_TOASTS_KEY_PREFIX);
+  const key = scopedStorageKey(FLOATING_TOASTS_KEY_PREFIX);
   try {
     localStorage.setItem(key, enabled ? "1" : "0");
   } catch {
@@ -200,7 +198,6 @@ function setFloatingToastsEnabled(enabled) {
 }
 
 function shouldShowFloatingToast() {
-  if (!isDashboardPage()) return true;
   return floatingToastsEnabled();
 }
 
@@ -534,8 +531,8 @@ function showToast(title, body, variant) {
   el.addEventListener("hidden.bs.toast", () => el.remove());
 }
 
-function initDashboardToastPreference() {
-  const toggle = $("dashboardToastToggle");
+function initFloatingToastPreference() {
+  const toggle = $("floatingToastToggle");
   if (!toggle) return;
   toggle.checked = floatingToastsEnabled();
   toggle.addEventListener("change", () => {
@@ -690,7 +687,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initBootstrapPopovers,
     initModalLayering,
     initNotificationCenter,
-    initDashboardToastPreference,
+    initFloatingToastPreference,
     initEventNotifications,
   ].forEach((initializer) => {
     try {
