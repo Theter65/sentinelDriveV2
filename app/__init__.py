@@ -12,7 +12,7 @@ from pathlib import Path
 from werkzeug.middleware.proxy_fix import ProxyFix
 from .config import Config
 from .extensions import db, csrf
-from .models.init_data import ensure_database_indexes
+from .models.init_data import ensure_database_indexes, ensure_database_schema
 from .models.system_setting import SystemSetting  # noqa: F401
 from .utils.logging import get_logger
 from .utils.time import ECUADOR_TZ, ecuador_now
@@ -102,6 +102,9 @@ def create_app(config_class=Config):
     db.init_app(app)
     csrf.init_app(app)
 
+    # Importa todos los modelos para que SQLAlchemy tenga el metadata completo.
+    from . import models as _models  # noqa: F401
+
     @app.template_filter("ecuador_time")
     def _ecuador_time_filter(dt, fmt="%Y-%m-%d %H:%M:%S"):
         if dt is None:
@@ -146,7 +149,7 @@ def create_app(config_class=Config):
 
     # Crear tablas (sin datos iniciales)
     with app.app_context():
-        db.create_all()
+        ensure_database_schema()
         ensure_database_indexes()
         logger.info("Base de datos inicializada/verificada")
 

@@ -9,6 +9,10 @@
 
 from datetime import datetime
 
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.extensions import db
+from app.models.init_data import ensure_database_schema
 from app.models.system_setting import SystemSetting
 from app.models.user import User
 from app.utils.time import ECUADOR_TZ, ecuador_now
@@ -30,7 +34,17 @@ MQTT_STATUS_LABELS = {
 
 def has_admin_user() -> bool:
     """Indica si la plataforma ya tiene administrador inicial."""
-    return User.query.filter_by(role="admin").count() > 0
+    if not ensure_database_schema():
+        return False
+
+    try:
+        return User.query.filter_by(role="admin").count() > 0
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        logger.warning("No se pudo validar la existencia del admin; reintentando recrear esquema: %s", exc)
+        if not ensure_database_schema():
+            return False
+        return User.query.filter_by(role="admin").count() > 0
 
 
 def _safe_int(value, default: int) -> int:
