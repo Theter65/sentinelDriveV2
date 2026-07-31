@@ -33,15 +33,24 @@ LOGIN_WINDOW_SECONDS = 300  # 5 minutos
 
 def _setup_form_state() -> dict:
     mqtt_defaults = get_mqtt_form_defaults(current_app.config)
+    mqtt_connection_ready = bool(
+        mqtt_defaults["mqtt_broker"]
+        and mqtt_defaults["mqtt_port"]
+        and mqtt_defaults["mqtt_topic_gps"]
+        and mqtt_defaults["mqtt_topic_event"]
+    )
+    mqtt_credentials_only = mqtt_connection_ready and not mqtt_defaults["mqtt_password_available"]
     return {
         "admin_username": (request.form.get("admin_username") or "").strip() or "admin",
-        "configure_mqtt_now": request.form.get("configure_mqtt_now") == "on",
+        "configure_mqtt_now": request.form.get("configure_mqtt_now") == "on" or mqtt_credentials_only,
         "mqtt_broker": (request.form.get("mqtt_broker") or str(mqtt_defaults["mqtt_broker"])).strip(),
         "mqtt_port": (request.form.get("mqtt_port") or str(mqtt_defaults["mqtt_port"])).strip(),
         "mqtt_username": (request.form.get("mqtt_username") or str(mqtt_defaults["mqtt_username"])).strip(),
         "mqtt_topic_gps": (request.form.get("mqtt_topic_gps") or str(mqtt_defaults["mqtt_topic_gps"])).strip(),
         "mqtt_topic_event": (request.form.get("mqtt_topic_event") or str(mqtt_defaults["mqtt_topic_event"])).strip(),
         "mqtt_password_saved": bool(mqtt_defaults["mqtt_password_saved"]),
+        "mqtt_connection_ready": mqtt_connection_ready,
+        "mqtt_credentials_only": mqtt_credentials_only,
     }
 
 
@@ -108,14 +117,15 @@ def login():
 @auth_bp.route("/setup", methods=["GET", "POST"])
 def initial_setup():
     """Wizard de primera configuracion para crear el administrador inicial."""
-    form_state = _setup_form_state()
-
     if not ensure_database_schema():
+        form_state = _setup_form_state()
         return render_template(
             "setup.html",
             error="No se pudo preparar la base de datos. Revisa la conexion con el servidor e intenta nuevamente.",
             form_data=form_state,
         )
+
+    form_state = _setup_form_state()
 
     if has_admin_user():
         if "user" in session:

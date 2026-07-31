@@ -2670,3 +2670,16 @@ html[data-theme="glass-dark"] .reports-page h5 {
     padding: 0.58rem 0.78rem;
   }
 }
+
+/* Bootstrap grid inside glass cards: prevent glass position/z-index from breaking .row layout */
+html[data-theme="glass-dark"] .card > .row,
+html[data-theme="glass-light"] .card > .row {
+  position: static !important;
+  z-index: auto !important;
+}
+
+html[data-theme="glass-dark"] .card > .row > *,
+html[data-theme="glass-light"] .card > .row > * {
+  position: relative;
+  z-index: 1;
+}
