@@ -34,7 +34,6 @@ skills-lock.json
 *.log
 
 # Archivos locales sensibles o de mantenimiento
-simulator.py
 MANUAL_MANTENIMIENTO_PLATAFORMA.md
 MANUAL_MANTENIMIENTO_PLATAFORMA.docx
 MANUAL_MANTENIMIENTO_PLATAFORMA.pdf
