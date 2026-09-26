@@ -23,6 +23,7 @@
     </script>
     <title>SENTNLDRIVE - {% block title %}{% endblock %}</title>
     <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <link rel="preload" as="image" href="{{ url_for('static', filename='img/logo.webp') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -38,9 +39,9 @@
     data-current-user="{{ session.get('user') or 'guest' }}"
 >
 <div class="ambient-bg" aria-hidden="true">
-    <span style="--bg-image: url('{{ url_for('static', filename='img/bus1.jpg') }}')"></span>
-    <span style="--bg-image: url('{{ url_for('static', filename='img/bus2.jpg') }}')"></span>
-    <span style="--bg-image: url('{{ url_for('static', filename='img/bus3.jpg') }}')"></span>
+    <span style="--bg-image: url('{{ url_for('static', filename='img/bus1.webp') }}')"></span>
+    <span style="--bg-image: url('{{ url_for('static', filename='img/bus2.webp') }}')"></span>
+    <span style="--bg-image: url('{{ url_for('static', filename='img/bus3.webp') }}')"></span>
 </div>
 <header class="site-header">
     <div class="top-bar">
@@ -105,7 +106,7 @@
     <nav class="navbar navbar-expand-lg app-navbar">
         <div class="container-fluid px-4 px-lg-5">
             <a class="navbar-brand app-brand" href="{{ url_for('dashboard.dashboard') }}">
-                <img class="brand-mark navbar-logo" src="{{ url_for('static', filename='img/logo.png') }}" alt="SENTNLDRIVE">
+                <img class="brand-mark navbar-logo" src="{{ url_for('static', filename='img/logo.webp') }}" alt="SENTNLDRIVE">
                 <span class="brand-text">SENTNLDRIVE</span>
             </a>
 

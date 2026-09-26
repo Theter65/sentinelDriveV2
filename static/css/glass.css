@@ -514,9 +514,7 @@ html[data-theme="glass-dark"] .site-footer {
   background-image: var(--bg-image);
   background-size: cover;
   background-position: center;
-  filter: blur(1.2px) saturate(0.74) contrast(0.92);
-  transform: scale(1.04);
-  animation: ambientImageFade 36s linear infinite;
+  animation: ambientImageFade 24s linear infinite;
 }
 
 .ambient-bg span:nth-child(2) {
@@ -552,11 +550,9 @@ html[data-theme="glass-dark"] .site-footer {
 @keyframes ambientImageFade {
   0%, 28%, 100% {
     opacity: 0;
-    transform: scale(1.04);
   }
   6%, 26% {
     opacity: 0.22;
-    transform: scale(1.09) translate3d(-0.6%, -0.4%, 0);
   }
 }
 
@@ -2347,11 +2343,9 @@ html[data-theme="glass-light"] .table thead th {
 @keyframes ambientImageFadeLight {
   0%, 28%, 100% {
     opacity: 0.08;
-    transform: scale(1.03);
   }
   6%, 26% {
     opacity: 0.34;
-    transform: scale(1.08) translate3d(-0.4%, -0.3%, 0);
   }
 }
 
@@ -2372,8 +2366,8 @@ html[data-theme="glass-light"] .ambient-bg::after {
 }
 
 html[data-theme="glass-light"] .ambient-bg span {
-  filter: blur(0.8px) saturate(0.82) contrast(0.96) !important;
-  animation: ambientImageFadeLight 36s linear infinite !important;
+  filter: none !important;
+  animation: ambientImageFadeLight 24s linear infinite !important;
 }
 
 @media (max-width: 991.98px), (hover: none) and (pointer: coarse) {

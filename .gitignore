@@ -43,3 +43,17 @@ MANUAL_MANTENIMIENTO_PLATAFORMA.pdf
 *.key
 *.crt
 *.cert
+
+# Android & Gradle (SentinlDriveAppAndroid)
+.gradle/
+.kotlin/
+build/
+*/build/
+.idea/
+local.properties
+*.logcat
+*.apk
+*.aab
+*.keystore
+*.jks
+

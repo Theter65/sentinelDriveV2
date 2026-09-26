@@ -1,0 +1,4 @@
+interface:
+  display_name: "SentinlDrive Android Telemetry"
+  short_description: "Guia para mantener telemetria Android MQTT en SentinlDrive."
+  default_prompt: "Usa $sentinldrive-android-telemetry para continuar el desarrollo y validacion de la app Android de SentinlDrive."
