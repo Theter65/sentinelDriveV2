@@ -95,10 +95,10 @@
 // ─────────────────────────────────────────────────────────────────
 const char* WIFI_SSID   = "Sent";
 const char* WIFI_PASS   = "12345678";
-const char* MQTT_BROKER = "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud";
+const char* MQTT_BROKER = "***********************.s1.eu.hivemq.cloud";
 const int   MQTT_PORT   = 8883;
-const char* MQTT_USER   = "CajaN3gr4";
-const char* MQTT_PASS   = "Proyecto12";
+const char* MQTT_USER   = "**********";
+const char* MQTT_PASS   = "***********";
 const char* BASE_TOPIC  = "flota/ecuador/buses";
 const int   DEVICE_ID   = 1;
 
