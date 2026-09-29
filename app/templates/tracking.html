@@ -83,6 +83,7 @@
 <script>
     const map = L.map('map').setView([-4.000, -79.200], 12);
     const MAP_MODE_STORAGE_KEY = `sd_tracking_map_mode::${document.body?.dataset?.currentUser || 'guest'}`;
+    const DEFAULT_MAP_MODE = 'light';
     const darkMapLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
         maxZoom: 19,
@@ -149,11 +150,9 @@
         applyMapMode(selectedMode);
     });
 
-    const initialTheme = document.documentElement.getAttribute('data-theme') || 'glass-dark';
-    applyMapMode(readStoredMapMode() || modeFromTheme(initialTheme));
-    document.addEventListener('sentinldrive:themechange', (event) => {
-        const storedMode = readStoredMapMode();
-        applyMapMode(storedMode || modeFromTheme(event?.detail?.theme || document.documentElement.getAttribute('data-theme') || 'glass-dark'));
+    applyMapMode(readStoredMapMode() || DEFAULT_MAP_MODE);
+    document.addEventListener('sentinldrive:themechange', () => {
+        applyMapMode(readStoredMapMode() || DEFAULT_MAP_MODE);
     });
 
     const selectedEvent = {{ selected_event|tojson }};
