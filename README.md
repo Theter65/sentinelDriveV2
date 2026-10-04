@@ -1,10 +1,10 @@
-# SentinelDrive
+# SENTNLDRIVE
 
 Sistema de monitoreo y gestión de flotas vehiculares con detección de eventos de riesgo en tiempo real.
 
 ## Descripción
 
-SentinelDrive es una aplicación web desarrollada como proyecto de tesis para la **Universidad Nacional de Loja**. El sistema permite la gestión integral de flotas de transporte mediante:
+SENTNLDRIVE es una aplicación web desarrollada como proyecto de tesis para la **Universidad Nacional de Loja**. El sistema permite la gestión integral de flotas de transporte mediante:
 
 - Recepción de telemetría GPS y eventos de riesgo desde dispositivos ESP32 y aplicación móvil de validación Android vía MQTT (TLS)
 - Detección en tiempo real de exceso de velocidad, frenado brusco y curva peligrosa
@@ -89,9 +89,9 @@ Loja, Ecuador
 
 ## Aplicación Móvil de Validación (Android)
  
-Ubicada en `SentinlDriveAppAndroid/`, esta aplicación nativa actúa como gemelo digital del dispositivo físico para validación y pruebas de campo en vehículos reales:
+El proyecto Android activo se encuentra en `C:\Users\TheterAlien\AndroidStudioProjects\SentinlDrive`. La carpeta `SentinlDriveAppAndroid/` de este repositorio contiene una copia anterior; en ella se actualizó el nombre visible. Para los cambios actuales de sensores y eventos, compilar el proyecto activo.
  
-- **Lectura de Sensores:** Adquisición de acelerómetro y giroscopio del smartphone a alta frecuencia con filtro **Madgwick AHRS** para desacoplar la gravedad y obtener aceleraciones lineales (`linX`, `linY`, `linZ`) y ángulos pitch/roll.
+- **Lectura de Sensores:** En el proyecto activo, las señales actuales y los eventos utilizan la aceleración lineal nativa de Android (`TYPE_LINEAR_ACCELERATION`), conservando los ejes físicos del celular. **Madgwick AHRS** se utiliza para la visualización 3D y la comparación del IMU.
 - **Detección Cinemática de Eventos:** Réplica idéntica de los algoritmos de ventana deslizante del firmware ESP32 (frenadas bruscas, curvas peligrosas y excesos de velocidad sostenidos según normativa LOTTTSV).
 - **Conectividad MQTT con TLS:** Conexión segura `ssl://broker:8883` mediante Eclipse Paho MQTT y autenticación gestionada desde la interfaz.
 - **Resiliencia Offline:** Base de datos **Room** para encolar paquetes de telemetría y eventos si se pierde la cobertura celular, con reenvío automático al reconectar.
@@ -100,11 +100,11 @@ Ubicada en `SentinlDriveAppAndroid/`, esta aplicación nativa actúa como gemelo
 
 ### Compilación de la App Android
  
-1. Abrir la carpeta `SentinlDriveAppAndroid` en **Android Studio**.
+1. Abrir `C:\Users\TheterAlien\AndroidStudioProjects\SentinlDrive` en **Android Studio** para compilar la versión actual.
 2. Esperar a que Gradle sincronice las dependencias.
 3. Compilar y desplegar en dispositivo físico o emulador:
    ```bash
-   cd SentinlDriveAppAndroid
+   cd C:/Users/TheterAlien/AndroidStudioProjects/SentinlDrive
    ./gradlew assembleDebug
    ```
 

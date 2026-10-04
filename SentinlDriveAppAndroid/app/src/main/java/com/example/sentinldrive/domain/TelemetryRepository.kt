@@ -1,4 +1,4 @@
-﻿package com.example.sentinldrive.domain
+package com.example.sentinldrive.domain
 
 import android.net.Uri
 import android.util.Log
@@ -492,7 +492,7 @@ class TelemetryRepository(
     }
 
     companion object {
-        private const val TAG = "SentinlDrive-Repo"
+        private const val TAG = "SENTNLDRIVE-Repo"
         private const val FLUSH_BATCH_SIZE = 250
         private const val MAX_FLUSH_BATCHES_PER_RUN = 20
         private const val SENSOR_POLL_INTERVAL_MS = 10L

@@ -16,7 +16,7 @@ logging.basicConfig(
     format='%(asctime)s | %(levelname)-7s | %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-logger = logging.getLogger("SentinelDrive-Simulator")
+logger = logging.getLogger("SENTNLDRIVE-Simulator")
 
 # Carga variables de entorno locales para no dejar credenciales en el codigo.
 load_dotenv()
@@ -227,7 +227,7 @@ for bus_index in range(FLEET_SIZE):
 
 # Mensaje de bienvenida para confirmar parametros de simulacion.
 print("\n" + "="*45)
-print("   SIMULADOR SENTINELDRIVE   |   MQTT IoT")
+print("   SIMULADOR SENTNLDRIVE   |   MQTT IoT")
 print(f"   Flota: {FLEET_SIZE} buses")
 print(f"   GPS cada {GPS_INTERVAL}s    |   Eventos cada 5-10 min por bus")
 print(f"   Limite velocidad: {SPEED_LIMIT:.0f} km/h")

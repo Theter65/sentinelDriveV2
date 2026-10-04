@@ -78,6 +78,6 @@ class GpsLogger(private val context: Context) {
     }
 
     companion object {
-        private const val TAG = "SentinlDrive-GpsLog"
+        private const val TAG = "SENTNLDRIVE-GpsLog"
     }
 }

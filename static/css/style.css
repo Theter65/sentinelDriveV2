@@ -1,5 +1,25 @@
 /* Estilos base de layout, navegacion, tablas, formularios y vistas principales. */
 
+.sentnldrive-wordmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  max-width: 100%;
+  color: var(--text-primary, #fff);
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.sentnldrive-wordmark img {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  object-fit: contain;
+}
+
 /* =============================================================================
    SENTNLDRIVE - Dark Minimal Theme (Ecuador Fleet)
    Colors (strict):

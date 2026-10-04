@@ -1,4 +1,4 @@
-﻿package com.example.sentinldrive
+package com.example.sentinldrive
 
 import android.Manifest
 import android.net.Uri
@@ -191,7 +191,7 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 Image(
                                     painter = painterResource(id = R.drawable.sentinl_logo),
-                                    contentDescription = "Logo SentinlDrive",
+                                    contentDescription = "Logo SENTNLDRIVE",
                                     modifier = Modifier
                                         .size(38.dp)
                                         .clip(CircleShape),
@@ -199,7 +199,7 @@ class MainActivity : ComponentActivity() {
                                 )
                                 Column {
                                     Text(
-                                        "SENTINLDRIVE",
+                                        "SENTNLDRIVE",
                                         color = Color(0xFFF3F8F6),
                                         fontWeight = FontWeight.Bold,
                                     )

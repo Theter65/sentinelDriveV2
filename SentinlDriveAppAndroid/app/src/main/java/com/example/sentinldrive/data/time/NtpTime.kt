@@ -77,7 +77,7 @@ object NtpTime {
         return millis
     }
 
-    private const val TAG = "SentinlDrive-Ntp"
+    private const val TAG = "SENTNLDRIVE-Ntp"
     private const val NTP_HOST = "pool.ntp.org"
     private const val NTP_PORT = 123
     private const val NTP_EPOCH_S = 2208988800L

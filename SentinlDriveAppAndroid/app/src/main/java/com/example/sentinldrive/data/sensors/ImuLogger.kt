@@ -88,6 +88,6 @@ class ImuLogger(private val context: Context) {
     }
 
     companion object {
-        private const val TAG = "SentinlDrive-ImuLog"
+        private const val TAG = "SENTNLDRIVE-ImuLog"
     }
 }

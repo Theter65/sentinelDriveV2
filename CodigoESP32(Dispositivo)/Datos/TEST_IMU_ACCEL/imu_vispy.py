@@ -1,18 +1,18 @@
-"""
-SENTNLDRIVE - IMU 3D Viewer (VisPy GPU)
-OpenGL real-time @ 100Hz - Ventana 10s - Labels & Stats
-"""
+"""SENTINELDRIVE IMU monitor: Matplotlib charts and a VisPy 3D viewer."""
 import sys, serial, serial.tools.list_ports, threading, time, collections, math
 import numpy as np
 from vispy import scene, app
 from vispy.visuals.transforms import MatrixTransform
 from PyQt5 import QtCore, QtWidgets, QtGui
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 BAUD, NCOLS, BUFFER = 115200, 28, 2000
-CR, CG, CB, CY = (0.91, 0.30, 0.24, 1), (0.18, 0.80, 0.44, 1), (0.20, 0.60, 0.86, 1), (0.95, 0.77, 0.06, 1)
+CR, CG, CB, CY = (220/255, 53/255, 69/255, 1), (197/255, 146/255, 0, 1), (40/255, 116/255, 199/255, 1), (0.95, 0.77, 0.06, 1)
 CC = (0.6, 0.6, 0.6, 1)
 BG = (0.059, 0.059, 0.137, 1)
 WINDOW_SEC = 10.0
+RAW_ACCEL_VECTOR_SCALE = 1.5
 PANEL_BG = "#15182b"
 PANEL_BORDER = "#2c3558"
 TEXT_MAIN = "#e8ecff"
@@ -23,16 +23,41 @@ TEXT_WARN = "#f59e0b"
 TEXT_BAD = "#ef4444"
 
 PLOT_CFG = [
-    {"title": "Aceleracion normal", "unit": "m/s2", "cols": (3, 4, 5), "names": ("ax", "ay", "az"), "ylim": (-15, 15), "yticks": (-10, 0, 10)},
-    {"title": "Gravedad COMP", "unit": "m/s2", "cols": (9, 10, 11), "names": ("gX", "gY", "gZ"), "ylim": (-12, 12), "yticks": (-9.81, 0, 9.81)},
-    {"title": "Acel. s/gravedad COMP", "unit": "m/s2", "cols": (6, 7, 8), "names": ("compX", "compY", "compZ"), "ylim": (-8, 8), "yticks": (-4, 0, 4)},
-    {"title": "Gravedad MADG", "unit": "m/s2", "cols": (15, 16, 17), "names": ("gX", "gY", "gZ"), "ylim": (-12, 12), "yticks": (-9.81, 0, 9.81)},
-    {"title": "Acel. s/gravedad MADG", "unit": "m/s2", "cols": (12, 13, 14), "names": ("madgX", "madgY", "madgZ"), "ylim": (-8, 8), "yticks": (-4, 0, 4)},
-    {"title": "Giroscopio", "unit": "deg/s", "cols": (18, 19, 20), "names": ("gx", "gy", "gz"), "ylim": (-50, 50), "yticks": (-50, 0, 50)},
-    {"title": "Pitch / Roll COMP", "unit": "deg", "cols": (24, 25), "names": ("Pitch", "Roll"), "ylim": (-60, 60), "yticks": (-50, 0, 50)},
-    {"title": "Pitch / Roll MADG", "unit": "deg", "cols": (26, 27), "names": ("Pitch", "Roll"), "ylim": (-60, 60), "yticks": (-50, 0, 50)},
+    {"title": "Aceleración RAW · sin filtrar", "unit": "m/s²", "cols": (0, 1, 2), "names": ("X · longitudinal · frente", "Y · transversal · izquierda", "Z · vertical · arriba"), "ylim": (-20, 20)},
+    {"title": "Aceleración filtrada · con gravedad", "unit": "m/s²", "cols": (3, 4, 5), "names": ("X · longitudinal · frente", "Y · transversal · izquierda", "Z · vertical · arriba"), "ylim": (-20, 20)},
+    {"title": "Gravedad · Complementario", "unit": "m/s²", "cols": (9, 10, 11), "names": ("X", "Y", "Z"), "ylim": (-12, 12)},
+    {"title": "Aceleración lineal · Complementario", "unit": "m/s²", "cols": (6, 7, 8), "names": ("X", "Y", "Z"), "ylim": (-10, 10)},
+    {"title": "Gravedad · Madgwick", "unit": "m/s²", "cols": (15, 16, 17), "names": ("X", "Y", "Z"), "ylim": (-12, 12)},
+    {"title": "Aceleración lineal · Madgwick", "unit": "m/s²", "cols": (12, 13, 14), "names": ("X", "Y", "Z"), "ylim": (-10, 10)},
+    {"title": "Giroscopio · RAW y filtrado", "unit": "°/s", "cols": (18, 19, 20, 21, 22, 23), "names": ("RAW X", "RAW Y", "RAW Z", "Filtrado X", "Filtrado Y", "Filtrado Z"), "ylim": (-100, 100)},
+    {"title": "Orientación · Complementario", "unit": "°", "cols": (24, 25), "names": ("Pitch", "Roll"), "ylim": (-90, 90)},
+    {"title": "Orientación · Madgwick", "unit": "°", "cols": (26, 27), "names": ("Pitch", "Roll"), "ylim": (-90, 90)},
+]
+CHART_COLORS = ["#dc3545", "#c59200", "#2874c7"]
+PLOT_GROUPS = [
+    ("Aceleración", (0, 1, 3, 5)),
+    ("Gravedad", (2, 4)),
+    ("Giroscopio", (6,)),
+    ("Orientación", (7, 8)),
 ]
 PLOT_COLORS = [CR, CG, CB]
+
+
+def demo_orientation_matrix(pitch_deg, roll_deg):
+    """Convert IMU angles to the VisPy scene convention for display only.
+
+    The IMU uses Z-down coordinates while the scene uses Z-up. This maps a
+    positive pitch to a rising +X front, and a positive roll to a rising -Y
+    side. The sensor and filter outputs themselves are not modified.
+    """
+    pitch = math.radians(-float(pitch_deg))
+    roll = math.radians(-float(roll_deg))
+    cp, sp = math.cos(pitch), math.sin(pitch)
+    cr, sr = math.cos(roll), math.sin(roll)
+    return np.array([
+        [cp, 0, sp, 0], [sr * sp, cr, -sr * cp, 0],
+        [-cr * sp, sr, cr * cp, 0], [0, 0, 0, 1]
+    ], dtype=np.float32)
 
 
 class SerialReader:
@@ -56,8 +81,9 @@ class SerialReader:
     def connect(self, port):
         self.disconnect()
         try:
-            self._s = serial.Serial(port, BAUD, timeout=1, exclusive=True)
-            time.sleep(2)
+            # Keep connection setup responsive; boot text is ignored by _rd
+            # until valid CSV samples arrive.
+            self._s = serial.Serial(port, BAUD, timeout=0.1, exclusive=True)
             self._s.reset_input_buffer()
             self._s.reset_output_buffer()
             self._stop.clear()
@@ -145,25 +171,27 @@ class SerialReader:
                     errs += 1
         self.on = False
 
-    def get_data(self):
+    def get_data(self, since_frame=-1):
         with self._lk:
-            if not self.buf:
-                return None, None, self.last
+            frame_count = self.frame_count
+            fps = self.fps
+            if not self.buf or frame_count == since_frame:
+                return None, None, self.last, frame_count, fps
             vals = list(self.buf)
             ts = list(self.tbuf)
             last = self.last
-        return vals, ts, last
+        return vals, ts, last, frame_count, fps
 
 
 class Viewer3D(QtWidgets.QMainWindow):
-    """Ventana con las dos cajas 3D (COMP y MADG) + panel de metricas debajo."""
+    """Ventana de modelos cúbicos (COMP y MADG) con métricas de señales."""
 
     def __init__(self, reader):
         super().__init__()
         self.R = reader
         self.metric_labels = {}
-        self.setWindowTitle("SENTNLDRIVE - 3D + Metricas")
-        self.resize(1100, 680)
+        self.setWindowTitle("SENTINELDRIVE | VisPy 3D · Demo corregida")
+        self.resize(1320, 900)
         self.setStyleSheet("""
             QMainWindow {background: #0f0f23;}
             QFrame#StatsCard {
@@ -179,6 +207,19 @@ class Viewer3D(QtWidgets.QMainWindow):
         lay.setContentsMargins(8, 8, 8, 8)
         lay.setSpacing(8)
 
+        controls = QtWidgets.QHBoxLayout()
+        controls.addWidget(QtWidgets.QLabel("+X longitudinal al frente · +Y transversal a la izquierda · +Z vertical hacia arriba"))
+        controls.addStretch(1)
+        self.reset_view_button = QtWidgets.QPushButton("Restablecer vista")
+        self.reset_view_button.setToolTip("Recuperar el ángulo y el zoom iniciales")
+        self.reset_view_button.setStyleSheet("background:#16834f; color:white; padding:8px 14px; border:0; border-radius:6px; font-weight:700;")
+        controls.addWidget(self.reset_view_button)
+        self.auto_rotate_button = QtWidgets.QPushButton("Rotación automática")
+        self.auto_rotate_button.setCheckable(True)
+        self.auto_rotate_button.setStyleSheet("background:#315f49; color:white; padding:8px 14px; border:0; border-radius:6px; font-weight:700;")
+        controls.addWidget(self.auto_rotate_button)
+        lay.addLayout(controls)
+
         # --- Canvas con vistas 3D ---
         self.canvas = scene.SceneCanvas(keys="interactive", bgcolor=BG)
         self.canvas.native.setMinimumHeight(360)
@@ -189,20 +230,26 @@ class Viewer3D(QtWidgets.QMainWindow):
         self.v3_comp = g.add_view(row=0, col=0)
         self.v3_comp.camera = "turntable"
         self.v3_comp.camera.fov = 32
-        self.v3_comp.camera.distance = 55
+        self.v3_comp.camera.distance = 32
         self.v3_comp.camera.elevation = 20
         self.v3_comp.camera.azimuth = -45
         self.v3_comp.border_color = (0.2, 0.7, 0.2, 0.6)
-        self.rot_comp = self._setup_3d(self.v3_comp, (0.15, 0.8, 0.15, 0.35))
+        self.rot_comp, self.accel_comp = self._setup_3d(self.v3_comp, (0.15, 0.8, 0.15, 0.35))
 
         self.v3_madg = g.add_view(row=0, col=1)
         self.v3_madg.camera = "turntable"
         self.v3_madg.camera.fov = 32
-        self.v3_madg.camera.distance = 55
+        self.v3_madg.camera.distance = 32
         self.v3_madg.camera.elevation = 20
         self.v3_madg.camera.azimuth = -45
         self.v3_madg.border_color = (0.2, 0.4, 0.8, 0.6)
-        self.rot_madg = self._setup_3d(self.v3_madg, (0.15, 0.5, 1.0, 0.35))
+        self.rot_madg, self.accel_madg = self._setup_3d(self.v3_madg, (0.15, 0.5, 1.0, 0.35))
+
+        self.reset_view_button.clicked.connect(self.reset_cameras)
+        self._spin_timer = QtCore.QTimer(self)
+        self._spin_timer.setInterval(33)
+        self._spin_timer.timeout.connect(self._spin_cameras)
+        self.auto_rotate_button.toggled.connect(self._toggle_auto_rotate)
 
         label_comp = scene.widgets.Label("COMPLEMENTARY", color=(0.6, 1.0, 0.6, 1), font_size=11)
         label_comp.stretch = (1, 0.12)
@@ -221,7 +268,7 @@ class Viewer3D(QtWidgets.QMainWindow):
         stats_head = QtWidgets.QHBoxLayout()
         stats_title = QtWidgets.QLabel("Resumen de señales")
         stats_title.setStyleSheet("color: #f4f7ff; font-size: 14px; font-weight: 700;")
-        stats_hint = QtWidgets.QLabel("28 col: RAW | Filt | LinCOMP | GravCOMP | LinMADG | GravMADG | GyroRAW | GyroFilt | COMP_PR | MADG_PR")
+        stats_hint = QtWidgets.QLabel("Aceleración RAW en amarillo · Valores instantáneos por eje")
         stats_hint.setStyleSheet("color: #8f9cc7; font-size: 11px;")
         stats_head.addWidget(stats_title)
         stats_head.addStretch(1)
@@ -275,8 +322,34 @@ class Viewer3D(QtWidgets.QMainWindow):
         stats_layout.addLayout(grid)
         lay.addWidget(stats_card, 1)
 
+    def closeEvent(self, event):
+        self._spin_timer.stop()
+        self.auto_rotate_button.blockSignals(True)
+        self.auto_rotate_button.setChecked(False)
+        self.auto_rotate_button.setText("Rotación automática")
+        self.auto_rotate_button.blockSignals(False)
+        super().closeEvent(event)
+
     def _fmt(self, value):
         return f"{value:+.3f}"
+
+    def reset_cameras(self):
+        for view in (self.v3_comp, self.v3_madg):
+            view.camera.azimuth = -45
+            view.camera.elevation = 20
+            view.camera.distance = 32
+            view.camera.center = (0, 0, 0)
+
+    def _toggle_auto_rotate(self, enabled):
+        self.auto_rotate_button.setText("Pausar rotación" if enabled else "Rotación automática")
+        if enabled:
+            self._spin_timer.start()
+        else:
+            self._spin_timer.stop()
+
+    def _spin_cameras(self):
+        for view in (self.v3_comp, self.v3_madg):
+            view.camera.azimuth = (view.camera.azimuth + 0.6) % 360
 
     def update_metrics(self, last):
         """Called by IMUWindow._update() to refresh the metrics panel."""
@@ -300,7 +373,7 @@ class Viewer3D(QtWidgets.QMainWindow):
         self.metric_labels["madg_pr"]["Roll"].setText(f"{last[27]:+.3f}")
 
     def _setup_3d(self, parent_view, box_color):
-        l, w, h = 5, 10, 2
+        l = w = h = 3
         verts = np.array([
             [-l, -w, -h], [l, -w, -h], [l, w, -h], [-l, w, -h],
             [-l, -w, h], [l, -w, h], [l, w, h], [-l, w, h]
@@ -316,21 +389,53 @@ class Viewer3D(QtWidgets.QMainWindow):
         edg = np.array([[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4],
                         [0, 4], [1, 5], [2, 6], [3, 7]])
         ev = verts[edg].reshape(-1, 3)
-        scene.visuals.Line(pos=ev, color=edge_color, width=1, parent=parent_view.scene)
-
         rot = scene.Node(parent=parent_view.scene)
         box_mesh.parent = rot
         scene.visuals.Line(pos=ev, color=edge_color, width=1, parent=rot)
-        md = 10
-        for pts, cl, lb in [([0, 0, 0, md, 0, 0], CR, "X"), ([0, 0, 0, 0, md, 0], CG, "Y"),
-                            ([0, 0, 0, 0, 0, -md], CB, "Z")]:
+        md = 8
+        # VisPy usa Z hacia arriba; el Z positivo del IMU apunta hacia abajo,
+        # por eso su eje se dibuja hacia -Z en coordenadas de la escena.
+        for pts, cl, lb in [([0, 0, 0, md, 0, 0], CR, "X+ · LONGITUDINAL · FRENTE"), ([0, 0, 0, 0, md, 0], CG, "Y+ · TRANSVERSAL · IZQUIERDA"),
+                            ([0, 0, 0, 0, 0, -md], CB, "Z+ · VERTICAL · ARRIBA")]:
             pa = np.array(pts, dtype=np.float32).reshape(2, 3)
             scene.visuals.Line(pos=pa, color=cl, width=3, parent=rot)
             scene.visuals.Text(lb, pos=pa[1], color=cl, font_size=14, parent=rot)
+        scene.visuals.Text("FRENTE (+X)", pos=(md + 0.5, 0, 0), color=CR, font_size=14, parent=rot)
+        scene.visuals.Text("ATRÁS (−X)", pos=(-md - 0.5, 0, 0), color=CR, font_size=14, parent=rot)
         scene.visuals.Markers(pos=np.zeros((1, 3)), size=6, face_color=(1, 0.75, 0, 1),
                               parent=parent_view.scene)
         rot.transform = MatrixTransform()
-        return rot
+        # Vector de aceleración leída directamente del acelerómetro (columnas 0-2).
+        # Se dibuja en el marco del sensor y rota junto con la caja.
+        vector = scene.visuals.Line(
+            pos=np.array([[0, 0, 0], [0, 0, 0]], dtype=np.float32),
+            color=CY, width=4, parent=rot,
+        )
+        endpoint = scene.visuals.Markers(
+            pos=np.zeros((1, 3), dtype=np.float32), size=10,
+            face_color=CY, edge_color=(1, 1, 1, 0.9), parent=rot,
+        )
+        vector_label = scene.visuals.Text(
+            "Aceleración RAW", pos=(0, 0, 0), color=CY,
+            font_size=10, parent=rot,
+        )
+        return rot, (vector, endpoint, vector_label)
+
+    @staticmethod
+    def _update_accel_vector(visuals, values):
+        vector, endpoint, label = visuals
+        xyz = np.array(values, dtype=np.float32, copy=True)
+        # Llevar Z positivo hacia abajo del marco del sensor a la escena Z-up.
+        xyz[2] *= -1.0
+        magnitude = float(np.linalg.norm(xyz))
+        # Normalizar mantiene visible la dirección incluso durante impactos;
+        # la magnitud se muestra en la etiqueta para conservar la escala física.
+        length = min(magnitude * RAW_ACCEL_VECTOR_SCALE, 22.0)
+        tip = xyz / magnitude * length if magnitude > 1e-6 else np.zeros(3, dtype=np.float32)
+        vector.set_data(pos=np.array([[0, 0, 0], tip], dtype=np.float32))
+        endpoint.set_data(pos=tip.reshape(1, 3))
+        label.pos = tip + np.array([0.7, 0.7, 0.7], dtype=np.float32)
+        label.text = f"RAW {magnitude:.2f} m/s²"
 
 
 class IMUWindow(QtWidgets.QMainWindow):
@@ -339,10 +444,16 @@ class IMUWindow(QtWidgets.QMainWindow):
         self.R = SerialReader()
         self.live_labels = {}
         self.viewer3d = Viewer3D(self.R)
+        self._last_frame_seen = -1
+        self._latest_data = None
+        self._latest_times = None
+        self._latest_last = None
         self._setup_ui()
         self._timer = QtCore.QTimer()
         self._timer.timeout.connect(self._update)
-        self._timer.start(16)
+        # Serial commonly arrives at 20–200 Hz; repainting faster than 30 Hz
+        # does not add useful information and starves Qt/VisPy on slower PCs.
+        self._timer.start(33)
 
     def closeEvent(self, event):
         # Cerrar tambien la ventana 3D cuando se cierra la principal
@@ -350,196 +461,245 @@ class IMUWindow(QtWidgets.QMainWindow):
         super().closeEvent(event)
 
     def _setup_ui(self):
-        self.setWindowTitle("SENTNLDRIVE - IMU Viewer (VisPy OpenGL)")
-        self.resize(1900, 1000)
+        self.setWindowTitle("SENTINELDRIVE | Monitor de sensores IMU")
+        self.resize(1480, 940)
         self.setStyleSheet("""
-            QMainWindow {background: #0f0f23;}
-            QToolBar {
-                background: #14192d;
-                spacing: 6px;
-                padding: 6px;
-                border-bottom: 1px solid #2a2f4a;
-            }
-            QPushButton {
-                padding: 6px 14px;
-                border: none;
-                border-radius: 5px;
-                font-weight: 700;
-                color: white;
-            }
-            QComboBox {
-                background: #1a1f36;
-                color: #f1f5ff;
-                padding: 5px 10px;
-                border: 1px solid #2c3558;
-                border-radius: 4px;
-            }
-            QLabel {color: #aab3d1; font-size: 12px;}
-            QFrame#InfoCard, QFrame#StatsCard {
-                background: #15182b;
-                border: 1px solid #2c3558;
-                border-radius: 10px;
-            }
+            QMainWindow, QWidget {background:#f1f6f2; color:#19352a;}
+            QLabel {background:transparent; color:#456052; font-size:12px;}
+            QToolBar {background:#ffffff; spacing:8px; padding:9px 12px; border-bottom:1px solid #dbe7de;}
+            QPushButton {padding:8px 16px; border:0; border-radius:7px; font-weight:700; color:white;}
+            QComboBox {background:#f8fbf8; color:#19352a; padding:7px 10px; border:1px solid #cbdccf; border-radius:6px;}
+            QFrame#InfoCard {background:#ffffff; border:1px solid #dbe7de; border-radius:12px;}
+            QTabWidget::pane {background:#ffffff; border:1px solid #dbe7de; border-radius:10px; top:-1px;}
+            QTabBar::tab {background:#e7f0e9; color:#456052; min-width:110px; padding:10px 16px; margin-right:5px; border-top-left-radius:7px; border-top-right-radius:7px; font-weight:700;}
+            QTabBar::tab:selected {background:#19734b; color:#ffffff;}
+            QCheckBox {color:#28553e;}
         """)
-        tb = self.addToolBar("Control")
-        tb.setMovable(False)
-        tb.addWidget(QtWidgets.QLabel("  Puerto:"))
+        toolbar = self.addToolBar("Conexión y controles")
+        toolbar.setMovable(False)
+        toolbar.addWidget(QtWidgets.QLabel("  Puerto:"))
         self.cb_p = QtWidgets.QComboBox()
-        self.cb_p.setMinimumWidth(130)
-        tb.addWidget(self.cb_p)
+        self.cb_p.setMinimumWidth(125)
+        toolbar.addWidget(self.cb_p)
         self.b_ref = QtWidgets.QPushButton("Refrescar")
-        self.b_ref.setStyleSheet("background:#7f8c8d;")
-        tb.addWidget(self.b_ref)
+        self.b_ref.setStyleSheet("background:#64796c;")
+        toolbar.addWidget(self.b_ref)
         self.b_con = QtWidgets.QPushButton("Conectar")
-        self.b_con.setStyleSheet("background:#27ae60;")
-        tb.addWidget(self.b_con)
-        self.b_plot = QtWidgets.QPushButton("Start Plot")
-        self.b_plot.setStyleSheet("background:#2980b9;")
-        tb.addWidget(self.b_plot)
-        self.b_stop = QtWidgets.QPushButton("Stop")
-        self.b_stop.setStyleSheet("background:#8e44ad;")
-        tb.addWidget(self.b_stop)
+        self.b_con.setStyleSheet("background:#16834f;")
+        toolbar.addWidget(self.b_con)
+        self.b_plot = QtWidgets.QPushButton("Graficar")
+        self.b_plot.setStyleSheet("background:#2e8b57;")
+        toolbar.addWidget(self.b_plot)
+        self.b_stop = QtWidgets.QPushButton("Pausar")
+        self.b_stop.setStyleSheet("background:#a45d48;")
+        toolbar.addWidget(self.b_stop)
+        self.b_3d = QtWidgets.QPushButton("Vista 3D")
+        self.b_3d.setStyleSheet("background:#315f49;")
+        toolbar.addWidget(self.b_3d)
         self.lbl_s = QtWidgets.QLabel("  Desconectado")
-        tb.addWidget(self.lbl_s)
+        toolbar.addWidget(self.lbl_s)
 
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
-        lay = QtWidgets.QVBoxLayout(central)
-        lay.setContentsMargins(10, 10, 10, 10)
-        lay.setSpacing(10)
+        layout = QtWidgets.QVBoxLayout(central)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
 
         self.info_card = QtWidgets.QFrame()
         self.info_card.setObjectName("InfoCard")
         info_layout = QtWidgets.QHBoxLayout(self.info_card)
-        info_layout.setContentsMargins(16, 12, 16, 12)
-        info_layout.setSpacing(18)
-
+        info_layout.setContentsMargins(20, 16, 20, 16)
+        info_layout.setSpacing(24)
         title_box = QtWidgets.QVBoxLayout()
-        self.lbl_title = QtWidgets.QLabel("SENTNLDRIVE - IMU Viewer")
-        self.lbl_title.setStyleSheet("color: #f4f7ff; font-size: 18px; font-weight: 800;")
-        self.lbl_subtitle = QtWidgets.QLabel("VisPy + PyQt5 | tiempo real por serial")
-        self.lbl_subtitle.setStyleSheet("color: #93a0c7; font-size: 12px;")
+        self.lbl_title = QtWidgets.QLabel("SENTINELDRIVE")
+        self.lbl_title.setStyleSheet("color:#164b35; font-size:21px; font-weight:800;")
+        self.lbl_subtitle = QtWidgets.QLabel("Monitor de aceleración, orientación y giroscopio · tiempo real")
+        self.lbl_subtitle.setStyleSheet("color:#698174; font-size:12px;")
         title_box.addWidget(self.lbl_title)
         title_box.addWidget(self.lbl_subtitle)
         info_layout.addLayout(title_box, 2)
 
+        details = QtWidgets.QVBoxLayout()
         self.live_labels["connection"] = QtWidgets.QLabel("Desconectado")
-        self.live_labels["connection"].setStyleSheet(
-            "color: #f8fafc; background: #7f1d1d; padding: 5px 10px; border-radius: 10px; font-weight: 700;"
-        )
-        self.live_labels["angles"] = QtWidgets.QLabel("COMP P --.- R --.- | MADG P --.- R --.-")
-        self.live_labels["angles"].setStyleSheet("color: #dbe4ff; font-size: 13px; font-weight: 600;")
-        self.live_labels["perf"] = QtWidgets.QLabel("FPS -- | Frames -- | Buffer --")
-        self.live_labels["perf"].setStyleSheet("color: #a5b4fc; font-size: 12px;")
+        self.live_labels["connection"].setStyleSheet("color:#7d3b31; background:#f7e5df; padding:7px 12px; border-radius:9px; font-weight:800;")
+        self.live_labels["angles"] = QtWidgets.QLabel("COMPLEMENTARIO  Pitch --.-°  Roll --.-°   |   MADGWICK  Pitch --.-°  Roll --.-°")
+        self.live_labels["angles"].setStyleSheet("color:#1d5038; font-size:13px; font-weight:700;")
+        self.live_labels["perf"] = QtWidgets.QLabel("Entrada -- Hz  ·  Muestras --  ·  Buffer --  ·  Ventana 10 s")
+        self.live_labels["perf"].setStyleSheet("color:#718577; font-size:11px;")
+        details.addWidget(self.live_labels["connection"])
+        details.addWidget(self.live_labels["angles"])
+        details.addWidget(self.live_labels["perf"])
+        info_layout.addLayout(details, 3)
+        layout.addWidget(self.info_card)
 
-        meta_box = QtWidgets.QVBoxLayout()
-        meta_box.addWidget(self.live_labels["connection"])
-        meta_box.addWidget(self.live_labels["angles"])
-        meta_box.addWidget(self.live_labels["perf"])
-        info_layout.addLayout(meta_box, 2)
-        lay.addWidget(self.info_card)
+        heading = QtWidgets.QHBoxLayout()
+        heading_label = QtWidgets.QLabel("SEÑALES EN TIEMPO REAL")
+        heading_label.setStyleSheet("color:#28553e; font-size:12px; font-weight:800; letter-spacing:1px;")
+        heading.addWidget(heading_label)
+        heading.addStretch(1)
+        for label, color in (("X · longitudinal · frente", CHART_COLORS[0]), ("Y · transversal · izquierda", CHART_COLORS[1]), ("Z · vertical · arriba", CHART_COLORS[2])):
+            axis_key = QtWidgets.QLabel(f"●  {label}")
+            axis_key.setStyleSheet(f"color:{color}; font-size:11px; font-weight:700; padding:2px 8px;")
+            heading.addWidget(axis_key)
+        layout.addLayout(heading)
 
-        self.canvas = scene.SceneCanvas(keys="interactive", bgcolor=BG)
-        self.canvas.native.setMinimumHeight(760)
-        lay.addWidget(self.canvas.native, 1)
+        self.plot_tabs = QtWidgets.QTabWidget()
+        self.plot_tabs.setDocumentMode(True)
+        self.plot_tabs.setMovable(False)
+        self.plot_canvases = []
+        self.plot_artists = {}
+        self._plot_backgrounds = {}
+        self._last_plot_draw = 0.0
+        for tab_title, plot_indexes in PLOT_GROUPS:
+            page = QtWidgets.QWidget()
+            page_layout = QtWidgets.QVBoxLayout(page)
+            page_layout.setContentsMargins(14, 14, 14, 14)
+            count = len(plot_indexes)
+            rows, cols = (2, 2) if count > 2 else ((1, 2) if count == 2 else (1, 1))
+            figure = Figure(figsize=(12, 7), facecolor="#ffffff")
+            axes = figure.subplots(rows, cols, squeeze=False).ravel()
+            figure.subplots_adjust(left=0.075, right=0.985, top=0.93, bottom=0.105, hspace=0.40, wspace=0.24)
+            canvas = FigureCanvas(figure)
+            canvas.setMinimumHeight(590)
+            page_layout.addWidget(canvas)
+            self.plot_canvases.append(canvas)
 
-        g = self.canvas.central_widget.add_grid(spacing=10, margin=6)
+            for slot, plot_index in enumerate(plot_indexes):
+                cfg = PLOT_CFG[plot_index]
+                ax = axes[slot]
+                ax.set_facecolor("#fbfdfb")
+                ax.set_title(cfg["title"], loc="left", color="#184b35", fontsize=11, fontweight="bold", pad=13)
+                ax.set_ylabel(cfg["unit"], color="#496452", fontsize=9, labelpad=8)
+                ax.set_xlabel("Ventana reciente (s)", color="#496452", fontsize=9, labelpad=7)
+                ax.set_ylim(*cfg["ylim"])
+                ax.set_xlim(0, WINDOW_SEC)
+                ax.grid(True, color="#dce9df", linewidth=0.8)
+                ax.axhline(0, color="#94a89a", linewidth=0.9, alpha=0.8)
+                ax.tick_params(colors="#587263", labelsize=9, pad=4)
+                for spine in ax.spines.values():
+                    spine.set_color("#cadacf")
 
-        n_plots = len(PLOT_CFG)
-        PLOT_COLS = 2                                  # 2 columnas de graficas
-        plot_rows = math.ceil(n_plots / PLOT_COLS)     # -> 4 filas para 7 graficas
-
-        self.v2 = []
-        self.lns = []
-        self._zero_lines = []
-        self._ytick_lines = []
-        self.plot_headers = []
-        self.plot_axes = []
-
-        for i, cfg in enumerate(PLOT_CFG):
-            prow, pcol = divmod(i, PLOT_COLS)          # fila/columna dentro de la grilla 2x4 de graficas
-            sub = g.add_grid(row=prow, col=pcol, spacing=3, margin=2)
-            header = scene.widgets.Label(
-                f"{cfg['title']}  ({cfg['unit']})",
-                color=(0.95, 0.97, 1.0, 1),
-                font_size=11,
+                lines = []
+                for j, name in enumerate(cfg["names"]):
+                    color = CHART_COLORS[j % 3]
+                    filtered_gyro = cfg["title"].startswith("Giroscopio") and j >= 3
+                    line, = ax.plot([], [], color=color,
+                                    linestyle="--" if filtered_gyro else "-",
+                                    linewidth=1.8 if not filtered_gyro else 1.5,
+                                    alpha=0.76 if filtered_gyro else 1.0,
+                                    label=name)
+                    line.set_animated(True)
+                    lines.append(line)
+                ax.legend(loc="upper right", ncol=3 if len(lines) > 3 else len(lines),
+                          fontsize=8, frameon=True, facecolor="#ffffff", edgecolor="#dbe7de",
+                          framealpha=0.96, borderpad=0.6, handlelength=2.0)
+                self.plot_artists[plot_index] = (ax, lines, canvas)
+            for unused_axis in axes[count:]:
+                figure.delaxes(unused_axis)
+            self.plot_tabs.addTab(page, tab_title)
+            canvas.mpl_connect(
+                "draw_event",
+                lambda event, indexes=plot_indexes: self._cache_plot_backgrounds(event, indexes),
             )
-            header.stretch = (24, 0.6)                  # un poco mas de alto reservado para el titulo
-            sub.add_widget(header, row=0, col=0, col_span=2)
-            self.plot_headers.append(header)
-
-            left_axis = scene.widgets.AxisWidget(
-                orientation="left",
-                axis_color=(0.55, 0.62, 0.9, 1),
-                tick_color=(0.55, 0.62, 0.9, 1),
-                text_color=(0.9, 0.93, 1.0, 1),
-                axis_label="",
-                axis_font_size=9,
-                tick_font_size=9,
-                tick_label_margin=8,
-                axis_label_margin=0,
-                tick_width=1.4,
-                axis_width=2,
-            )
-            left_axis.stretch = (0.42, 20)
-            sub.add_widget(left_axis, row=1, col=0)
-
-            bottom_axis = scene.widgets.AxisWidget(
-                orientation="bottom",
-                axis_color=(0.55, 0.62, 0.9, 1),
-                tick_color=(0.55, 0.62, 0.9, 1),
-                text_color=(0.9, 0.93, 1.0, 1),
-                axis_label="t [s]",
-                axis_font_size=9,
-                tick_font_size=9,
-                tick_label_margin=6,
-                axis_label_margin=8,
-                tick_width=1.4,
-                axis_width=2,
-            )
-            bottom_axis.stretch = (24, 0.55)
-
-            vb = sub.add_view(row=1, col=1)
-            sub.add_widget(bottom_axis, row=2, col=1)
-            vb.stretch = (24, 20)
-            vb.camera = "panzoom"
-            ymin, ymax = cfg["ylim"]
-            vb.camera.rect = (0, ymin, 5, ymax - ymin)
-            vb.border_color = (0.3, 0.3, 0.5, 0.4)
-            self.v2.append(vb)
-            left_axis.link_view(vb)
-            bottom_axis.link_view(vb)
-            self.plot_axes.append((left_axis, bottom_axis))
-
-            nc = len(cfg["names"])
-            colors = PLOT_COLORS[:nc] if nc == 3 else [CR, CB]
-            ls = []
-            for j in range(nc):
-                ln = scene.visuals.Line(pos=np.zeros((1, 2)), color=colors[j], width=2.0, parent=vb.scene)
-                ls.append(ln)
-            self.lns.append(ls)
-
-            zero = scene.visuals.Line(
-                pos=np.array([[-100, 0], [200, 0]], dtype=np.float32),
-                color=(0.4, 0.4, 0.4, 0.5), width=1, parent=vb.scene)
-            self._zero_lines.append(zero)
-
-            tick_lines = []
-            for tick in cfg.get("yticks", ()):
-                line = scene.visuals.Line(
-                    pos=np.array([[-100, tick], [200, tick]], dtype=np.float32),
-                    color=(0.22, 0.24, 0.38, 0.45),
-                    width=1,
-                    parent=vb.scene,
-                )
-                tick_lines.append(line)
-            self._ytick_lines.append(tick_lines)
+        layout.addWidget(self.plot_tabs, 1)
 
         self.b_ref.clicked.connect(self._ref)
         self.b_con.clicked.connect(self._con)
         self.b_plot.clicked.connect(self._do_plot)
         self.b_stop.clicked.connect(lambda: self.R.send("pause"))
+        self.b_3d.clicked.connect(self._show_3d)
+        self.plot_tabs.currentChanged.connect(self._draw_active_plot)
         self._ref()
+
+    def _show_3d(self):
+        self.viewer3d.show()
+        self.viewer3d.raise_()
+        self.viewer3d.activateWindow()
+        if self._latest_last is not None:
+            self._update_3d(self._latest_last)
+
+    def _draw_active_plot(self, *_):
+        self._refresh_active_plot(force=True)
+
+    def _cache_plot_backgrounds(self, event, plot_indexes):
+        canvas = event.canvas
+        for plot_index in plot_indexes:
+            ax, lines, _canvas = self.plot_artists[plot_index]
+            self._plot_backgrounds[plot_index] = canvas.copy_from_bbox(ax.bbox)
+        QtCore.QTimer.singleShot(0, lambda indexes=plot_indexes: self._paint_plot_lines(indexes))
+
+    def _paint_plot_lines(self, plot_indexes):
+        active_indexes = PLOT_GROUPS[self.plot_tabs.currentIndex()][1]
+        if not all(index in active_indexes and index in self._plot_backgrounds for index in plot_indexes):
+            return
+        canvas = self.plot_canvases[self.plot_tabs.currentIndex()]
+        for plot_index in plot_indexes:
+            ax, lines, _canvas = self.plot_artists[plot_index]
+            canvas.restore_region(self._plot_backgrounds[plot_index])
+            for line in lines:
+                ax.draw_artist(line)
+        canvas.blit()
+
+    @staticmethod
+    def _decimate_for_display(x, values, max_points=600):
+        """Keep each channel's local minima and maxima within a point budget."""
+        count, channels = values.shape
+        if count <= max_points or channels == 0:
+            return x, values
+        target_bins = max(1, max_points // (2 * channels))
+        chunk = int(math.ceil(count / target_bins))
+        bins = int(math.ceil(count / chunk))
+        padded_count = bins * chunk
+        padded = np.full((padded_count, channels), np.nan, dtype=np.float32)
+        padded[:count] = values
+        blocks = padded.reshape(bins, chunk, channels)
+        low = np.nanargmin(blocks, axis=1)
+        high = np.nanargmax(blocks, axis=1)
+        offsets = np.arange(bins, dtype=np.int64)[:, None] * chunk
+        indices = np.unique(np.concatenate((
+            (offsets + low).ravel(), (offsets + high).ravel()
+        )))
+        indices = indices[indices < count]
+        return x[indices], values[indices]
+
+    def _refresh_active_plot(self, force=False):
+        if self._latest_data is None or self._latest_times is None:
+            return
+        now = time.monotonic()
+        if not force and now - self._last_plot_draw < 1 / 20:
+            return
+        active_indexes = PLOT_GROUPS[self.plot_tabs.currentIndex()][1]
+        for plot_index in active_indexes:
+            ax, lines, _canvas = self.plot_artists[plot_index]
+            cfg = PLOT_CFG[plot_index]
+            values = self._latest_data[:, cfg["cols"]]
+            x_plot, values_plot = self._decimate_for_display(self._latest_times, values)
+            for j, line in enumerate(lines):
+                line.set_data(x_plot, values_plot[:, j])
+        canvas = self.plot_canvases[self.plot_tabs.currentIndex()]
+        can_blit = canvas.supports_blit and all(
+            plot_index in self._plot_backgrounds for plot_index in active_indexes
+        )
+        if can_blit and not force:
+            for plot_index in active_indexes:
+                ax, lines, _canvas = self.plot_artists[plot_index]
+                canvas.restore_region(self._plot_backgrounds[plot_index])
+                for line in lines:
+                    ax.draw_artist(line)
+            canvas.blit()
+        else:
+            canvas.draw_idle()
+        self._last_plot_draw = now
+
+    def _update_3d(self, last):
+        p, r = last[24], last[25]
+        self.viewer3d.rot_comp.transform.matrix = demo_orientation_matrix(p, r)
+        self.viewer3d._update_accel_vector(self.viewer3d.accel_comp, last[0:3])
+        mp, mr = last[26], last[27]
+        self.viewer3d.rot_madg.transform.matrix = demo_orientation_matrix(mp, mr)
+        self.viewer3d._update_accel_vector(self.viewer3d.accel_madg, last[0:3])
+        self.viewer3d.update_metrics(last)
+        self.viewer3d.canvas.update()
 
     def _do_plot(self):
         self.R.send("plot")
@@ -572,119 +732,56 @@ class IMUWindow(QtWidgets.QMainWindow):
         if connected:
             self.live_labels["connection"].setText("Conectado")
             self.live_labels["connection"].setStyleSheet(
-                "color: #052e16; background: #86efac; padding: 5px 10px; border-radius: 10px; font-weight: 800;"
+                "color:#124b31; background:#bde8ce; padding:7px 12px; border-radius:9px; font-weight:800;"
             )
             self.lbl_s.setText(message)
         else:
             self.live_labels["connection"].setText("Desconectado")
             self.live_labels["connection"].setStyleSheet(
-                "color: #fff1f2; background: #7f1d1d; padding: 5px 10px; border-radius: 10px; font-weight: 700;"
+                "color:#7d3b31; background:#f7e5df; padding:7px 12px; border-radius:9px; font-weight:700;"
             )
 
     def _update(self):
-        vals, ts, last = self.R.get_data()
+        vals, ts, last, frame_count, fps = self.R.get_data(self._last_frame_seen)
         if not vals or last is None:
-            # print("[DBG] _update: sin datos")  # descomenta para debug
             return
-        if self.R.frame_count == 1:
+        self._last_frame_seen = frame_count
+        if frame_count == 1:
             print(f"[_update] Primer frame con {len(vals)} muestras, last={last[:4]}")
 
         p, r = last[24], last[25]
-        pr, rr = math.radians(p), math.radians(r)
-        cp, sp = math.cos(pr), math.sin(pr)
-        cr, sr = math.cos(rr), math.sin(rr)
-        mat_comp = np.array([
-            [cp, 0, sp, 0], [sr * sp, cr, -sr * cp, 0],
-            [-cr * sp, sr, cr * cp, 0], [0, 0, 0, 1]
-        ], dtype=np.float32)
-        self.viewer3d.rot_comp.transform.matrix = mat_comp
-
         mp, mr = last[26], last[27]
-        mpr, mrr = math.radians(mp), math.radians(mr)
-        mcp, msp = math.cos(mpr), math.sin(mpr)
-        mcr, msr = math.cos(mrr), math.sin(mrr)
-        mat_madg = np.array([
-            [mcp, 0, msp, 0], [msr * msp, mcr, -msr * mcp, 0],
-            [-mcr * msp, msr, mcr * mcp, 0], [0, 0, 0, 1]
-        ], dtype=np.float32)
-        self.viewer3d.rot_madg.transform.matrix = mat_madg
 
-        a = np.array(vals)
-        t0 = ts[0]
-        tx = np.array(ts) - t0
+        a = np.asarray(vals, dtype=np.float32)
+        tx = np.asarray(ts, dtype=np.float64) - float(ts[-1]) + WINDOW_SEC
 
-        if len(tx) > 1 and (tx[-1] - tx[0]) > WINDOW_SEC:
-            cutoff = tx[-1] - WINDOW_SEC
-            mask = tx >= cutoff
+        if len(tx) > 1 and tx[0] < 0:
+            mask = tx >= 0
             tx = tx[mask]
             a = a[mask]
 
-        for i, cfg in enumerate(PLOT_CFG):
-            series = a[:, cfg["cols"]]
-            nc = series.shape[1]
-            for j in range(nc):
-                self.lns[i][j].set_data(pos=np.column_stack([tx, series[:, j]]))
+        self._latest_data = a
+        self._latest_times = tx
+        self._latest_last = last
+        self._refresh_active_plot()
 
-        if len(tx) > 1:
-            x0 = tx[0]
-            spn = max(tx[-1] - x0, 2) * 1.05
-            for i, vb in enumerate(self.v2):
-                cfg = PLOT_CFG[i]
-                ymin, ymax = cfg["ylim"]
-                vb.camera.rect = (x0, ymin, spn, ymax - ymin)
-
-            for i, vb in enumerate(self.v2):
-                ymin, ymax = PLOT_CFG[i]["ylim"]
-                self._zero_lines[i].set_data(pos=np.array([[-100, 0], [x0 + spn * 2, 0]], dtype=np.float32))
-                for line, tick in zip(
-                    self._ytick_lines[i],
-                    PLOT_CFG[i].get("yticks", ()),
-                ):
-                    line.set_data(pos=np.array([[x0, tick], [x0 + spn, tick]], dtype=np.float32))
-
-        lx, ly, lz = last[6], last[7], last[8]
-        gx, gy, gz = last[21], last[22], last[23]
-
-        self.live_labels["angles"].setText(f"COMP P {p:+6.2f} R {r:+6.2f}  |  MADG P {mp:+6.2f} R {mr:+6.2f}")
-        self.live_labels["perf"].setText(
-            f"FPS {self.R.fps:4.0f} | Frames {self.R.frame_count:5d} | Buffer {len(vals):4d} | Window {WINDOW_SEC:.0f}s"
+        self.live_labels["angles"].setText(
+            f"COMPLEMENTARIO  Pitch {p:+.2f}°  Roll {r:+.2f}°   |   "
+            f"MADGWICK  Pitch {mp:+.2f}°  Roll {mr:+.2f}°"
         )
-        self.viewer3d.update_metrics(last)
-
-        self.canvas.update()
-        self.viewer3d.canvas.update()
+        self.live_labels["perf"].setText(
+            f"Entrada {fps:4.0f} Hz  ·  Muestras {frame_count:5d}  ·  "
+            f"Buffer {len(vals):4d}  ·  Ventana {WINDOW_SEC:.0f} s"
+        )
+        if self.viewer3d.isVisible():
+            self._update_3d(last)
 
 
 def main():
     app.use_app("pyqt5")
     qa = QtWidgets.QApplication(sys.argv)
     w = IMUWindow()
-    w.show()
-    qa.processEvents()                    # Forzar layout antes de medir geometria
-
-    # Ubicar la ventana 3D a la derecha de la principal
-    screen = qa.primaryScreen().availableGeometry()
-    mg = w.frameGeometry()
-    v3d = w.viewer3d
-
-    x = mg.x() + mg.width() + 10
-    y = mg.y()
-
-    # Si no cabe a la derecha, poner debajo
-    if x + v3d.width() > screen.x() + screen.width():
-        x = mg.x()
-        y = mg.y() + mg.height() + 10
-
-    # Asegurar que entra en pantalla
-    if x + v3d.width() > screen.x() + screen.width():
-        x = screen.x() + screen.width() - v3d.width()
-    if y + v3d.height() > screen.y() + screen.height():
-        y = screen.y() + screen.height() - v3d.height()
-    if x < screen.x(): x = screen.x()
-    if y < screen.y(): y = screen.y()
-
-    v3d.move(x, y)
-    v3d.show()
+    w.showMaximized()
     sys.exit(qa.exec_())
 
 

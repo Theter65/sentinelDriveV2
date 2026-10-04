@@ -134,7 +134,7 @@ class TelemetryForegroundService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("SentinlDrive")
+            .setContentTitle("SENTNLDRIVE")
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)

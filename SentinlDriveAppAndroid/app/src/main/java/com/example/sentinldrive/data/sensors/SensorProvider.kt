@@ -1,4 +1,4 @@
-﻿package com.example.sentinldrive.data.sensors
+package com.example.sentinldrive.data.sensors
 
 import android.content.Context
 import android.hardware.Sensor
@@ -134,7 +134,7 @@ class SensorProvider(context: Context) : SensorEventListener {
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 
     companion object {
-        private const val TAG = "SentinlDrive-Sensor"
+        private const val TAG = "SENTNLDRIVE-Sensor"
         private const val SENSOR_RATE_US = 10_000
     }
 }

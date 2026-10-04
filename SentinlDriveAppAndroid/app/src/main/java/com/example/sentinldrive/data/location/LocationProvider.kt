@@ -1,4 +1,4 @@
-﻿package com.example.sentinldrive.data.location
+package com.example.sentinldrive.data.location
 
 import android.Manifest
 import android.content.Context
@@ -33,7 +33,7 @@ class LocationProvider(private val context: Context) {
     private var locationCallback: LocationCallback? = null
     private var frameworkListener: LocationListener? = null
 
-    private val gpsHandlerThread = HandlerThread("SentinlDrive-GPS").apply { start() }
+    private val gpsHandlerThread = HandlerThread("SENTNLDRIVE-GPS").apply { start() }
     private val gpsHandler = Handler(gpsHandlerThread.looper)
 
     fun start(): Boolean {
@@ -207,7 +207,7 @@ class LocationProvider(private val context: Context) {
     }
 
     companion object {
-        private const val TAG = "SentinlDrive-GPS"
+        private const val TAG = "SENTNLDRIVE-GPS"
         private const val MAX_LOCATION_AGE_MS = 3_000L
         private const val MAX_REALISTIC_BUS_SPEED_KMH = 160.0
         private const val MAX_SPEED_ACCURACY_MS = 10f

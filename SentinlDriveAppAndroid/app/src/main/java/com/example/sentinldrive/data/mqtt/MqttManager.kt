@@ -1,4 +1,4 @@
-﻿package com.example.sentinldrive.data.mqtt
+package com.example.sentinldrive.data.mqtt
 
 import android.content.Context
 import android.util.Log
@@ -329,6 +329,6 @@ class MqttManager(context: Context) {
     }
 
     companion object {
-        private const val TAG = "SentinlDrive-MQTT"
+        private const val TAG = "SENTNLDRIVE-MQTT"
     }
 }

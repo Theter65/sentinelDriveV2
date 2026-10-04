@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SentinlDrive"
+rootProject.name = "SENTNLDRIVE"
 include(":app")

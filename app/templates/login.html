@@ -20,7 +20,7 @@
     </script>
     <title>Iniciar sesion - SENTNLDRIVE</title>
     <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
-    <link rel="preload" as="image" href="{{ url_for('static', filename='img/logoname.webp') }}">
+    <link rel="preload" as="image" href="{{ url_for('static', filename='img/logo.webp') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -59,7 +59,7 @@
     <div class="features-panel">
         <div class="features-card liquid-glass-strong">
             <div class="text-center mb-3">
-                <img src="{{ url_for('static', filename='img/logoname.webp') }}" alt="SENTNLDRIVE" class="img-fluid" style="max-height: 50px;">
+                {% include '_brand_wordmark.html' %}
                 <div class="login-tone-subtle mt-2" style="font-size: 0.85rem;">Monitoreo IoT en tiempo real</div>
             </div>
             <div class="row g-3">
@@ -107,14 +107,14 @@
     <div class="login-container">
         <!-- Logo solo visible en mobile -->
         <div class="text-center mb-3 d-lg-none">
-            <img src="{{ url_for('static', filename='img/logoname.webp') }}" alt="SENTNLDRIVE" class="img-fluid" style="max-height: 60px;">
+            {% include '_brand_wordmark.html' %}
         </div>
 
         <!-- Card glassmorphism -->
         <div class="login-card liquid-glass-strong">
             <!-- Logo dentro del login (mas grande) -->
             <div class="login-logo text-center mb-3 d-none d-lg-block">
-                <img src="{{ url_for('static', filename='img/logoname.webp') }}" alt="SENTNLDRIVE" style="max-width: 80px; height: auto; object-fit: contain;">
+                {% include '_brand_wordmark.html' %}
             </div>
 
             <div class="text-center mb-3">
