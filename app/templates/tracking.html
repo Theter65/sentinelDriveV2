@@ -160,6 +160,8 @@
     let selectedEventMarker = null;
     let followSelectedBus = true;
     let programmaticMapMove = false;
+    let positionStream = null;
+    let currentPositionTime = null;
 
     map.on('dragstart zoomstart', () => {
         if (!programmaticMapMove) followSelectedBus = false;
@@ -218,9 +220,53 @@
         badge.textContent = isConnected ? 'Conectado' : 'Desconectado';
     }
 
+    function formatTimeAgo(seconds) {
+        if (seconds < 60) return `Hace ${seconds}s`;
+        if (seconds < 3600) return `Hace ${Math.floor(seconds / 60)} min`;
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return minutes ? `Hace ${hours}h ${minutes}min` : `Hace ${hours}h`;
+    }
+
+    function renderBusPosition(data, shouldFocus = false) {
+        if (!data || data.error || !data.bus) return;
+        const ts = new Date(data.timestamp);
+        if (Number.isNaN(ts.getTime())) return;
+        currentPositionTime = ts;
+        const secondsSince = Math.max(0, Math.floor((Date.now() - ts.getTime()) / 1000));
+        setTelemetryBadge(secondsSince <= 60);
+        setText('busPlate', data.bus.plate);
+        setText('busId', `ID: ${data.bus.id}`);
+        setText('busDriver', data.bus.driver || 'Sin conductor');
+        setText('lastSeen', ts.toLocaleString('es-EC'));
+        setText('sinceLastSeen', formatTimeAgo(secondsSince));
+        setText('busDescription', data.bus.description || 'Sin descripcion');
+        setText('adminStatusBadge', `Estado: ${data.bus.status || '-'}`);
+        setText('speedBadge', `Velocidad: ${Number(data.speed || 0).toFixed(1)} km/h`);
+        setText('busCoordinates', `${Number(data.lat).toFixed(6)} / ${Number(data.lon).toFixed(6)}`);
+
+        const popupContent = `<b>Bus:</b> ${escapeHtml(data.bus.plate)} (ID: ${data.bus.id})<br>
+             <b>Conductor:</b> ${escapeHtml(data.bus.driver || 'Sin conductor')}<br>
+             <b>Velocidad:</b> ${Number(data.speed || 0).toFixed(1)} km/h<br>
+             <b>Coordenadas:</b> ${Number(data.lat).toFixed(6)} / ${Number(data.lon).toFixed(6)}<br>
+             <b>Hora:</b> ${ts.toLocaleString('es-EC')}`;
+        if (currentMarker) {
+            currentMarker.setLatLng([data.lat, data.lon]);
+            currentMarker.setPopupContent(popupContent);
+        } else {
+            currentMarker = L.marker([data.lat, data.lon]).addTo(map);
+            currentMarker.bindPopup(popupContent);
+        }
+        if (shouldFocus) {
+            currentMarker.openPopup();
+            focusMap(data.lat, data.lon, Math.max(map.getZoom(), 15));
+        }
+    }
+
     function loadBusPosition(busId, options = {}) {
         const shouldFocus = options.focus === true || followSelectedBus;
         if (!busId) {
+            currentPositionTime = null;
             setText('busPlate', 'Seleccione un bus');
             setText('busId', '');
             setText('busDriver', '-');
@@ -238,54 +284,17 @@
         fetch(`/api/last-position/${busId}`)
             .then(res => res.json())
             .then(data => {
+                if (document.getElementById('bus-select').value !== String(busId)) return;
                 if (data.error) {
                     setTelemetryBadge(false);
                     setText('busCoordinates', '-');
                     setText('sinceLastSeen', data.error);
                     return;
                 }
-
-                const ts = new Date(data.timestamp);
-                const secondsSince = Math.max(0, Math.floor((Date.now() - ts.getTime()) / 1000));
-                const isConnected = secondsSince <= 60;
-                setTelemetryBadge(isConnected);
-
-                function formatTimeAgo(s) {
-                    if (s < 60) return `Hace ${s}s`;
-                    if (s < 3600) return `Hace ${Math.floor(s / 60)} min`;
-                    const h = Math.floor(s / 3600);
-                    const m = Math.floor((s % 3600) / 60);
-                    return m ? `Hace ${h}h ${m}min` : `Hace ${h}h`;
-                }
-
-                setText('busPlate', data.bus.plate);
-                setText('busId', `ID: ${data.bus.id}`);
-                setText('busDriver', data.bus.driver || 'Sin conductor');
-                setText('lastSeen', ts.toLocaleString('es-EC'));
-                setText('sinceLastSeen', formatTimeAgo(secondsSince));
-                setText('busDescription', data.bus.description || 'Sin descripcion');
-                setText('adminStatusBadge', `Estado: ${data.bus.status || '-'}`);
-                setText('speedBadge', `Velocidad: ${Number(data.speed || 0).toFixed(1)} km/h`);
-                setText('busCoordinates', `${Number(data.lat).toFixed(6)} / ${Number(data.lon).toFixed(6)}`);
-
-                const popupContent = `<b>Bus:</b> ${escapeHtml(data.bus.plate)} (ID: ${data.bus.id})<br>
-                     <b>Conductor:</b> ${escapeHtml(data.bus.driver || 'Sin conductor')}<br>
-                     <b>Velocidad:</b> ${Number(data.speed || 0).toFixed(1)} km/h<br>
-                     <b>Coordenadas:</b> ${Number(data.lat).toFixed(6)} / ${Number(data.lon).toFixed(6)}<br>
-                     <b>Hora:</b> ${ts.toLocaleString('es-EC')}`;
-                if (currentMarker) {
-                    currentMarker.setLatLng([data.lat, data.lon]);
-                    currentMarker.setPopupContent(popupContent);
-                } else {
-                    currentMarker = L.marker([data.lat, data.lon]).addTo(map);
-                    currentMarker.bindPopup(popupContent);
-                }
-                if (shouldFocus) {
-                    currentMarker.openPopup();
-                    focusMap(data.lat, data.lon, Math.max(map.getZoom(), 15));
-                }
+                renderBusPosition(data, shouldFocus);
             })
             .catch(() => {
+                if (document.getElementById('bus-select').value !== String(busId)) return;
                 setTelemetryBadge(false);
                 setText('busCoordinates', '-');
                 setText('sinceLastSeen', 'Error al cargar la posicion.');
@@ -294,15 +303,41 @@
 
     document.getElementById('bus-select').addEventListener('change', function () {
         followSelectedBus = true;
-        loadBusPosition(this.value, { focus: true });
+        if (positionStream) positionStream.close();
+        positionStream = null;
+        if (!this.value) {
+            loadBusPosition('', { focus: false });
+            return;
+        }
+
+        const selectedBusId = this.value;
+        positionStream = new EventSource(`/api/realtime/stream?scope=tracking&bus_id=${encodeURIComponent(selectedBusId)}`);
+        positionStream.addEventListener('open', () => {
+            loadBusPosition(selectedBusId, { focus: false });
+        });
+        positionStream.addEventListener('location', (event) => {
+            if (this.value !== selectedBusId) return;
+            try {
+                renderBusPosition(JSON.parse(event.data), false);
+            } catch {
+                // Ignore malformed stream messages and keep the next position.
+            }
+        });
+        positionStream.addEventListener('mqtt_status', (event) => {
+            try {
+                window.updateLayoutMqttStatus?.(JSON.parse(event.data));
+            } catch {
+                // Ignore malformed status updates.
+            }
+        });
     });
 
-    const TRACKING_REFRESH_INTERVAL_MS = 5000;
-
     setInterval(() => {
-        const busId = document.getElementById('bus-select').value;
-        if (busId) loadBusPosition(busId, { focus: false });
-    }, TRACKING_REFRESH_INTERVAL_MS);
+        if (!currentPositionTime) return;
+        const secondsSince = Math.max(0, Math.floor((Date.now() - currentPositionTime.getTime()) / 1000));
+        setTelemetryBadge(secondsSince <= 60);
+        setText('sinceLastSeen', formatTimeAgo(secondsSince));
+    }, 5000);
 
     showSelectedEventMarker();
 </script>

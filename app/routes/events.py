@@ -6,7 +6,9 @@
 # - /api/events/count: conteo de eventos no vistos
 # =============================================================================
 
-from flask import Blueprint, jsonify, render_template, request
+from queue import Empty
+
+from flask import Blueprint, Response, jsonify, render_template, request, stream_with_context
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
@@ -14,11 +16,48 @@ from app.decorators import login_required
 from app.extensions import db
 from app.models.event import Event
 from app.utils.logging import get_logger
+from app.services.realtime import realtime_hub
 
 
 logger = get_logger(__name__)
 
 events_bp = Blueprint("events", __name__)
+
+
+@events_bp.route("/api/realtime/stream")
+@login_required
+def api_realtime_stream():
+    """SSE stream for live tracking or dashboard state changes."""
+    scope = request.args.get("scope", "dashboard")
+    bus_id = request.args.get("bus_id", type=int)
+    if scope not in {"dashboard", "tracking", "status"}:
+        return jsonify({"error": "Ambito de actualizacion invalido"}), 400
+    if scope == "tracking" and (bus_id is None or bus_id <= 0):
+        return jsonify({"error": "Se requiere un bus valido"}), 400
+
+    token, subscriber_queue = realtime_hub.subscribe(scope, bus_id)
+
+    @stream_with_context
+    def stream_updates():
+        try:
+            yield ": connected\n\n"
+            while True:
+                try:
+                    event_name, payload = subscriber_queue.get(timeout=20)
+                    yield f"event: {event_name}\ndata: {payload}\n\n"
+                except Empty:
+                    yield ": keep-alive\n\n"
+        finally:
+            realtime_hub.unsubscribe(token)
+
+    return Response(
+        stream_updates(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @events_bp.route("/events")

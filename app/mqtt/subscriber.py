@@ -19,6 +19,7 @@ from app.models.bus import Bus
 from app.models.event import Event
 from app.models.location import Location
 from app.mqtt.deduplication import should_process_message
+from app.services.realtime import realtime_hub
 from app.utils.logging import get_logger
 from app.utils.system_settings import get_runtime_mqtt_settings, update_mqtt_runtime_state
 from app.utils.time import ECUADOR_TZ, ecuador_now
@@ -430,6 +431,20 @@ def on_message(client, userdata, msg):
                 if location is None:
                     return
                 db.session.add(location)
+                realtime_payload = {
+                    "bus_id": bus.id,
+                    "lat": location.lat,
+                    "lon": location.lon,
+                    "speed": location.speed or 0,
+                    "timestamp": location.timestamp.isoformat(),
+                    "bus": {
+                        "id": bus.id,
+                        "plate": bus.plate,
+                        "driver": bus.driver,
+                        "status": bus.status,
+                        "description": bus.description,
+                    },
+                }
             else:
                 event = _build_event(bus_id, data, timestamp, event_values=event_values)
                 if event is None:
@@ -437,14 +452,26 @@ def on_message(client, userdata, msg):
                 db.session.add(event)
 
             # Solo actualizar estado en memoria (no escribir a DB en cada mensaje)
+            received_at = datetime.now(ECUADOR_TZ)
             _update_memory_state(
                 connected=True,
                 status="online",
-                last_message=datetime.now(ECUADOR_TZ),
-                last_heartbeat=datetime.now(ECUADOR_TZ),
+                last_message=received_at,
+                last_heartbeat=received_at,
                 last_error=None,
             )
             db.session.commit()
+            if message_kind == "gps":
+                realtime_hub.publish("location", realtime_payload, bus_id=bus.id)
+            realtime_hub.publish(
+                "mqtt_status",
+                {
+                    "connected": True,
+                    "status": "online",
+                    "last_message": received_at.isoformat(),
+                    "last_error": None,
+                },
+            )
             logger.info("MQTT: datos procesados - bus %s | tipo: %s", bus_id, message_kind)
         except json.JSONDecodeError:
             logger.error("MQTT: payload JSON invalido")
@@ -478,6 +505,17 @@ def _set_mqtt_state(commit: bool = True, **state):
     update_mqtt_runtime_state(**state)
     if commit:
         db.session.commit()
+        last_message = MQTT_STATE.get("last_message")
+        realtime_hub.publish(
+            "mqtt_status",
+            {
+                "connected": bool(MQTT_STATE.get("connected")),
+                "configuration_ready": bool(MQTT_STATE.get("configuration_ready")),
+                "status": MQTT_STATE.get("status") or "offline",
+                "last_message": last_message.isoformat() if last_message else None,
+                "last_error": MQTT_STATE.get("last_error"),
+            },
+        )
 
 
 def _build_client(app, mqtt_config: dict):

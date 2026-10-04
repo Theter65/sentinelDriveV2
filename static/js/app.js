@@ -6,6 +6,27 @@ function $(id) {
   return document.getElementById(id);
 }
 
+function updateLayoutMqttStatus(data) {
+  const pill = $("layoutMqttStatus");
+  if (!pill) return;
+  const labels = {
+    online: "Datos en línea",
+    connecting: "Conectando a MQTT",
+    no_config: "MQTT no configurado",
+    error: "Error de conexión MQTT",
+    offline: "MQTT desconectado",
+  };
+  const connected = Boolean(data.connected && data.status === "online");
+  pill.classList.toggle("is-ok", connected);
+  pill.classList.toggle("is-warn", !connected);
+  const icon = pill.querySelector("[data-mqtt-icon]");
+  if (icon) icon.className = connected ? "bi bi-broadcast" : "bi bi-broadcast-pin";
+  const label = pill.querySelector("[data-mqtt-label]");
+  if (label) label.textContent = labels[data.status] || labels.offline;
+}
+
+window.updateLayoutMqttStatus = updateLayoutMqttStatus;
+
 function clampInt(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -540,6 +561,19 @@ function initFloatingToastPreference() {
   });
 }
 
+function initRealtimeMqttStatus() {
+  const path = window.location.pathname;
+  if (path === "/dashboard" || path === "/tracking") return;
+  const stream = new EventSource("/api/realtime/stream?scope=status");
+  stream.addEventListener("mqtt_status", (event) => {
+    try {
+      updateLayoutMqttStatus(JSON.parse(event.data));
+    } catch {
+      // Ignore malformed status updates.
+    }
+  });
+}
+
 async function pollEventNotifications() {
   const endpoint = document.body.getAttribute("data-events-poll-url");
   if (!endpoint) return;
@@ -701,6 +735,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initModalLayering,
     initNotificationCenter,
     initFloatingToastPreference,
+    initRealtimeMqttStatus,
     initEventNotifications,
   ].forEach((initializer) => {
     try {

@@ -32,10 +32,10 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <div class="kpi-label">Estado del sistema</div>
-                        <div class="kpi-value">{% if system_ok %}OK{% else %}Atencion{% endif %}</div>
+                        <div class="kpi-value" id="dashboardSystemStatusValue">{% if system_ok %}OK{% else %}Atencion{% endif %}</div>
                         <div class="text-muted small">Basado en MQTT y buses conectados</div>
                     </div>
-                    <div class="badge {% if system_ok %}badge-soft{% else %}badge-danger-soft{% endif %}">
+                    <div class="badge {% if system_ok %}badge-soft{% else %}badge-danger-soft{% endif %}" id="dashboardSystemStatusBadge">
                         <i class="bi {% if system_ok %}bi-shield-check{% else %}bi-shield-exclamation{% endif %} me-1"></i>
                         {% if system_ok %}Estable{% else %}Degradado{% endif %}
                     </div>
@@ -50,7 +50,7 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <div class="kpi-label">MQTT</div>
-                        <div class="kpi-value">
+                        <div class="kpi-value" id="dashboardMqttValue">
                             {% if mqtt_connected %}
                                 Conectado
                             {% elif mqtt_state.status == 'no_config' %}
@@ -63,12 +63,12 @@
                                 Desconectado
                             {% endif %}
                         </div>
-                        <div class="text-muted small">
+                        <div class="text-muted small" id="dashboardMqttDetails">
                             {% if mqtt_state.last_message %}Ultimo mensaje: {{ mqtt_state.last_message.strftime('%H:%M:%S') }}{% else %}Sin mensajes aun{% endif %}
                             {% if mqtt_state.last_error %} · Error: {{ mqtt_state.last_error }}{% endif %}
                         </div>
                     </div>
-                    <div class="badge {% if mqtt_connected %}badge-soft{% else %}badge-danger-soft{% endif %}">
+                    <div class="badge {% if mqtt_connected %}badge-soft{% else %}badge-danger-soft{% endif %}" id="dashboardMqttBadge">
                         <i class="bi {% if mqtt_connected %}bi-broadcast{% else %}bi-broadcast-pin{% endif %} me-1"></i>
                         {{ mqtt_state.label }}
                     </div>
@@ -86,8 +86,8 @@
                     <div class="text-muted">Registrados</div>
                 </div>
                 <div class="mt-3 d-flex flex-wrap gap-2">
-                    <span class="badge badge-soft"><i class="bi bi-plug me-1"></i>Conectados: {{ connected_buses }}</span>
-                    <span class="badge badge-danger-soft"><i class="bi bi-plug-fill me-1"></i>Desconectados: {{ disconnected_buses }}</span>
+                    <span class="badge badge-soft" id="dashboardConnectedCount"><i class="bi bi-plug me-1"></i>Conectados: {{ connected_buses }}</span>
+                    <span class="badge badge-danger-soft" id="dashboardDisconnectedCount"><i class="bi bi-plug-fill me-1"></i>Desconectados: {{ disconnected_buses }}</span>
                     <span class="badge badge-soft"><i class="bi bi-check-circle me-1"></i>Activos: {{ active_buses }}</span>
                 </div>
             </div>
@@ -192,19 +192,19 @@
                         </thead>
                         <tbody>
                             {% for b in bus_health %}
-                            <tr>
-                                <td>
+                            <tr data-bus-health-row data-bus-id="{{ b.id }}" data-last-seen-ms="{{ (b.last_seen.timestamp() * 1000)|int if b.last_seen else '' }}">
+                                <td data-bus-state-cell>
                                     <div class="fw-semibold">{{ b.plate }}</div>
                                     <div class="text-muted small">{{ b.driver or 'Sin conductor' }}</div>
                                 </td>
                                 <td>
                                     {% if b.connected %}
-                                        <span class="badge badge-soft"><i class="bi bi-plug me-1"></i>Conectado</span>
+                                        <span class="badge badge-soft" data-bus-state-badge><i class="bi bi-plug me-1"></i>Conectado</span>
                                     {% else %}
-                                        <span class="badge badge-danger-soft"><i class="bi bi-plug-fill me-1"></i>Desconectado</span>
+                                        <span class="badge badge-danger-soft" data-bus-state-badge><i class="bi bi-plug-fill me-1"></i>Desconectado</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-muted">
+                                <td class="text-muted" data-bus-last-seen>
                                     {% if b.last_seen %}
                                         {{ b.last_seen|ecuador_time }}
                                         {% if b.seconds_since is not none %}
@@ -226,5 +226,127 @@
         </div>
     </div>
 </div>
+
+<script>
+(() => {
+    const rows = Array.from(document.querySelectorAll('[data-bus-health-row]'));
+    const connectedCount = document.getElementById('dashboardConnectedCount');
+    const disconnectedCount = document.getElementById('dashboardDisconnectedCount');
+    const mqttValue = document.getElementById('dashboardMqttValue');
+    const mqttDetails = document.getElementById('dashboardMqttDetails');
+    const mqttBadge = document.getElementById('dashboardMqttBadge');
+    const systemValue = document.getElementById('dashboardSystemStatusValue');
+    const systemBadge = document.getElementById('dashboardSystemStatusBadge');
+    let mqttConnected = {{ mqtt_connected|tojson }};
+
+    function updateBusRow(row, now) {
+        const lastSeen = Number(row.dataset.lastSeenMs);
+        const isConnected = Number.isFinite(lastSeen) && lastSeen > 0 && now - lastSeen <= 60000;
+        row.dataset.connected = String(isConnected);
+
+        const badge = row.querySelector('[data-bus-state-badge]');
+        if (badge) {
+            badge.className = isConnected ? 'badge badge-soft' : 'badge badge-danger-soft';
+            badge.innerHTML = isConnected
+                ? '<i class="bi bi-plug me-1"></i>Conectado'
+                : '<i class="bi bi-plug-fill me-1"></i>Desconectado';
+        }
+
+        const cell = row.querySelector('[data-bus-last-seen]');
+        if (cell) {
+            if (Number.isFinite(lastSeen) && lastSeen > 0) {
+                const age = Math.max(0, Math.floor((now - lastSeen) / 1000));
+                const ageText = age < 60 ? `Hace ${age}s` : age < 3600
+                    ? `Hace ${Math.floor(age / 60)} min`
+                    : `Hace ${Math.floor(age / 3600)}h ${Math.floor((age % 3600) / 60)}min`;
+                cell.textContent = `${new Date(lastSeen).toLocaleString('es-EC')} (${ageText})`;
+            } else {
+                cell.textContent = 'Nunca';
+            }
+        }
+    }
+
+    function refreshBusHealth() {
+        const now = Date.now();
+        rows.forEach((row) => updateBusRow(row, now));
+        const connected = rows.filter((row) => row.dataset.connected === 'true').length;
+        const disconnected = rows.length - connected;
+        if (connectedCount) connectedCount.innerHTML = `<i class="bi bi-plug me-1"></i>Conectados: ${connected}`;
+        if (disconnectedCount) disconnectedCount.innerHTML = `<i class="bi bi-plug-fill me-1"></i>Desconectados: ${disconnected}`;
+        updateSystemStatus();
+    }
+
+    function updateSystemStatus() {
+        const healthy = mqttConnected && rows.some((row) => row.dataset.connected === 'true');
+        if (systemValue) systemValue.textContent = healthy ? 'OK' : 'Atencion';
+        if (systemBadge) {
+            systemBadge.className = healthy ? 'badge badge-soft' : 'badge badge-danger-soft';
+            systemBadge.innerHTML = healthy
+                ? '<i class="bi bi-shield-check me-1"></i>Estable'
+                : '<i class="bi bi-shield-exclamation me-1"></i>Degradado';
+        }
+    }
+
+    function updateMqttStatus(data) {
+        mqttConnected = Boolean(data.connected && data.status === 'online');
+        const labels = {
+            online: 'Conectado',
+            connecting: 'Conectando',
+            no_config: 'Sin configurar',
+            error: 'Error',
+            offline: 'Desconectado',
+        };
+        const badgeLabels = {
+            online: 'En línea',
+            connecting: 'Conectando',
+            no_config: 'Sin configurar',
+            error: 'Error',
+            offline: 'Offline',
+        };
+        if (mqttValue) mqttValue.textContent = labels[data.status] || 'Desconectado';
+        if (mqttBadge) {
+            mqttBadge.className = mqttConnected ? 'badge badge-soft' : 'badge badge-danger-soft';
+            const icon = mqttConnected ? 'bi-broadcast' : 'bi-broadcast-pin';
+            mqttBadge.innerHTML = `<i class="bi ${icon} me-1"></i>${badgeLabels[data.status] || 'Offline'}`;
+        }
+        if (mqttDetails) {
+            const messageTime = data.last_message ? new Date(data.last_message) : null;
+            const text = messageTime && !Number.isNaN(messageTime.getTime())
+                ? `Ultimo mensaje: ${messageTime.toLocaleTimeString('es-EC')}`
+                : 'Sin mensajes aun';
+            mqttDetails.textContent = data.last_error ? `${text} · Error: ${data.last_error}` : text;
+        }
+        updateSystemStatus();
+        window.updateLayoutMqttStatus?.(data);
+    }
+
+    function handleLocation(event) {
+        try {
+            const data = JSON.parse(event.data);
+            const row = rows.find((item) => item.dataset.busId === String(data.bus_id));
+            if (!row) return;
+            const timestamp = new Date(data.timestamp).getTime();
+            if (!Number.isFinite(timestamp)) return;
+            row.dataset.lastSeenMs = String(timestamp);
+            refreshBusHealth();
+        } catch {
+            // Ignore malformed updates and keep the last rendered state.
+        }
+    }
+
+    refreshBusHealth();
+    window.setInterval(refreshBusHealth, 5000);
+
+    const stream = new EventSource('/api/realtime/stream?scope=dashboard');
+    stream.addEventListener('location', handleLocation);
+    stream.addEventListener('mqtt_status', (event) => {
+        try {
+            updateMqttStatus(JSON.parse(event.data));
+        } catch {
+            // Ignore malformed updates and keep the last rendered state.
+        }
+    });
+})();
+</script>
 
 {% endblock %}

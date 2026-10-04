@@ -47,9 +47,9 @@
     <div class="top-bar">
         <div class="container-fluid px-4 px-lg-5">
             <div class="top-compact">
-                <span class="top-status-pill {% if layout_mqtt_connected %}is-ok{% else %}is-warn{% endif %}">
-                    <i class="bi bi-broadcast"></i>
-                    {% if layout_mqtt_connected %}Datos en línea{% else %}{{ layout_mqtt_label }}{% endif %}
+                <span id="layoutMqttStatus" class="top-status-pill {% if layout_mqtt_connected %}is-ok{% else %}is-warn{% endif %}">
+                    <i class="bi bi-broadcast" data-mqtt-icon></i>
+                    <span data-mqtt-label>{% if layout_mqtt_connected %}Datos en línea{% else %}{{ layout_mqtt_label }}{% endif %}</span>
                 </span>
                 <div class="top-compact-actions">
                     <button
