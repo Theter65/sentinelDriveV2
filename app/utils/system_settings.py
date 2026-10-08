@@ -8,13 +8,16 @@
 # =============================================================================
 
 from datetime import datetime
+import threading
+import time
 
+from flask import current_app
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
-from app.models.init_data import ensure_database_schema
 from app.models.system_setting import SystemSetting
 from app.models.user import User
+from app.utils.logging import get_logger
 from app.utils.time import ECUADOR_TZ, ecuador_now
 
 
@@ -22,6 +25,8 @@ DEFAULT_MQTT_PORT = 8883
 DEFAULT_MQTT_TOPIC_GPS = "flota/ecuador/buses/+/gps"
 DEFAULT_MQTT_TOPIC_EVENT = "flota/ecuador/buses/+/event"
 MQTT_STATE_PREFIX = "mqtt_state_"
+MQTT_STATE_CACHE_TTL = 5.0
+logger = get_logger(__name__)
 
 MQTT_STATUS_LABELS = {
     "no_config": "MQTT no configurado",
@@ -34,17 +39,12 @@ MQTT_STATUS_LABELS = {
 
 def has_admin_user() -> bool:
     """Indica si la plataforma ya tiene administrador inicial."""
-    if not ensure_database_schema():
-        return False
-
     try:
-        return User.query.filter_by(role="admin").count() > 0
+        return db.session.query(User.id).filter_by(role="admin").first() is not None
     except SQLAlchemyError as exc:
         db.session.rollback()
-        logger.warning("No se pudo validar la existencia del admin; reintentando recrear esquema: %s", exc)
-        if not ensure_database_schema():
-            return False
-        return User.query.filter_by(role="admin").count() > 0
+        logger.warning("No se pudo validar la existencia del admin: %s", exc)
+        return False
 
 
 def _safe_int(value, default: int) -> int:
@@ -56,20 +56,28 @@ def _safe_int(value, default: int) -> int:
 
 def get_runtime_mqtt_settings(config: dict) -> dict:
     """Une configuracion MQTT de base de datos y entorno."""
-    stored_password = SystemSetting.get_value("mqtt_password")
+    settings = SystemSetting.get_values(
+        ("mqtt_password", "mqtt_broker", "mqtt_port", "mqtt_username", "mqtt_topic_gps", "mqtt_topic_event")
+    )
+    return _runtime_mqtt_settings(config, settings)
+
+
+def _runtime_mqtt_settings(config: dict, settings: dict) -> dict:
+    """Resuelve configuracion MQTT desde valores ya cargados."""
+    stored_password = settings.get("mqtt_password")
     fallback_password = config.get("MQTT_PASSWORD") or ""
 
-    broker = (SystemSetting.get_value("mqtt_broker") or config.get("MQTT_BROKER") or "").strip()
-    port = _safe_int(SystemSetting.get_value("mqtt_port"), config.get("MQTT_PORT", DEFAULT_MQTT_PORT))
-    username = (SystemSetting.get_value("mqtt_username") or config.get("MQTT_USERNAME") or "").strip()
+    broker = (settings.get("mqtt_broker") or config.get("MQTT_BROKER") or "").strip()
+    port = _safe_int(settings.get("mqtt_port"), config.get("MQTT_PORT", DEFAULT_MQTT_PORT))
+    username = (settings.get("mqtt_username") or config.get("MQTT_USERNAME") or "").strip()
     password = stored_password or fallback_password
     topic_gps = (
-        SystemSetting.get_value("mqtt_topic_gps")
+        settings.get("mqtt_topic_gps")
         or config.get("MQTT_TOPIC_GPS")
         or DEFAULT_MQTT_TOPIC_GPS
     ).strip()
     topic_event = (
-        SystemSetting.get_value("mqtt_topic_event")
+        settings.get("mqtt_topic_event")
         or config.get("MQTT_TOPIC_EVENT")
         or DEFAULT_MQTT_TOPIC_EVENT
     ).strip()
@@ -125,7 +133,14 @@ def update_mqtt_runtime_state(**state) -> None:
 
 def get_persisted_mqtt_state(config: dict) -> dict:
     """Lee estado MQTT, priorizando memoria del subscriber sobre DB."""
-    runtime = get_runtime_mqtt_settings(config)
+    setting_keys = (
+        "mqtt_password", "mqtt_broker", "mqtt_port", "mqtt_username", "mqtt_topic_gps", "mqtt_topic_event",
+        *(f"{MQTT_STATE_PREFIX}{key}" for key in (
+            "status", "connected", "last_heartbeat", "last_connect", "last_disconnect", "last_message", "last_error"
+        )),
+    )
+    settings = SystemSetting.get_values(setting_keys)
+    runtime = _runtime_mqtt_settings(config, settings)
 
     mem_state = _get_in_memory_mqtt_state()
 
@@ -138,13 +153,13 @@ def get_persisted_mqtt_state(config: dict) -> dict:
         last_message = mem_state.get("last_message")
         last_error = mem_state.get("last_error")
     else:
-        status = SystemSetting.get_value(f"{MQTT_STATE_PREFIX}status")
-        connected = _setting_bool(SystemSetting.get_value(f"{MQTT_STATE_PREFIX}connected"), False)
-        heartbeat = _parse_datetime_setting(SystemSetting.get_value(f"{MQTT_STATE_PREFIX}last_heartbeat"))
-        last_connect = _parse_datetime_setting(SystemSetting.get_value(f"{MQTT_STATE_PREFIX}last_connect"))
-        last_disconnect = _parse_datetime_setting(SystemSetting.get_value(f"{MQTT_STATE_PREFIX}last_disconnect"))
-        last_message = _parse_datetime_setting(SystemSetting.get_value(f"{MQTT_STATE_PREFIX}last_message"))
-        last_error = SystemSetting.get_value(f"{MQTT_STATE_PREFIX}last_error")
+        status = settings.get(f"{MQTT_STATE_PREFIX}status")
+        connected = _setting_bool(settings.get(f"{MQTT_STATE_PREFIX}connected"), False)
+        heartbeat = _parse_datetime_setting(settings.get(f"{MQTT_STATE_PREFIX}last_heartbeat"))
+        last_connect = _parse_datetime_setting(settings.get(f"{MQTT_STATE_PREFIX}last_connect"))
+        last_disconnect = _parse_datetime_setting(settings.get(f"{MQTT_STATE_PREFIX}last_disconnect"))
+        last_message = _parse_datetime_setting(settings.get(f"{MQTT_STATE_PREFIX}last_message"))
+        last_error = settings.get(f"{MQTT_STATE_PREFIX}last_error")
 
     if not runtime["ready"]:
         if status != "no_config":
@@ -179,6 +194,20 @@ def get_persisted_mqtt_state(config: dict) -> dict:
         "last_heartbeat": heartbeat,
         "last_error": last_error,
     }
+
+
+def get_cached_persisted_mqtt_state(config: dict) -> dict:
+    """Comparte la lectura del estado MQTT entre la vista y la plantilla."""
+    cache = current_app.extensions.setdefault(
+        "sentinldrive_mqtt_state_cache",
+        {"data": None, "ts": 0.0, "lock": threading.Lock()},
+    )
+    now = time.monotonic()
+    with cache["lock"]:
+        if cache["data"] is None or now - cache["ts"] > MQTT_STATE_CACHE_TTL:
+            cache["data"] = get_persisted_mqtt_state(config)
+            cache["ts"] = now
+        return cache["data"]
 
 
 def _get_in_memory_mqtt_state():

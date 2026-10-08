@@ -8,6 +8,7 @@
 
 from app.extensions import db
 from app.utils.time import ecuador_now
+from sqlalchemy import select
 
 
 class SystemSetting(db.Model):
@@ -36,6 +37,14 @@ class SystemSetting(db.Model):
         if row is None or row.value in (None, ""):
             return default
         return row.value
+
+    @classmethod
+    def get_values(cls, keys):
+        """Lee varias opciones en una sola consulta a la base de datos."""
+        rows = db.session.execute(
+            select(cls.key, cls.value).where(cls.key.in_(tuple(keys)))
+        ).all()
+        return {key: value for key, value in rows}
 
     @classmethod
     def set_value(cls, key: str, value):

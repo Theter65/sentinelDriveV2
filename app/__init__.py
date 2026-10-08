@@ -19,9 +19,7 @@ from .models.init_data import ensure_database_indexes, ensure_database_schema
 from .models.system_setting import SystemSetting  # noqa: F401
 from .utils.logging import get_logger
 from .utils.time import ECUADOR_TZ, ecuador_now
-from .utils.system_settings import get_persisted_mqtt_state
-import time
-import threading
+from .utils.system_settings import get_cached_persisted_mqtt_state
 
 # Importación de blueprints (rutas modulares)
 from .routes.auth import auth_bp
@@ -37,11 +35,6 @@ from .routes.analytics import analytics_bp
 
 
 logger = get_logger(__name__)
-
-# Cache para MQTT state en context processor (evita DB query en cada request)
-_mqtt_state_cache = {"data": None, "ts": 0.0}
-_mqtt_state_lock = threading.Lock()
-_MQTT_STATE_CACHE_TTL = 5.0  # segundos
 
 def create_app(config_class=Config):
     """
@@ -84,13 +77,12 @@ def create_app(config_class=Config):
             except OSError:
                 pass
 
-        # Usar cache thread-safe para evitar DB query en cada request
-        now = time.time()
-        with _mqtt_state_lock:
-            if _mqtt_state_cache["data"] is None or (now - _mqtt_state_cache["ts"]) > _MQTT_STATE_CACHE_TTL:
-                _mqtt_state_cache["data"] = get_persisted_mqtt_state(app.config)
-                _mqtt_state_cache["ts"] = now
-            mqtt_state = _mqtt_state_cache["data"]
+        # El login y el asistente no muestran este estado; omitirlo evita una
+        # consulta remota innecesaria justo al entrar a la aplicación.
+        if request.endpoint in {"auth.login", "auth.initial_setup"}:
+            mqtt_state = {}
+        else:
+            mqtt_state = get_cached_persisted_mqtt_state(app.config)
 
         return {
             "static_version": v,

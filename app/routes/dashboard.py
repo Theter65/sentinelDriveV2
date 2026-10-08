@@ -8,7 +8,7 @@
 from datetime import timedelta
 
 from flask import Blueprint, current_app, render_template
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
 from app.decorators import login_required
@@ -18,7 +18,7 @@ from app.models.event import Event
 from app.models.location import Location
 from app.models.maintenance import Maintenance
 from app.utils.logging import get_logger
-from app.utils.system_settings import get_persisted_mqtt_state
+from app.utils.system_settings import get_cached_persisted_mqtt_state
 from app.utils.time import ECUADOR_TZ, ecuador_now
 
 
@@ -34,10 +34,15 @@ def dashboard():
     now = ecuador_now()
     one_minute_ago = now - timedelta(seconds=60)
 
-    total_buses = Bus.query.count()
-    active_buses = Bus.query.filter(Bus.status == "Activo").count()
-    total_events = Event.query.count()
-    pending_maintenances = Maintenance.query.filter(Maintenance.status == "Pendiente").count()
+    metrics = db.session.execute(
+        select(
+            select(func.count(Bus.id)).scalar_subquery(),
+            select(func.count(Bus.id)).where(Bus.status == "Activo").scalar_subquery(),
+            select(func.count(Event.id)).scalar_subquery(),
+            select(func.count(Maintenance.id)).where(Maintenance.status == "Pendiente").scalar_subquery(),
+        )
+    ).one()
+    total_buses, active_buses, total_events, pending_maintenances = metrics
 
     last_seen_sq = (
         db.session.query(
@@ -88,7 +93,7 @@ def dashboard():
         .all()
     )
 
-    mqtt_state = get_persisted_mqtt_state(current_app.config)
+    mqtt_state = get_cached_persisted_mqtt_state(current_app.config)
     mqtt_connected = bool(mqtt_state.get("connected"))
     system_ok = mqtt_connected and connected_count > 0
 

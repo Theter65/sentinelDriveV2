@@ -12,7 +12,6 @@ from werkzeug.security import generate_password_hash
 
 from app.decorators import login_required
 from app.extensions import db
-from app.models.init_data import ensure_database_schema
 from app.models.system_setting import SystemSetting
 from app.models.user import User
 from app.mqtt.subscriber import request_mqtt_reload, test_mqtt_connection
@@ -67,10 +66,7 @@ def _save_mqtt_settings(form_data: dict, mqtt_password: str):
 @auth_bp.route("/", methods=["GET", "POST"])
 def login():
     """Pagina de inicio de sesion."""
-    if not ensure_database_schema():
-        return render_template("login.html", error="No se pudo preparar la base de datos. Intenta nuevamente.")
-
-    if not has_admin_user():
+    if request.method == "GET" and not has_admin_user():
         return redirect(url_for("auth.initial_setup"))
 
     if request.method == "POST":
@@ -117,14 +113,6 @@ def login():
 @auth_bp.route("/setup", methods=["GET", "POST"])
 def initial_setup():
     """Wizard de primera configuracion para crear el administrador inicial."""
-    if not ensure_database_schema():
-        form_state = _setup_form_state()
-        return render_template(
-            "setup.html",
-            error="No se pudo preparar la base de datos. Revisa la conexion con el servidor e intenta nuevamente.",
-            form_data=form_state,
-        )
-
     form_state = _setup_form_state()
 
     if has_admin_user():

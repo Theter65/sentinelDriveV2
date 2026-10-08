@@ -103,6 +103,8 @@ class Config:
     MQTT_TOPIC_EVENT = os.getenv("MQTT_TOPIC_EVENT", DEFAULT_MQTT_TOPIC_EVENT)
 
     DEBUG = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    # Permite reutilizar CSS, JS e imágenes al cambiar entre páginas.
+    SEND_FILE_MAX_AGE_DEFAULT = timedelta(hours=24)
     TESTING = False
     WTF_CSRF_ENABLED = os.getenv("WTF_CSRF_ENABLED", "True").lower() == "true"
     SESSION_COOKIE_HTTPONLY = True

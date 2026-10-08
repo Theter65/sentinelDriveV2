@@ -514,15 +514,7 @@ html[data-theme="glass-dark"] .site-footer {
   background-image: var(--bg-image);
   background-size: cover;
   background-position: center;
-  animation: ambientImageFade 24s linear infinite;
-}
-
-.ambient-bg span:nth-child(2) {
-  animation-delay: 12s;
-}
-
-.ambient-bg span:nth-child(3) {
-  animation-delay: 24s;
+  opacity: 0.18;
 }
 
 .ambient-bg::before,
@@ -2366,8 +2358,9 @@ html[data-theme="glass-light"] .ambient-bg::after {
 }
 
 html[data-theme="glass-light"] .ambient-bg span {
+  opacity: 0.22 !important;
   filter: none !important;
-  animation: ambientImageFadeLight 24s linear infinite !important;
+  animation: none !important;
 }
 
 @media (max-width: 991.98px), (hover: none) and (pointer: coarse) {

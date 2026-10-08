@@ -12,7 +12,6 @@ from flask import redirect, session, url_for
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
-from app.models.init_data import ensure_database_schema
 from app.models.user import User
 from app.utils.logging import get_logger
 
@@ -21,18 +20,13 @@ logger = get_logger(__name__)
 
 
 def _fetch_user_by_username(username: str):
-    """Obtiene un usuario y reintenta si faltara una tabla del esquema."""
-    if not ensure_database_schema():
-        return None
-
+    """Obtiene un usuario; el esquema se comprueba una vez al iniciar la app."""
     try:
         return User.query.filter_by(username=username).first()
     except SQLAlchemyError as exc:
         db.session.rollback()
-        logger.warning("Esquema de usuarios incompleto; reintentando recreacion: %s", exc)
-        if not ensure_database_schema():
-            return None
-        return User.query.filter_by(username=username).first()
+        logger.warning("No se pudo validar la sesion del usuario: %s", exc)
+        return None
 
 
 def login_required(f):
