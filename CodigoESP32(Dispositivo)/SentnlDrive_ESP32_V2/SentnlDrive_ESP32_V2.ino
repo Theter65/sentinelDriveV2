@@ -15,16 +15,16 @@
  *
  * Componentes:
  *   - MPU6050 (IMU): acelerometro + giroscopio a 100 Hz
- *   - NEO-6M (GPS): coordenadas + velocidad a 1 Hz
+ *   - u-blox NEO-6M / NEO-M8N: coordenadas + velocidad a 1 Hz
  *   - SD Card: cola offline para mensajes MQTT
  *   - SSD1306 (OLED): pantalla 128x32 I2C
  *   - Buzzer: alertas sonoras en eventos (NO bloqueante)
  *
  * Eventos detectados:
- *   - Frenada brusca: linX < -2.94 m/s^2, ventana deslizante 0.5s, 80% muestras
- *   - Curva peligrosa: |linY| > 3.92 m/s^2, ventana deslizante 3.0s, 80% umbral + 80% misma direccion
+ *   - Frenada brusca: linX < -2.94 m/s^2, ventana 0.5s, >=80% de capacidad bajo umbral
+ *   - Curva peligrosa: |linY| > 3.92 m/s^2, ventana 3.0s, >=80% bajo umbral y misma direccion
  *   - Exceso velocidad: > 90 km/h sostenido 5.0s
- *   - Cooldown: 30s por tipo, se actualiza solo si eventSent == true
+ *   - Cooldown global de 30s desde la deteccion de cualquier evento automatico
  *
  * Pines:
  *   GPS: RX=16, TX=17
@@ -63,6 +63,8 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <EEPROM.h>
+#include <esp_timer.h>
+#include "EventSampleClock.h"
 
 // FreeRTOS
 #include <freertos/FreeRTOS.h>
@@ -93,12 +95,12 @@
 // ─────────────────────────────────────────────────────────────────
 //  RED / MQTT
 // ─────────────────────────────────────────────────────────────────
-const char* WIFI_SSID   = "Sent";
-const char* WIFI_PASS   = "12345678";
-const char* MQTT_BROKER = "006b41188f8e4c48ad4936cbef2e695a.s1.eu.hivemq.cloud";
-const int   MQTT_PORT   = 8883;
-const char* MQTT_USER   = "CajaN3gr4";
-const char* MQTT_PASS   = "Proyecto12";
+const char* WIFI_SSID   = "************";
+const char* WIFI_PASS   = "***************";
+const char* MQTT_BROKER = "***************.hivemq.cloud";
+const int   MQTT_PORT   = *************;
+const char* MQTT_USER   = "***********";
+const char* MQTT_PASS   = "***********";
 const char* BASE_TOPIC  = "flota/ecuador/buses";
 const int   DEVICE_ID   = 5;
 
@@ -109,7 +111,7 @@ const float BRAKE_THRESHOLD_MS2 = -2.94f;
 const float CURVE_THRESHOLD_MS2 =  3.92f;  // 0.4g
 const float EVENT_THRESHOLD_PCT = 0.80f;   // 80% (sync Android)
 
-#define FRENO_WINDOW_MS    500     // 0.5s
+#define FRENO_WINDOW_MS    500     // 0.5s (pruebas) — cambiar libremente
 #define CURVA_WINDOW_MS    3000    // 3s
 #define MUESTRA_PERIODO_MS 10      // 100Hz
 #define FRENO_N  (FRENO_WINDOW_MS / MUESTRA_PERIODO_MS)
@@ -123,10 +125,7 @@ const int   IMU_RATE_HZ         = 100;
 const float SPEED_THRESHOLD_KMH = 90.0f;
 const unsigned long SPEED_MIN_SUSTAIN_MS = 5000;  // 5s (sync Android)
 const int   TELEMETRY_INTERVAL_MS = 10000;
-const unsigned long GPS_WARMUP_MS = 15000; // 15s GPS warmup before sending
-
-const float GPS_HDOP_MAX   = 3.0f;
-const int   GPS_MIN_SATS   = 4;
+// Se publica tan pronto TinyGPSPlus entrega una ubicacion valida y reciente.
 const unsigned long GPS_STALE_MS = 3000;
 
 // ─────────────────────────────────────────────────────────────────
@@ -134,6 +133,8 @@ const unsigned long GPS_STALE_MS = 3000;
 // ─────────────────────────────────────────────────────────────────
 #define MSG_JSON_MAX  350
 #define QUEUE_LENGTH  50
+#define DISPLAY_QUEUE_LENGTH 20
+#define BUZZER_QUEUE_LENGTH 20
 
 enum MsgTipo { MSG_EVENTO = 0, MSG_TELEMETRIA = 1 };
 
@@ -144,6 +145,7 @@ struct MsgPacket {
 
 QueueHandle_t       xQueueComms    = NULL;
 QueueHandle_t       xQueueDisplay  = NULL;
+QueueHandle_t       xQueueBuzzer   = NULL;
 SemaphoreHandle_t   xMutexSD       = NULL;
 SemaphoreHandle_t   xMutexI2C      = NULL;
 SemaphoreHandle_t   xMutexGPSData  = NULL;
@@ -183,6 +185,10 @@ PubSubClient       mqttClient(espClient);
 Adafruit_SSD1306   display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 bool displayReady = false;
+unsigned long lastDisplayRefreshMs = 0;
+unsigned long displayEventUntilMs = 0;
+bool displayShowingEvent = false;
+const unsigned long DISPLAY_REFRESH_MS = 5000;
 
 // EEPROM
 #define EEPROM_SIZE       128
@@ -240,6 +246,8 @@ const uint8_t SENSOR_ORIENTATION = 0;
 Adafruit_Madgwick madgwickFilter;
 float madg_q0, madg_q1, madg_q2, madg_q3;
 bool madgInitOK = false;
+uint64_t lastMadgwickSampleUs = 0;
+bool madgSampleReady = false;
 
 // EEPROM
 #define EEPROM_ADDR_CALIB  64  // despues de GpsPosition (~46 bytes)
@@ -256,7 +264,7 @@ struct CalibData {
 bool wifiReady   = false;
 bool ntpReady    = false;
 bool imuReady    = false;
-bool gpsReady    = false;
+volatile bool gpsReady = false;
 bool mqttReady   = false;
 bool coordsReady = false;
 
@@ -289,6 +297,11 @@ int imuFallos = 0;
 volatile float gpsLat = 0, gpsLon = 0, gpsSpeed = 0;
 volatile bool  gpsLocationValid = false;
 volatile bool  gpsWarmupComplete = false;
+bool gpsImmediateTelemetry = false;  // protegida por xMutexGPSData
+uint8_t gpsSatelliteCount = 0;
+float gpsHdopValue = 99.9f;
+bool gpsHdopValid = false;
+bool gpsNmeaSeen = false;
 
 // ─────────────────────────────────────────────────────────────────
 //  DETECCION DE EVENTOS
@@ -304,87 +317,142 @@ template<int N>
 struct VentanaDeslizante {
   float buf[N];
   bool  sobreBuf[N];
-  int   signoBuf[N];
+  int8_t signoSobreBuf[N];
   int   idx = 0;
   int   count = 0;
   int   sobreCount = 0;
-  int   posCount = 0;
-  int   negCount = 0;
+  int   sobrePosCount = 0;
+  int   sobreNegCount = 0;
   float suma = 0.0f;
   bool  estadoAnterior = false;
-  unsigned long ultimoEventoMs = 0;
 };
 
 VentanaDeslizante<FRENO_N> vFreno;   // 50 muestras  = 0.5s
 VentanaDeslizante<CURVA_N> vCurva;   // 300 muestras = 3s
 
 unsigned long speedSobreDesdeMs = 0;
-unsigned long lastSpeedEventMs = 0;
+bool speedSustainActive = false;
+EventSampleClock eventSampleClock;
+// Cooldown compartido: evita que una misma maniobra dispare eventos de
+// distintos tipos (por ejemplo frenado y curva) casi simultáneamente.
+unsigned long lastAnyEventMs = 0;
+bool hasAnyEvent = false;
 const unsigned long EVENT_COOLDOWN_MS = 30000;
+
+bool enviarMsgCola(int tipo, const char* json);
+void enviarDisplayEvento(const DisplayMsg* msg);
+void beepEvento(int repeticiones);
+void getTimestamp(char* buf, size_t bufLen);
 
 template<int N>
 void empujarMuestra(VentanaDeslizante<N>& v, float valor, bool sobre) {
-  int signo = (valor >= 0) ? 1 : -1;
+  int8_t signoSobre = sobre ? ((valor >= 0) ? 1 : -1) : 0;
   if (v.count == N) {
     v.suma -= v.buf[v.idx];
     if (v.sobreBuf[v.idx]) v.sobreCount--;
-    if (v.signoBuf[v.idx] > 0) v.posCount--; else v.negCount--;
+    if (v.signoSobreBuf[v.idx] > 0) v.sobrePosCount--;
+    else if (v.signoSobreBuf[v.idx] < 0) v.sobreNegCount--;
   } else {
     v.count++;
   }
   v.buf[v.idx]      = valor;
   v.sobreBuf[v.idx] = sobre;
-  v.signoBuf[v.idx] = signo;
+  v.signoSobreBuf[v.idx] = signoSobre;
   v.suma += valor;
-  if (sobre) v.sobreCount++;
-  if (signo > 0) v.posCount++; else v.negCount++;
+  if (sobre) {
+    v.sobreCount++;
+    if (signoSobre > 0) v.sobrePosCount++;
+    else v.sobreNegCount++;
+  }
   v.idx = (v.idx + 1) % N;
 }
 
 template<int N>
+float promedioMuestrasSobreUmbral(const VentanaDeslizante<N>& v, int8_t direccion = 0) {
+  // El 80 % decide la activacion; el valor promedia TODAS las muestras que
+  // superaron el umbral en la direccion del evento. Solo se calcula al disparar.
+  double sumaCalificadas = 0.0;
+  int cantidadCalificadas = 0;
+  for (int i = 0; i < v.count; ++i) {
+    if (v.sobreBuf[i] && (direccion == 0 || v.signoSobreBuf[i] == direccion)) {
+      sumaCalificadas += v.buf[i];
+      ++cantidadCalificadas;
+    }
+  }
+  return cantidadCalificadas > 0 ? sumaCalificadas / cantidadCalificadas : 0.0f;
+}
+
+template<int N>
 void evaluarVentanaDeslizante(VentanaDeslizante<N>& v, int minMuestras, const char* tipo, const char* etiqueta,
-                               int beeps, bool checkDir, unsigned long nowMs,
-                               bool myGpsWarmup, bool myGpsValid, float myLat, float myLon, const char* tsEvt) {
-  bool pasaAbs = v.count >= minMuestras &&
-                 v.sobreCount >= (int)ceilf(EVENT_THRESHOLD_PCT * v.count);
+                               int beeps, bool checkDir,
+                               unsigned long nowMs, bool myGpsWarmup, bool myGpsValid,
+                               float myLat, float myLon) {
+  // Evalúa porcentajes contra la ventana configurada, no contra el arranque
+  // parcial del buffer. Así 80% significa 80% de los N puntos de la ventana.
+  const int muestrasUmbral = (int)ceilf(EVENT_THRESHOLD_PCT * N);
+  bool pasaAbs = v.count >= minMuestras && v.sobreCount >= muestrasUmbral;
   bool pasaDir = true;
   if (checkDir) {
-    int maxDir = max(v.posCount, v.negCount);
-    pasaDir = maxDir >= (int)ceilf(EVENT_THRESHOLD_PCT * v.count);
+    // Dirección se calcula solo entre muestras que también superaron umbral.
+    int maxDirSobreUmbral = max(v.sobrePosCount, v.sobreNegCount);
+    pasaDir = maxDirSobreUmbral >= muestrasUmbral;
   }
   bool activaAhora = pasaAbs && pasaDir;
-  if (activaAhora && !v.estadoAnterior) {
-    if (nowMs - v.ultimoEventoMs > EVENT_COOLDOWN_MS) {
-      float avg  = v.suma / v.count;
-      bool eventSent = false;
-      if (myGpsWarmup && myGpsValid) {
-        char evtBuf[MSG_JSON_MAX];
-        int n = snprintf(evtBuf, sizeof(evtBuf),
-          "{\"bus_id\":%d,\"type\":\"event\",\"event\":\"%s\","
-          "\"lat\":%.7f,\"lon\":%.7f,\"value\":%.2f,\"timestamp\":\"%s\"}",
-          DEVICE_ID, tipo, (double)myLat, (double)myLon, avg, tsEvt);
-        if (n < 0 || n >= (int)sizeof(evtBuf)) { Serial.println("[WARN] evtBuf truncado"); }
-        enviarMsgCola(MSG_EVENTO, evtBuf);
-        Serial.printf("[EVENTO] %s avg=%.2f\n", tipo, avg);
-        eventSent = true;
+  const bool cooldownCumplido = !hasAnyEvent ||
+      nowMs - lastAnyEventMs >= EVENT_COOLDOWN_MS;
+  if (activaAhora && !v.estadoAnterior && cooldownCumplido) {
+    // El periodo empieza al detectar el evento, no depende de GPS ni de que
+    // MQTT tenga espacio en la cola. Así tampoco repite alertas locales.
+    lastAnyEventMs = nowMs;
+    hasAnyEvent = true;
+    const int8_t direccion = checkDir ? (v.sobrePosCount >= muestrasUmbral ? 1 : -1) : 0;
+    float avg = promedioMuestrasSobreUmbral(v, direccion);
+    if (myGpsWarmup && myGpsValid) {
+      char evtBuf[MSG_JSON_MAX];
+      char tsEvt[30];
+      getTimestamp(tsEvt, sizeof(tsEvt));
+      int n = snprintf(evtBuf, sizeof(evtBuf),
+        "{\"bus_id\":%d,\"type\":\"event\",\"event\":\"%s\","
+        "\"lat\":%.7f,\"lon\":%.7f,\"value\":%.2f,\"timestamp\":\"%s\"}",
+        DEVICE_ID, tipo, (double)myLat, (double)myLon, avg, tsEvt);
+      if (n < 0 || n >= (int)sizeof(evtBuf)) {
+        Serial.println("[WARN] evtBuf truncado; evento no encolado");
+      } else if (!enviarMsgCola(MSG_EVENTO, evtBuf)) {
+        Serial.printf("[EVENTO] %s detectado; cola de mensajes llena\n", tipo);
       } else {
-        Serial.printf("[EVENTO] %s detectado pero GPS no listo (warmup=%d valid=%d)\n",
-                      tipo, myGpsWarmup, myGpsValid);
+        Serial.printf("[EVENTO] %s avg=%.2f encolado\n", tipo, avg);
       }
-      DisplayMsg dmsg;
-      dmsg.tipo = DISPLAY_EVENTO;
-      strncpy(dmsg.linea1, etiqueta, 31);
-      dmsg.linea1[31] = '\0';
-      dmsg.valor = avg;
-      xQueueSend(xQueueDisplay, &dmsg, 0);
-      beepEvento(beeps);
-      if (eventSent) v.ultimoEventoMs = nowMs;
+    } else {
+      Serial.printf("[EVENTO] %s detectado pero falta ubicacion GPS reciente (ready=%d valid=%d)\n",
+                    tipo, myGpsWarmup, myGpsValid);
     }
+    DisplayMsg dmsg;
+    dmsg.tipo = DISPLAY_EVENTO;
+    strncpy(dmsg.linea1, etiqueta, 31);
+    dmsg.linea1[31] = '\0';
+    dmsg.valor = avg;
+    enviarDisplayEvento(&dmsg);
+    beepEvento(beeps);
+  } else if (activaAhora && !v.estadoAnterior && !cooldownCumplido) {
+    Serial.printf("[EVENTO] %s bloqueado por cooldown (%lu ms restantes)\n",
+                  tipo, (unsigned long)(EVENT_COOLDOWN_MS - (nowMs - lastAnyEventMs)));
   }
   v.estadoAnterior = activaAhora;
 }
 
-// Buzzer NO bloqueante
+void enviarDisplayEvento(const DisplayMsg* msg) {
+  if (!xQueueDisplay || !msg) return;
+  if (xQueueSend(xQueueDisplay, msg, 0) == pdTRUE) return;
+
+  // Mantener la alerta más reciente si se acumularon más eventos que el buffer.
+  DisplayMsg descartado;
+  xQueueReceive(xQueueDisplay, &descartado, 0);
+  if (xQueueSend(xQueueDisplay, msg, 0) != pdTRUE) {
+    Serial.println("[DISPLAY] No se pudo encolar el evento");
+  }
+}
+
+// Buzzer NO bloqueante: las solicitudes se reproducen en orden desde tareaComms.
 uint8_t beepsPendientes = 0;
 bool buzzerOn = false;
 unsigned long buzzerNextMs = 0;
@@ -458,12 +526,19 @@ bool despertarMPU() {
 
 void actualizarFiltroMadgwick(float ax, float ay, float az, float gx, float gy, float gz) {
   if (!madgInitOK) return;
-  madgwickFilter.updateIMU(gx, gy, gz, ax, ay, az);
+  const uint64_t nowUs = (uint64_t)esp_timer_get_time();
+  float dt = !madgSampleReady ? 0.01f : (nowUs - lastMadgwickSampleUs) / 1000000.0f;
+  madgSampleReady = true;
+  lastMadgwickSampleUs = nowUs;
+  dt = fminf(0.05f, fmaxf(0.0001f, dt));
+  madgwickFilter.updateIMU(gx, gy, gz, ax, ay, az, dt);
   madgwickFilter.getQuaternion(&madg_q0, &madg_q1, &madg_q2, &madg_q3);
   float grav_x = 9.81f * 2.0f * (madg_q1 * madg_q3 - madg_q0 * madg_q2);
   float grav_y = 9.81f * 2.0f * (madg_q0 * madg_q1 + madg_q2 * madg_q3);
   float grav_z = 9.81f * (madg_q0 * madg_q0 - madg_q1 * madg_q1 - madg_q2 * madg_q2 + madg_q3 * madg_q3);
-  float pitch = asinf(-2.0f * (madg_q1 * madg_q3 - madg_q0 * madg_q2)) * 180.0f / (float)M_PI;
+  // Ejes del vehiculo: X adelante, Y izquierda, Z arriba. Bajar el frente
+  // debe dar pitch positivo con la convencion solicitada.
+  float pitch = -asinf(fmaxf(-1.0f, fminf(1.0f, 2.0f * (madg_q1 * madg_q3 - madg_q0 * madg_q2)))) * 180.0f / (float)M_PI;
   float roll  = atan2f(2.0f * (madg_q0 * madg_q1 + madg_q2 * madg_q3),
                        madg_q0 * madg_q0 - madg_q1 * madg_q1 - madg_q2 * madg_q2 + madg_q3 * madg_q3) * 180.0f / (float)M_PI;
   xSemaphoreTake(xMutexIMUData, portMAX_DELAY);
@@ -541,33 +616,37 @@ void calibrarIMUYGuardar() {
   Serial.printf("  Gyro  offsets: %.6f %.6f %.6f\n", gx_offset, gy_offset, gz_offset);
 }
 
-bool gpsCalidadFix() {
-  if (!gps.location.isValid()) return false;
-  if (gps.location.age() > GPS_STALE_MS) return false;
-  if (gps.satellites.isValid() && gps.satellites.value() < GPS_MIN_SATS) return false;
-  if (gps.hdop.isValid() && gps.hdop.hdop() > GPS_HDOP_MAX) return false;
-  return true;
+bool gpsFixDisponible() {
+  return gps.location.isValid() && gps.location.age() <= GPS_STALE_MS;
 }
 
 void sendWarmStart() {
   if (savedPos.magic != EEPROM_MAGIC) {
     Serial.println("[GPS] Sin posicion guardada, cold start...");
-    SerialGPS.println("$PMTK104*37");  // Full cold start
+    SerialGPS.println("$PMTK104*37");  // Comando que ya usaba la version previa
     return;
   }
-  // PMTK102 = Warm Start (uses stored ephemeris + almanac)
   SerialGPS.println("$PMTK102*31");
-  SerialGPS.println("$PMTK220,1000*1F");  // 1 Hz update rate
+  SerialGPS.println("$PMTK220,1000*1F");  // 1 Hz
   Serial.printf("[GPS] Warm start: %.7f, %.7f\n", savedPos.lat, savedPos.lon);
 }
 
 void beepEvento(int repeticiones) {
-  if (beepsPendientes > 0) return;
-  beepsPendientes = repeticiones * 2;
-  buzzerNextMs = 0;
+  if (!xQueueBuzzer || repeticiones <= 0) return;
+  uint8_t solicitud = (uint8_t)min(repeticiones, 10);
+  if (xQueueSend(xQueueBuzzer, &solicitud, 0) != pdTRUE) {
+    Serial.println("[BUZZER] Cola llena; aviso sonoro descartado");
+  }
 }
 
 void tickBuzzer(unsigned long nowMs) {
+  if (beepsPendientes == 0 && xQueueBuzzer) {
+    uint8_t solicitud = 0;
+    if (xQueueReceive(xQueueBuzzer, &solicitud, 0) == pdTRUE) {
+      beepsPendientes = solicitud * 2;
+      buzzerNextMs = nowMs;
+    }
+  }
   if (beepsPendientes == 0) return;
   if ((long)(nowMs - buzzerNextMs) < 0) return;
   buzzerOn = !buzzerOn;
@@ -707,8 +786,17 @@ bool drenarUno() {
   char paquete[MSG_JSON_MAX + 100];
   int len = f.readBytesUntil('\n', paquete, sizeof(paquete) - 1);
   paquete[len] = '\0';
-  queueReadOffset = f.position();
+  unsigned long nextReadOffset = f.position();
   f.close();
+
+  if (len <= 0) {
+    Serial.printf("[QUEUE] Linea vacia/corrupta en pos %d, saltando\n", queueHead);
+    queueHead++;
+    queueReadOffset = nextReadOffset;
+    guardarCabeza();
+    xSemaphoreGive(xMutexSD);
+    return true;
+  }
 
   // Trim whitespace
   char* start = paquete;
@@ -720,6 +808,7 @@ bool drenarUno() {
   if (strlen(start) < 10) {
     Serial.printf("[QUEUE] Linea corrupta en pos %d, saltando\n", queueHead);
     queueHead++;
+    queueReadOffset = nextReadOffset;
     guardarCabeza();
     xSemaphoreGive(xMutexSD);
     return true;
@@ -739,6 +828,7 @@ bool drenarUno() {
   if (ok) {
     xSemaphoreTake(xMutexSD, portMAX_DELAY);
     queueHead++;
+    queueReadOffset = nextReadOffset;
     guardarCabeza();
     xSemaphoreGive(xMutexSD);
     return true;
@@ -865,28 +955,40 @@ void mostrarBootMsg(int paso, const char* linea1, const char* linea2) {
   xSemaphoreGive(xMutexI2C);
 }
 
-void mostrarEventos(const char* evento, float valor) {
-  Serial.printf("[EVENTO DISPLAY] %s: %.2f\n", evento, valor);
-  if (!displayReady) return;
-  if (xSemaphoreTake(xMutexI2C, pdMS_TO_TICKS(2)) != pdTRUE) return;
+bool mostrarEventos(const char* evento, float valor) {
+  if (!displayReady) {
+    Serial.printf("[EVENTO DISPLAY] %s: %.2f (OLED no disponible)\n", evento, valor);
+    return true;
+  }
+  // Si el bus está ocupado, conservar el mensaje al frente de la cola y reintentar.
+  if (xSemaphoreTake(xMutexI2C, pdMS_TO_TICKS(10)) != pdTRUE) return false;
   display.clearDisplay();
   display.setCursor(0, 0);
   display.println(evento);
   display.print(valor, 2);
   display.display();
   xSemaphoreGive(xMutexI2C);
+  lastDisplayRefreshMs = millis();
+  displayEventUntilMs = lastDisplayRefreshMs + DISPLAY_REFRESH_MS;
+  displayShowingEvent = true;
+  Serial.printf("[EVENTO DISPLAY] %s: %.2f\n", evento, valor);
+  return true;
 }
 
 void mostrarIdle() {
   if (!displayReady) return;
-  static unsigned long lastDisplay = 0;
   unsigned long now = millis();
-  if (now - lastDisplay < 2000) return;
-  lastDisplay = now;
+  if (now - lastDisplayRefreshMs < DISPLAY_REFRESH_MS) return;
   float mySpd = 0, myLat = 0, myLon = 0;
   bool myValid = false;
+  uint8_t mySats = 0;
+  float myHdop = 99.9f;
+  bool myHdopValid = false;
+  bool myNmeaSeen = false;
   xSemaphoreTake(xMutexGPSData, portMAX_DELAY);
   mySpd = gpsSpeed; myLat = gpsLat; myLon = gpsLon; myValid = gpsLocationValid;
+  mySats = gpsSatelliteCount; myHdop = gpsHdopValue;
+  myHdopValid = gpsHdopValid; myNmeaSeen = gpsNmeaSeen;
   xSemaphoreGive(xMutexGPSData);
   if (xSemaphoreTake(xMutexI2C, pdMS_TO_TICKS(2)) != pdTRUE) return;
   display.clearDisplay();
@@ -895,15 +997,41 @@ void mostrarIdle() {
   display.setCursor(0, 10);
   if (myValid) {
     display.printf("Spd:%.0f km/h", (double)mySpd);
+  } else if (!myNmeaSeen) {
+    display.print("GPS sin datos NMEA");
+  } else if (myHdopValid) {
+    display.printf("GPS:%u sat HDOP:%.1f", (unsigned)mySats, (double)myHdop);
   } else {
-    display.print("Esperando GPS...");
+    display.printf("GPS:%u sat HDOP:--", (unsigned)mySats);
   }
   display.setCursor(0, 20);
   if (myValid) {
     display.printf("%.4f,%.4f", (double)myLat, (double)myLon);
+  } else {
+    display.print("Esperando fix GPS");
   }
   display.display();
   xSemaphoreGive(xMutexI2C);
+  lastDisplayRefreshMs = now;
+}
+
+void procesarDisplay() {
+  unsigned long now = millis();
+  if (displayShowingEvent && (long)(now - displayEventUntilMs) < 0) return;
+
+  DisplayMsg dmsg;
+  if (xQueueDisplay && xQueuePeek(xQueueDisplay, &dmsg, 0) == pdTRUE) {
+    if (dmsg.tipo == DISPLAY_EVENTO) {
+      // No retirar el aviso hasta haberlo dibujado; así un fallo transitorio de I2C
+      // no hace que se pierda justo el evento que se quiere mostrar.
+      if (!mostrarEventos(dmsg.linea1, dmsg.valor)) return;
+    }
+    xQueueReceive(xQueueDisplay, &dmsg, 0);
+    return;
+  }
+
+  displayShowingEvent = false;
+  mostrarIdle();
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1061,20 +1189,90 @@ void reconnectMQTT() {
 //  COLA DE MENSAJES: ENVIAR (desde tareaIMU/tareaGPS)
 // ─────────────────────────────────────────────────────────────────
 
-void enviarMsgCola(int tipo, const char* json) {
+bool enviarMsgCola(int tipo, const char* json) {
+  if (!json || !xQueueComms) return false;
   MsgPacket pkt;
   pkt.tipo = tipo;
   strncpy(pkt.json, json, MSG_JSON_MAX - 1);
   pkt.json[MSG_JSON_MAX - 1] = '\0';
   if (xQueueSend(xQueueComms, &pkt, 0) != pdTRUE) {
     Serial.printf("[QUEUE] Cola llena, mensaje descartado: %.40s...\n", json);
+    return false;
   }
+  return true;
 }
 
 // ─────────────────────────────────────────────────────────────────
 //  TAREA IMU — Core 0, Prioridad 3
 //  Muestreo MPU6050 a 100 Hz + filtro Madgwick + deteccion
 // ─────────────────────────────────────────────────────────────────
+
+// BEGIN EVENT SAMPLE PROCESSING (also exercised by the native replay tests)
+void limpiarVentanasEventos() {
+  vFreno = VentanaDeslizante<FRENO_N>{};
+  vCurva = VentanaDeslizante<CURVA_N>{};
+  speedSobreDesdeMs = 0;
+  speedSustainActive = false;
+  // Se conserva el cooldown aunque falle el sensor.
+}
+
+void procesarMuestraEventos(float myLinX, float myLinY, uint32_t nowMs,
+                           bool myGpsWarmup, bool myGpsValid,
+                           float myLat, float myLon, float mySpeed) {
+  empujarMuestra(vFreno, myLinX, myLinX < BRAKE_THRESHOLD_MS2);
+  empujarMuestra(vCurva, myLinY, fabsf(myLinY) > CURVE_THRESHOLD_MS2);
+  
+  evaluarVentanaDeslizante(vFreno, MIN_MUESTRAS_FRENO, "frenado_brusco", "FRENADO", 2, false,
+                           nowMs, myGpsWarmup, myGpsValid, myLat, myLon);
+  evaluarVentanaDeslizante(vCurva, MIN_MUESTRAS_CURVA, "curva_peligrosa", "CURVA", 2, true,
+                           nowMs, myGpsWarmup, myGpsValid, myLat, myLon);
+  
+  // Velocidad (GPS 1 Hz, regla aparte)
+  if (myGpsValid && mySpeed > SPEED_THRESHOLD_KMH) {
+    if (!speedSustainActive) { speedSobreDesdeMs = nowMs; speedSustainActive = true; }
+    if (nowMs - speedSobreDesdeMs >= SPEED_MIN_SUSTAIN_MS &&
+               (!hasAnyEvent || nowMs - lastAnyEventMs >= EVENT_COOLDOWN_MS)) {
+      lastAnyEventMs = nowMs;
+      hasAnyEvent = true;
+      if (myGpsWarmup) {
+        char evtBuf[MSG_JSON_MAX];
+        char tsEvt[30];
+        getTimestamp(tsEvt, sizeof(tsEvt));
+        int n = snprintf(evtBuf, sizeof(evtBuf),
+          "{\"bus_id\":%d,\"type\":\"event\",\"event\":\"exceso_velocidad\","
+          "\"lat\":%.7f,\"lon\":%.7f,\"value\":%.2f,\"timestamp\":\"%s\"}",
+          DEVICE_ID, (double)myLat, (double)myLon, mySpeed, tsEvt);
+        if (n < 0 || n >= (int)sizeof(evtBuf)) {
+          Serial.println("[WARN] evtBuf truncado; evento no encolado");
+        } else if (enviarMsgCola(MSG_EVENTO, evtBuf)) {
+          Serial.printf("[EVENTO] exceso_velocidad %.2f km/h encolado\n", mySpeed);
+        }
+      } else {
+        Serial.println("[EVENTO] exceso_velocidad detectado pero GPS warmup no completado");
+      }
+  
+      DisplayMsg dmsg;
+      dmsg.tipo = DISPLAY_EVENTO;
+      strncpy(dmsg.linea1, "VELOCIDAD", 31);
+      dmsg.linea1[31] = '\0';
+      dmsg.valor = mySpeed;
+      enviarDisplayEvento(&dmsg);
+      beepEvento(3);
+      speedSobreDesdeMs = 0;
+      speedSustainActive = false;
+    } else if (nowMs - speedSobreDesdeMs >= SPEED_MIN_SUSTAIN_MS &&
+               hasAnyEvent && nowMs - lastAnyEventMs < EVENT_COOLDOWN_MS) {
+      Serial.printf("[EVENTO] exceso_velocidad bloqueado por cooldown (%lu ms restantes)\n",
+                    (unsigned long)(EVENT_COOLDOWN_MS - (nowMs - lastAnyEventMs)));
+      speedSobreDesdeMs = 0;
+      speedSustainActive = false;
+    }
+  } else {
+    speedSobreDesdeMs = 0;
+    speedSustainActive = false;
+  }
+}
+// END EVENT SAMPLE PROCESSING
 
 void tareaIMU(void* pvParameters) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -1111,50 +1309,12 @@ void tareaIMU(void* pvParameters) {
       myLinY = linY_ms2;
       xSemaphoreGive(xMutexIMUData);
 
-      // Ventana deslizante para eventos
-      unsigned long nowMs = millis();
-      char tsEvt[30];
-      getTimestamp(tsEvt, sizeof(tsEvt));
-
-      empujarMuestra(vFreno, myLinX, myLinX < BRAKE_THRESHOLD_MS2);
-      empujarMuestra(vCurva, myLinY, fabsf(myLinY) > CURVE_THRESHOLD_MS2);
-
-      evaluarVentanaDeslizante(vFreno, MIN_MUESTRAS_FRENO, "frenado_brusco", "FRENADO", 2, false,
-                               nowMs, myGpsWarmup, myGpsValid, myLat, myLon, tsEvt);
-      evaluarVentanaDeslizante(vCurva, MIN_MUESTRAS_CURVA, "curva_peligrosa", "CURVA", 2, true,
-                               nowMs, myGpsWarmup, myGpsValid, myLat, myLon, tsEvt);
-
-      // Velocidad (GPS 1 Hz, regla aparte)
-      if (myGpsValid && mySpeed > SPEED_THRESHOLD_KMH) {
-        if (speedSobreDesdeMs == 0) speedSobreDesdeMs = nowMs;
-        if (nowMs - speedSobreDesdeMs >= SPEED_MIN_SUSTAIN_MS &&
-                   nowMs - lastSpeedEventMs > EVENT_COOLDOWN_MS) {
-          if (myGpsWarmup) {
-            char evtBuf[MSG_JSON_MAX];
-            int n = snprintf(evtBuf, sizeof(evtBuf),
-              "{\"bus_id\":%d,\"type\":\"event\",\"event\":\"exceso_velocidad\","
-              "\"lat\":%.7f,\"lon\":%.7f,\"value\":%.2f,\"timestamp\":\"%s\"}",
-              DEVICE_ID, (double)myLat, (double)myLon, mySpeed, tsEvt);
-            if (n < 0 || n >= (int)sizeof(evtBuf)) { Serial.println("[WARN] evtBuf truncado"); }
-            enviarMsgCola(MSG_EVENTO, evtBuf);
-            Serial.printf("[EVENTO] exceso_velocidad %.2f km/h\n", mySpeed);
-          } else {
-            Serial.println("[EVENTO] exceso_velocidad detectado pero GPS warmup no completado");
-          }
-
-          DisplayMsg dmsg;
-          dmsg.tipo = DISPLAY_EVENTO;
-          strncpy(dmsg.linea1, "VELOCIDAD", 31);
-          dmsg.linea1[31] = '\0';
-          dmsg.valor = mySpeed;
-          xQueueSend(xQueueDisplay, &dmsg, 0);
-          beepEvento(3);
-          lastSpeedEventMs = nowMs;
-          speedSobreDesdeMs = 0;
-        }
-      } else {
-        speedSobreDesdeMs = 0;
-      }
+      eventSampleClock.push(myLinX, myLinY, lastMadgwickSampleUs,
+          []() { limpiarVentanasEventos(); },
+          [&](float sampleX, float sampleY, uint32_t sampleMs) {
+            procesarMuestraEventos(sampleX, sampleY, sampleMs, myGpsWarmup,
+                                   myGpsValid, myLat, myLon, mySpeed);
+          });
     } else {
       imuFallos++;
       if (imuFallos >= 100) {
@@ -1173,31 +1333,64 @@ void tareaIMU(void* pvParameters) {
 // ─────────────────────────────────────────────────────────────────
 
 void tareaGPS(void* pvParameters) {
+  static unsigned long lastGpsWaitLogMs = 0;
+  static bool previousFixAvailable = false;
   for (;;) {
     xSemaphoreTake(xMutexGPSObj, portMAX_DELAY);
     while (SerialGPS.available() > 0) {
       gps.encode(SerialGPS.read());
     }
 
+    bool fixDisponible = gpsFixDisponible();
+    bool newFixAvailable = fixDisponible && !previousFixAvailable;
+    previousFixAvailable = fixDisponible;
+    bool hdopValidNow = gps.hdop.isValid();
+    uint8_t satsNow = gps.satellites.isValid() ?
+      (uint8_t)min((unsigned long)gps.satellites.value(), 255UL) : 0;
+    float hdopNow = hdopValidNow ? (float)gps.hdop.hdop() : 99.9f;
+    bool nmeaSeenNow = gps.passedChecksum() > 0;
+
     // Copiar datos GPS de forma atomica para uso por tareaIMU/tareaComms
     xSemaphoreTake(xMutexGPSData, portMAX_DELAY);
-    if (gps.location.isValid() && gps.location.age() < GPS_STALE_MS) {
+    gpsSatelliteCount = satsNow;
+    gpsHdopValue = hdopNow;
+    gpsHdopValid = hdopValidNow;
+    gpsNmeaSeen = nmeaSeenNow;
+    if (fixDisponible) {
       gpsLat = gps.location.lat();
       gpsLon = gps.location.lng();
-      gpsSpeed = gps.speed.isValid() ? gps.speed.kmph() : 0.0f;
+      gpsSpeed = gps.speed.isValid() && gps.speed.age() <= GPS_STALE_MS ? gps.speed.kmph() : 0.0f;
       gpsLocationValid = true;
+      if (newFixAvailable) {
+        gpsWarmupComplete = true;
+        gpsImmediateTelemetry = true;
+      }
     } else {
       gpsLocationValid = false;
     }
     xSemaphoreGive(xMutexGPSData);
+    gpsReady = nmeaSeenNow;
+    if (newFixAvailable) Serial.println("[GPS] Ubicacion disponible/restablecida; iniciando envios.");
 
-    // Auto-guardar primer fix de calidad
-    if (!hadFirstFix && gpsCalidadFix() && gps.date.isValid() && gps.time.isValid()) {
+    if (!hadFirstFix && fixDisponible && gps.date.isValid() && gps.time.isValid()) {
       hadFirstFix = true;
       coordsReady = true;
-      Serial.println("[GPS] Fix de calidad obtenido");
+      Serial.println("[GPS] Ubicacion GPS obtenida");
       savePositionToEEPROM();
     }
+
+    if (!fixDisponible && millis() - lastGpsWaitLogMs >= 5000) {
+      lastGpsWaitLogMs = millis();
+      unsigned long ageMs = gps.location.isValid() ? gps.location.age() : 0xFFFFFFFFUL;
+      if (hdopValidNow) {
+        Serial.printf("[GPS] Esperando ubicacion: NMEA=%d loc=%d age=%lu ms sats=%u HDOP=%.1f\n",
+                      nmeaSeenNow, gps.location.isValid(), ageMs, (unsigned)satsNow, (double)hdopNow);
+      } else {
+        Serial.printf("[GPS] Esperando ubicacion: NMEA=%d loc=%d age=%lu ms sats=%u HDOP=no reportado\n",
+                      nmeaSeenNow, gps.location.isValid(), ageMs, (unsigned)satsNow);
+      }
+    }
+
     xSemaphoreGive(xMutexGPSObj);
 
     vTaskDelay(1);  // ceder CPU (~1 ms)
@@ -1210,18 +1403,8 @@ void tareaGPS(void* pvParameters) {
 // ─────────────────────────────────────────────────────────────────
 
 void tareaComms(void* pvParameters) {
-  unsigned long systemBootMs = millis();
-
   for (;;) {
     unsigned long nowMs = millis();
-
-    // GPS warmup: wait 15s before sending telemetry
-    if (!gpsWarmupComplete) {
-      if (nowMs - systemBootMs >= GPS_WARMUP_MS) {
-        gpsWarmupComplete = true;
-        Serial.println("[GPS] Warmup completado, habilitando envios");
-      }
-    }
 
     // ── WiFi reconexion NO bloqueante ────────────────────────────
     if (WiFi.status() != WL_CONNECTED) {
@@ -1276,26 +1459,27 @@ void tareaComms(void* pvParameters) {
       }
     }
 
-    // ── Procesar mensajes de display queue ──────────────────────
-    DisplayMsg dmsg;
-    while (xQueueReceive(xQueueDisplay, &dmsg, 0) == pdTRUE) {
-      if (dmsg.tipo == DISPLAY_EVENTO) {
-        mostrarEventos(dmsg.linea1, dmsg.valor);
-      }
-    }
+    // Cada alerta conserva la pantalla 5 s; las siguientes esperan en orden.
+    procesarDisplay();
 
-    // ── Telemetria cada 10 s (solo despues de warmup + GPS fix) ──
-    if (gpsWarmupComplete && nowMs - lastTelemetry >= TELEMETRY_INTERVAL_MS) {
-      lastTelemetry = nowMs;
-      float lat = 0, lon = 0, speed = 0;
-      bool valid = false;
-      xSemaphoreTake(xMutexGPSData, portMAX_DELAY);
+    // Enviar al recuperar una ubicacion; luego continuar cada 10 s.
+    float lat = 0, lon = 0, speed = 0;
+    bool valid = false;
+    bool sendTelemetryNow = false;
+    xSemaphoreTake(xMutexGPSData, portMAX_DELAY);
+    sendTelemetryNow = gpsWarmupComplete &&
+      (gpsImmediateTelemetry || nowMs - lastTelemetry >= TELEMETRY_INTERVAL_MS);
+    if (sendTelemetryNow) gpsImmediateTelemetry = false;
+    if (sendTelemetryNow) {
       lat = gpsLat;
       lon = gpsLon;
       speed = gpsSpeed;
       valid = gpsLocationValid;
-      xSemaphoreGive(xMutexGPSData);
+    }
+    xSemaphoreGive(xMutexGPSData);
 
+    if (sendTelemetryNow) {
+      lastTelemetry = nowMs;
       if (valid) {
         char gpsBuf[MSG_JSON_MAX];
         char tsGps[30];
@@ -1308,7 +1492,7 @@ void tareaComms(void* pvParameters) {
         Serial.printf("[GPS] %.7f,%.7f %.1fkm/h Cola:%d\n",
                       (double)lat, (double)lon, (double)speed, pendientesEnCola());
       } else {
-        Serial.println("[GPS] Telemetria pendiente, esperando fix...");
+        Serial.println("[GPS] Telemetria pendiente, esperando ubicacion...");
       }
     }
 
@@ -1354,7 +1538,6 @@ void tareaComms(void* pvParameters) {
                       commsHwm, (TAREA_COMMS_STACK - (float)commsHwm) * 100.0f / TAREA_COMMS_STACK);
       }
 
-      mostrarIdle();
     }
 
     // ── Buzzer + serial ────────────────────────────────────────
@@ -1391,10 +1574,10 @@ void handleSerialCommand() {
     Serial.printf("  NTP:    %s\n", ntpReady ? "OK" : "NO");
     Serial.printf("  IMU:    %s\n", imuReady ? "OK" : "NO");
     xSemaphoreTake(xMutexGPSObj, portMAX_DELAY);
-    bool fixCalidad = gpsCalidadFix();
+    bool fixDisponible = gpsFixDisponible();
     xSemaphoreGive(xMutexGPSObj);
-    Serial.printf("  GPS:    %s (fix calidad: %s)\n", gpsReady ? "OK" : "NO",
-                  fixCalidad ? "SI" : "NO");
+    Serial.printf("  GPS:    %s (ubicacion reciente: %s)\n", gpsReady ? "OK" : "NO",
+                  fixDisponible ? "SI" : "NO");
     Serial.printf("  SD:     %s\n", sdReady ? "OK" : "NO");
     Serial.printf("  MQTT:   %s\n", mqttReady ? "OK" : "NO");
     Serial.printf("  Coords: %s\n", coordsReady ? "SI" : "NO");
@@ -1503,14 +1686,15 @@ void setup() {
 
   // ── Crear recursos FreeRTOS ANTES de las tareas ─────────────
   xQueueComms   = xQueueCreate(QUEUE_LENGTH, sizeof(MsgPacket));
-  xQueueDisplay = xQueueCreate(10, sizeof(DisplayMsg));
+  xQueueDisplay = xQueueCreate(DISPLAY_QUEUE_LENGTH, sizeof(DisplayMsg));
+  xQueueBuzzer  = xQueueCreate(BUZZER_QUEUE_LENGTH, sizeof(uint8_t));
   xMutexSD      = xSemaphoreCreateMutex();
   xMutexI2C     = xSemaphoreCreateMutex();
   xMutexGPSData = xSemaphoreCreateMutex();
   xMutexGPSObj  = xSemaphoreCreateMutex();
   xMutexIMUData = xSemaphoreCreateMutex();
 
-  if (!xQueueComms || !xQueueDisplay || !xMutexSD || !xMutexI2C || !xMutexGPSData || !xMutexGPSObj || !xMutexIMUData) {
+  if (!xQueueComms || !xQueueDisplay || !xQueueBuzzer || !xMutexSD || !xMutexI2C || !xMutexGPSData || !xMutexGPSObj || !xMutexIMUData) {
     Serial.println("[FATAL] Error creando recursos FreeRTOS. Reiniciando...");
     delay(1500);
     ESP.restart();
@@ -1573,20 +1757,22 @@ void setup() {
   Serial.println("[MADG] Filtro Madgwick iniciado (beta=0.04)");
 
   // ── PASO 4: GPS + EEPROM ───────────────────────────────────
-  Serial.print("[P4] GPS (NEO-6M)... ");
+  Serial.print("[P4] GPS (NEO-6M/M8N)... ");
   mostrarBootPaso(4, "GPS", false);
   loadSavedPosition();
   SerialGPS.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
-  // Esperar hasta 3s a que llegue un NMEA valido
+  // Esperar hasta 3s a que llegue una frase NMEA valida.
   unsigned long gpsEspera = millis();
   gpsReady = false;
   while (millis() - gpsEspera < 3000 && !gpsReady) {
     while (SerialGPS.available() > 0) gps.encode(SerialGPS.read());
-    if (gps.charsProcessed() > 10) gpsReady = true;
+    if (gps.passedChecksum() > 0) gpsReady = true;
     delay(10);
   }
-  Serial.printf("[GPS] charsProcessed=%lu ready=%d\n", (unsigned long)gps.charsProcessed(), gpsReady);
-
+  Serial.printf("[GPS] chars=%lu checksum_ok=%lu checksum_error=%lu ready=%d\n",
+                (unsigned long)gps.charsProcessed(),
+                (unsigned long)gps.passedChecksum(),
+                (unsigned long)gps.failedChecksum(), gpsReady);
   if (savedPos.magic == EEPROM_MAGIC) {
     Serial.println("[GPS] Enviando warm start...");
     mostrarBootMsg(4, "GPS", "Warm start...");
@@ -1630,12 +1816,13 @@ void setup() {
   mqttClient.setBufferSize(1400);
 
   // ── Esperar fix GPS DE CALIDAD (tolerante a fallo) ──────────
-  Serial.println("\n[INIT] Esperando fix GPS de calidad (max 30 s, tolerante a fallo)...");
+  Serial.println("\n[INIT] Esperando ubicacion GPS reciente (max 30 s; seguira buscando despues)...");
   unsigned long t0 = millis();
   bool fixOk = false;
   while (millis() - t0 < 30000) {
     while (SerialGPS.available() > 0) gps.encode(SerialGPS.read());
-    if (gpsCalidadFix()) { fixOk = true; break; }
+    if (gpsFixDisponible()) { fixOk = true; break; }
+
 
     if ((millis() - t0) % 2000 < 100) {
       unsigned long elapsed = (millis() - t0) / 1000;
@@ -1653,11 +1840,11 @@ void setup() {
     gpsLocationValid = true;
     gpsLat = gps.location.lat();
     gpsLon = gps.location.lng();
-    gpsSpeed = gps.speed.isValid() ? gps.speed.kmph() : 0.0f;
+    gpsSpeed = gps.speed.isValid() && gps.speed.age() <= GPS_STALE_MS ? gps.speed.kmph() : 0.0f;
     Serial.printf("[INIT] Fix GPS: %.7f, %.7f\n", (double)gpsLat, (double)gpsLon);
   } else {
     coordsReady = false;
-    Serial.printf("[GPS] Sin fix despues de 30s. Continuando sin GPS. Sats=%lu chars=%lu\n",
+    Serial.printf("[GPS] Sin ubicacion despues de 30s. Continuando y buscando en segundo plano. Sats=%lu chars=%lu\n",
                   gps.satellites.isValid() ? (unsigned long)gps.satellites.value() : 0UL,
                   (unsigned long)gps.charsProcessed());
     mostrarBootMsg(6, "GPS", "Sin fix - Operando sin GPS");
@@ -1734,7 +1921,8 @@ void setup() {
   Serial.printf("  tareaIMU   -> Core 0, PRI 3, stack %d\n", TAREA_IMU_STACK);
   Serial.printf("  tareaGPS   -> Core 0, PRI 2, stack %d\n", TAREA_GPS_STACK);
   Serial.printf("  tareaComms -> Core 1, PRI 1, stack %d\n", TAREA_COMMS_STACK);
-  Serial.println("[RTOS] Recursos: xQueueComms(50), xQueueDisplay(10), xMutexSD, xMutexI2C, xMutexGPSData, xMutexGPSObj, xMutexIMUData");
+  Serial.printf("[RTOS] Recursos: xQueueComms(%d), xQueueDisplay(%d), xQueueBuzzer(%d), mutexes I2C/SD/GPS/IMU\n",
+                QUEUE_LENGTH, DISPLAY_QUEUE_LENGTH, BUZZER_QUEUE_LENGTH);
   Serial.println("[RTOS] setup() completado. Borrando tarea init.\n");
 
   // Eliminar la tarea de setup — loop() queda vacio

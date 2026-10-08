@@ -7,8 +7,11 @@
 # La inicialización de datos se mueve a run.py para evitar problemas de contexto.
 # =============================================================================
 
-from flask import Flask
 from pathlib import Path
+from urllib.parse import urlsplit
+
+from flask import Flask, flash, redirect, request, session, url_for
+from flask_wtf.csrf import CSRFError
 from werkzeug.middleware.proxy_fix import ProxyFix
 from .config import Config
 from .extensions import db, csrf
@@ -101,6 +104,25 @@ def create_app(config_class=Config):
     # Inicializar extensiones globales
     db.init_app(app)
     csrf.init_app(app)
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(error):
+        """Recupera formularios con sesión CSRF perdida sin desactivar la protección."""
+        logger.warning("Solicitud rechazada por CSRF en %s: %s", request.path, error.description)
+        flash(
+            "La sesión de seguridad cambió o venció. Volvimos a cargar el formulario; inténtalo otra vez.",
+            "warning",
+        )
+
+        referrer = request.referrer
+        if referrer:
+            parsed_referrer = urlsplit(referrer)
+            same_host = parsed_referrer.netloc.casefold() == request.host.casefold()
+            if same_host and parsed_referrer.scheme in {"http", "https"}:
+                return redirect(referrer, code=303)
+
+        fallback = url_for("dashboard.dashboard") if session.get("user") else url_for("auth.login")
+        return redirect(fallback, code=303)
 
     # Importa todos los modelos para que SQLAlchemy tenga el metadata completo.
     from . import models as _models  # noqa: F401

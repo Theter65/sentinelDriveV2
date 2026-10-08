@@ -20,6 +20,12 @@ DEFAULT_MQTT_TOPIC_GPS = "flota/ecuador/buses/+/gps"
 DEFAULT_MQTT_TOPIC_EVENT = "flota/ecuador/buses/+/event"
 
 
+def _is_render_environment() -> bool:
+    return os.getenv("RENDER", "").strip().lower() in {"1", "true", "yes", "on"} or bool(
+        os.getenv("RENDER_EXTERNAL_URL")
+    )
+
+
 def _database_url() -> str:
     """Resuelve la URL de base de datos desde entorno o SQLite local."""
     database_url = os.getenv("DATABASE_URL")
@@ -53,6 +59,12 @@ def _load_or_create_secret_key() -> str:
     if secret_key:
         return secret_key
 
+    if _is_render_environment():
+        raise RuntimeError(
+            "SECRET_KEY debe configurarse en Render y mantenerse igual en todas las instancias "
+            "para conservar las sesiones y los tokens CSRF."
+        )
+
     try:
         INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
         if SECRET_KEY_FILE.exists():
@@ -73,7 +85,7 @@ def _load_or_create_secret_key() -> str:
 class Config:
     """Valores de configuracion usados por Flask y los servicios internos."""
     SECRET_KEY = _load_or_create_secret_key()
-    IS_RENDER = os.getenv("RENDER", "").strip().lower() in {"1", "true", "yes", "on"} or bool(os.getenv("RENDER_EXTERNAL_URL"))
+    IS_RENDER = _is_render_environment()
 
     SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
